@@ -212,7 +212,7 @@ function StockChart() {
           borderColor: 'var(--color-border)',
           backgroundColor: 'var(--color-bg-secondary)',
           fillerColor: 'rgba(0, 113, 227, 0.1)',
-          handleStyle: { color: 'var(--color-accent)' }
+          handleStyle: { color: 'var(--color-ink)' }
         }
       ],
       series: [
@@ -314,7 +314,7 @@ function StockChart() {
       </div>
 
       {/* K线图 */}
-      <div className="apple-card" style={{ padding: 0, overflow: 'hidden' }}>
+      <div style={{ padding: 0, overflow: 'hidden', background: 'var(--color-canvas-lifted)', borderRadius: 'var(--radius-card)' }}>
         <Spin spinning={loading}>
           {klineData.length > 0 ? (
             <ReactECharts
