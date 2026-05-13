@@ -434,11 +434,12 @@ class AgentOrchestrator:
 
     def _extract_thinking_steps(self, content: str, stage_name: str) -> List[str]:
         """从 LLM 响应中抽取关键发现"""
+        import re
+
         thinking = []
         content_lower = content.lower()
 
         if stage_name == "technical_analysis":
-            import re
 
             # MA 交叉
             ma_matches = re.findall(r'ma[5,10,20,60,120][=\s]*[\d.]+', content_lower)
