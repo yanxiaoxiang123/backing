@@ -174,7 +174,7 @@ export default function AgentAnalysis() {
     const ma20 = data.map(d => d.ma20)
 
     return {
-      backgroundColor: '#fff',
+      backgroundColor: 'transparent',
       animation: false,
       legend: {
         top: 10,
@@ -185,7 +185,7 @@ export default function AgentAnalysis() {
       tooltip: {
         trigger: 'axis',
         axisPointer: { type: 'cross' },
-        backgroundColor: '#fff',
+        backgroundColor: 'var(--color-canvas-lifted)',
         borderColor: 'var(--color-border)',
         textStyle: { color: 'var(--color-text-primary)' },
         formatter: (params: any) => {
@@ -384,7 +384,7 @@ export default function AgentAnalysis() {
       key: 'confidence',
       width: 100,
       render: (confidence: number) => (
-        <Progress percent={Math.round(confidence * 100)} size="small" strokeColor="#0071e3" />
+        <Progress percent={Math.round(confidence * 100)} size="small" strokeColor="var(--color-ink)" />
       ),
     },
     {
@@ -652,10 +652,6 @@ export default function AgentAnalysis() {
           <Progress
             percent={jobProgress}
             status={jobProgress >= 100 ? 'success' : 'active'}
-            strokeColor={{
-              '0%': '#108ee9',
-              '100%': '#87d068',
-            }}
             style={{ marginBottom: 24 }}
           />
 
@@ -679,10 +675,10 @@ export default function AgentAnalysis() {
                   <Col span={24} key={stage.stage_name}>
                     <Card size="small" style={{ borderLeft: `3px solid ${
                       isCompleted ? 'var(--color-success)' :
-                      isRunning ? 'var(--color-accent)' :
+                      isRunning ? 'var(--color-ink)' :
                       isFailed ? 'var(--color-danger)' :
                       'var(--color-border)'
-                    }` }}>
+                    }`, marginBottom: 'var(--space-sm)', borderRadius: 'var(--radius-btn)' }}>
                       <Row align="middle" gutter={12}>
                         <Col style={{ lineHeight: 1 }}>
                           {index === 0 && <StockOutlined />}
