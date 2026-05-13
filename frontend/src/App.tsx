@@ -1,5 +1,6 @@
-import { Routes, Route, Navigate, useNavigate } from 'react-router-dom'
-import { useLocation } from 'react-router-dom'
+import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom'
+import { useState } from 'react'
+import { SearchOutlined, MenuOutlined, CloseOutlined } from '@ant-design/icons'
 
 import Dashboard from './pages/Dashboard'
 import StockList from './pages/StockList'
@@ -27,26 +28,75 @@ const navItems = [
 function App() {
   const location = useLocation()
   const navigate = useNavigate()
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+
+  const isActive = (path: string) => {
+    if (path === '/') {
+      return location.pathname === '/'
+    }
+    return location.pathname.startsWith(path)
+  }
 
   return (
     <div className="app-layout">
-      {/* Apple-style Header */}
-      <header className="app-header">
-        <div className="header-content">
-          <div className="app-logo">量化系统</div>
-          <nav className="app-nav">
+      {/* Floating Pill Navigation */}
+      <div className="nav-pill-container">
+        <nav className="nav-pill">
+          <div className="nav-logo" onClick={() => navigate('/')}>
+            量化系统
+          </div>
+
+          {/* Desktop Navigation */}
+          <div className="nav-links">
             {navItems.map(item => (
               <div
                 key={item.key}
-                className={`nav-item ${location.pathname === item.key || (item.key !== '/' && location.pathname.startsWith(item.key)) ? 'active' : ''}`}
+                className={`nav-item ${isActive(item.key) ? 'active' : ''}`}
                 onClick={() => navigate(item.key)}
               >
                 {item.label}
               </div>
             ))}
-          </nav>
-        </div>
-      </header>
+          </div>
+
+          {/* Search Button */}
+          <button className="nav-search-btn" aria-label="搜索">
+            <SearchOutlined />
+          </button>
+
+          {/* Mobile Menu Toggle */}
+          <button
+            className="nav-mobile-toggle"
+            onClick={() => setMobileMenuOpen(true)}
+            aria-label="打开菜单"
+          >
+            <MenuOutlined />
+          </button>
+        </nav>
+      </div>
+
+      {/* Mobile Overlay Menu */}
+      <div className={`nav-mobile-overlay ${mobileMenuOpen ? 'open' : ''}`}>
+        <button
+          className="nav-mobile-close"
+          onClick={() => setMobileMenuOpen(false)}
+          aria-label="关闭菜单"
+        >
+          <CloseOutlined />
+        </button>
+        {navItems.map(item => (
+          <div
+            key={item.key}
+            className={`nav-item ${isActive(item.key) ? 'active' : ''}`}
+            onClick={() => {
+              navigate(item.key)
+              setMobileMenuOpen(false)
+            }}
+          >
+            {item.label}
+          </div>
+        ))}
+      </div>
 
       {/* Main Content */}
       <main className="app-content">
