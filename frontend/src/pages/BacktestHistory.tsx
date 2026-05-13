@@ -232,7 +232,7 @@ function BacktestHistory() {
       </div>
 
       {/* 历史记录列表 */}
-      <div className="apple-card">
+      <div style={{ background: 'var(--color-canvas-lifted)', borderRadius: 'var(--radius-card)' }}>
         <Table
           columns={columns}
           dataSource={results}
@@ -299,7 +299,7 @@ function BacktestHistory() {
             </div>
 
             {/* 资金曲线 */}
-            <div className="apple-card" style={{ marginBottom: 'var(--space-md)', padding: 'var(--space-md)' }}>
+            <div style={{ marginBottom: 'var(--space-md)', padding: 'var(--space-md)', background: 'var(--color-canvas-lifted)', borderRadius: 'var(--radius-card)' }}>
               <div style={{ fontSize: 'var(--font-size-sm)', fontWeight: 600, marginBottom: 'var(--space-sm)', color: 'var(--color-text-secondary)' }}>
                 资金曲线
               </div>
@@ -307,7 +307,7 @@ function BacktestHistory() {
             </div>
 
             {/* 交易记录 */}
-            <div className="apple-card">
+            <div style={{ background: 'var(--color-canvas-lifted)', borderRadius: 'var(--radius-card)' }}>
               <div style={{ fontSize: 'var(--font-size-md)', fontWeight: 600, marginBottom: 'var(--space-md)' }}>
                 交易记录
               </div>
