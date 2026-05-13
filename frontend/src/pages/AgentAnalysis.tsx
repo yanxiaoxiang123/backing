@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react'
 import { Card, Select, Button, Table, Tag, message, Tabs, Progress, Empty, Row, Col, Modal } from 'antd'
 import { PlayCircleOutlined, PauseCircleOutlined, HistoryOutlined, TrophyOutlined, AlertOutlined, StockOutlined, ThunderboltOutlined, EyeOutlined, CopyOutlined, DownloadOutlined } from '@ant-design/icons'
-import { getJobStatus, submitAnalyzeStock, getAnalysisHistory, getAnalysisDetail, cancelJob } from '../services/api'
+import ReactECharts from 'echarts-for-react'
+import type { EChartsOption } from 'echarts'
+import { getJobStatus, submitAnalyzeStock, getAnalysisHistory, getAnalysisDetail, cancelJob, getStockIndicators } from '../services/api'
 import StockSearch from '../components/StockSearch'
-import type { AgentAnalyzeRequest, AnalysisRecord, AgentAnalyzeResponse, AgentNewsItem, AgentStage, JobStatus } from '../types'
+import type { AgentAnalyzeRequest, AnalysisRecord, AgentAnalyzeResponse, AgentNewsItem, AgentStage, JobStatus, KlineIndicator } from '../types'
 import { logger } from '../utils/logger'
 
 const { Option } = Select
@@ -31,6 +33,7 @@ export default function AgentAnalysis() {
   const [jobProgress, setJobProgress] = useState(0)
   const [jobStages, setJobStages] = useState<AgentStage[]>([])
   const [currentJobId, setCurrentJobId] = useState<string | null>(null)
+  const [stockIndicators, setStockIndicators] = useState<KlineIndicator[]>([])
 
   // 加载历史记录
   useEffect(() => {
@@ -80,6 +83,15 @@ export default function AgentAnalysis() {
 
       if (data.success) {
         message.success('分析完成!')
+        // 获取 K 线数据用于图表
+        try {
+          const endDate = new Date().toISOString().split('T')[0]
+          const startDate = new Date(Date.now() - 180 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+          const indicatorsRes = await getStockIndicators(selectedStock, 'daily', startDate, endDate)
+          setStockIndicators(indicatorsRes.data)
+        } catch (err) {
+          logger.error('Failed to load stock indicators for chart:', err)
+        }
       } else {
         message.error(data.error || '分析失败')
       }
@@ -149,6 +161,77 @@ export default function AgentAnalysis() {
       message.success('已复制到剪贴板')
     } catch {
       message.error('复制失败')
+    }
+  }
+
+  const getLightChartOption = (data: KlineIndicator[]): EChartsOption => {
+    if (!data || data.length === 0) return {}
+
+    const dates = data.map(d => d.date)
+    const ohlc = data.map(d => [d.open, d.close, d.low, d.high])
+    const ma5 = data.map(d => d.ma5)
+    const ma10 = data.map(d => d.ma10)
+    const ma20 = data.map(d => d.ma20)
+
+    return {
+      backgroundColor: '#fff',
+      animation: false,
+      legend: {
+        top: 10,
+        left: 'center',
+        textStyle: { color: 'var(--color-text-secondary)', fontSize: 11 },
+        data: ['K线', 'MA5', 'MA10', 'MA20']
+      },
+      tooltip: {
+        trigger: 'axis',
+        axisPointer: { type: 'cross' },
+        backgroundColor: '#fff',
+        borderColor: 'var(--color-border)',
+        textStyle: { color: 'var(--color-text-primary)' },
+        formatter: (params: any) => {
+          if (!params || params.length === 0) return ''
+          const date = params[0].axisValue
+          const kline = params.find((p: any) => p.seriesName === 'K线')
+          if (!kline) return ''
+          const [o, c, l, h] = kline.data as number[]
+          const color = c >= o ? '#ff3b30' : '#34c759'
+          return `<div style="font-weight:600;margin-bottom:4px">${date}</div>
+            <div>开: <b>${o.toFixed(2)}</b> 收: <b style="color:${color}">${c.toFixed(2)}</b></div>
+            <div>高: <b>${h.toFixed(2)}</b> 低: <b>${l.toFixed(2)}</b></div>`
+        }
+      },
+      grid: { left: '10%', right: '8%', top: 50, bottom: 60 },
+      xAxis: [{
+        type: 'category',
+        data: dates,
+        boundaryGap: false,
+        axisLine: { onZero: false },
+        axisLabel: { color: 'var(--color-text-tertiary)', fontSize: 10 },
+      }],
+      yAxis: [{
+        scale: true,
+        axisLabel: { color: 'var(--color-text-tertiary)', fontSize: 10 },
+      }],
+      dataZoom: [
+        { type: 'inside', start: 70, end: 100 },
+        { show: true, type: 'slider', bottom: 10, start: 70, end: 100, height: 20 }
+      ],
+      series: [
+        {
+          name: 'K线',
+          type: 'candlestick',
+          data: ohlc,
+          itemStyle: {
+            color: '#ff3b30',
+            color0: '#34c759',
+            borderColor: '#ff3b30',
+            borderColor0: '#34c759'
+          }
+        },
+        { name: 'MA5', type: 'line', data: ma5, smooth: true, lineStyle: { opacity: 0.5 } },
+        { name: 'MA10', type: 'line', data: ma10, smooth: true, lineStyle: { opacity: 0.5 } },
+        { name: 'MA20', type: 'line', data: ma20, smooth: true, lineStyle: { opacity: 0.5 } },
+      ]
     }
   }
 
@@ -430,6 +513,34 @@ export default function AgentAnalysis() {
       {/* 分析结果 */}
       {result && (
         <div className="fade-in">
+          {/* K线图表 - 轻量版 */}
+          {stockIndicators.length > 0 && (
+            <Card
+              style={{ marginBottom: 16 }}
+              title={
+                <span>
+                  {result.stock_name} ({result.stock_code}) 近期走势
+                </span>
+              }
+              extra={
+                <a
+                  href={`/stocks/${result.stock_code}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{ color: 'var(--color-accent)' }}
+                >
+                  查看完整图表 →
+                </a>
+              }
+            >
+              <ReactECharts
+                option={getLightChartOption(stockIndicators)}
+                style={{ height: 300 }}
+                opts={{ renderer: 'canvas' }}
+              />
+            </Card>
+          )}
+
           {/* 决策卡片 */}
           <Card style={{ marginBottom: 16 }}>
             <Row gutter={16} align="middle">
