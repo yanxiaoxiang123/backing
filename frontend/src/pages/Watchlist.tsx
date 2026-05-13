@@ -99,7 +99,7 @@ function Watchlist() {
       dataIndex: 'stock_code',
       key: 'stock_code',
       width: 120,
-      render: (code: string) => <span style={{ color: 'var(--color-accent)', fontWeight: 500 }}>{code}</span>
+      render: (code: string) => <span style={{ color: 'var(--color-ink)', fontWeight: 500 }}>{code}</span>
     },
     {
       title: '股票名称',
@@ -207,7 +207,7 @@ function Watchlist() {
         </div>
         {selectedStockCode && (
           <div style={{ marginTop: 'var(--space-sm)', color: 'var(--color-text-secondary)', fontSize: 'var(--font-size-sm)' }}>
-            已选择: <span style={{ color: 'var(--color-accent)', fontWeight: 500 }}>{selectedStockCode}</span> - {selectedStockName}
+            已选择: <span style={{ color: 'var(--color-ink)', fontWeight: 500 }}>{selectedStockCode}</span> - {selectedStockName}
           </div>
         )}
       </Card>
