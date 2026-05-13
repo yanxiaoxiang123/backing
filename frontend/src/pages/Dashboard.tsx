@@ -75,14 +75,14 @@ function Dashboard() {
     // Skip rendering if no valid data
     if (value === 0 && change === 0) {
       return (
-        <div className="apple-card">
+        <div style={{ background: 'var(--color-canvas-lifted)', borderRadius: 'var(--radius-card)', padding: 'var(--space-lg)' }}>
           <div style={{ color: 'var(--color-text-secondary)', fontSize: 'var(--font-size-sm)', marginBottom: 4 }}>{name}</div>
           <div style={{ color: 'var(--color-text-tertiary)', fontSize: 'var(--font-size-sm)' }}>暂无数据</div>
         </div>
       )
     }
     return (
-      <div className="apple-card" style={{ cursor: 'pointer' }}>
+      <div style={{ background: 'var(--color-canvas-lifted)', borderRadius: 'var(--radius-card)', padding: 'var(--space-lg)', cursor: 'pointer' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <div>
             <div style={{ color: 'var(--color-text-secondary)', fontSize: 'var(--font-size-sm)', marginBottom: 4 }}>{name}</div>
@@ -156,9 +156,9 @@ function Dashboard() {
   }
 
   const WatchlistTable = ({ stocks }: { stocks: DashboardStock[] }) => (
-    <div className="apple-card">
-      <div className="apple-card-header">
-        <span className="apple-card-title" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)' }}>
+    <div style={{ background: 'var(--color-canvas-lifted)', borderRadius: 'var(--radius-card)', overflow: 'hidden' }}>
+      <div style={{ padding: 'var(--space-lg)', borderBottom: '1px solid var(--color-border)' }}>
+        <span style={{ fontSize: 'var(--font-size-md)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 'var(--space-sm)' }}>
           <TableOutlined />
           自选股走势
         </span>
@@ -168,7 +168,7 @@ function Dashboard() {
           暂无自选股数据，请先在设置中添加自选股
         </div>
       ) : (
-        <table className="apple-table">
+        <table className="mc-table">
         <thead>
           <tr>
             <th>代码</th>
@@ -186,14 +186,14 @@ function Dashboard() {
             const isUp = stock.change_percent >= 0
             return (
               <tr key={stock.id} onClick={() => navigate(`/stocks/${stock.code}`)} style={{ cursor: 'pointer' }}>
-                <td style={{ color: 'var(--color-accent)', fontWeight: 500 }}>{stock.code}</td>
+                <td style={{ color: 'var(--color-ink)', fontWeight: 500 }}>{stock.code}</td>
                 <td>{stock.name}</td>
                 <td style={{ textAlign: 'right', fontWeight: 500 }}>{stock.current_price.toFixed(2)}</td>
                 <td style={{ textAlign: 'right' }} className={isUp ? 'price-up' : 'price-down'}>
                   {isUp ? '+' : ''}{stock.change.toFixed(2)}
                 </td>
                 <td style={{ textAlign: 'right' }}>
-                  <span className={`price-badge ${isUp ? 'up' : 'down'}`}>
+                  <span className={`mc-badge ${isUp ? 'mc-badge-up' : 'mc-badge-down'}`}>
                     {isUp ? '+' : ''}{stock.change_percent.toFixed(2)}%
                   </span>
                 </td>
@@ -232,14 +232,14 @@ function Dashboard() {
         </div>
       </div>
 
-      <div className="grid grid-3" style={{ marginBottom: 'var(--space-lg)' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 'var(--space-lg)', marginBottom: 'var(--space-lg)' }}>
         {summary.indices.filter(index => !(index.value === 0 && index.change === 0)).map(index => (
           <IndexCard key={index.code} {...index} />
         ))}
       </div>
 
-      <div className="grid" style={{ gridTemplateColumns: '2fr 1fr', marginBottom: 'var(--space-lg)' }}>
-        <div className="apple-card" style={{ padding: 'var(--space-md)' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 'var(--space-lg)', marginBottom: 'var(--space-lg)' }}>
+        <div style={{ background: 'var(--color-canvas-lifted)', borderRadius: 'var(--radius-card)', padding: 'var(--space-lg)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-sm)' }}>
             <div style={{ fontSize: 'var(--font-size-sm)', fontWeight: 600, color: 'var(--color-text-secondary)', display: 'flex', alignItems: 'center', gap: 'var(--space-sm)' }}>
               <LineChartOutlined />
@@ -257,20 +257,20 @@ function Dashboard() {
           </div>
           <ReactECharts option={getTrendChartOption()} style={{ height: 280 }} />
         </div>
-        <div className="apple-card" style={{ padding: 'var(--space-md)' }}>
+        <div style={{ background: 'var(--color-canvas-lifted)', borderRadius: 'var(--radius-card)', padding: 'var(--space-lg)' }}>
           <div style={{ fontSize: 'var(--font-size-sm)', fontWeight: 600, marginBottom: 'var(--space-sm)', color: 'var(--color-text-secondary)' }}>
             自选股统计
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)', padding: 'var(--space-md) 0' }}>
-            <div className="stat-card">
+            <div style={{ background: 'var(--color-canvas-lifted)', borderRadius: 'var(--radius-btn)', padding: 'var(--space-lg)', textAlign: 'center' }}>
               <div className="stat-value" style={{ color: 'var(--color-danger)' }}>{summary.market_stats.up}</div>
               <div className="stat-label">上涨</div>
             </div>
-            <div className="stat-card">
+            <div style={{ background: 'var(--color-canvas-lifted)', borderRadius: 'var(--radius-btn)', padding: 'var(--space-lg)', textAlign: 'center' }}>
               <div className="stat-value" style={{ color: 'var(--color-text-secondary)' }}>{summary.market_stats.flat}</div>
               <div className="stat-label">平盘</div>
             </div>
-            <div className="stat-card">
+            <div style={{ background: 'var(--color-canvas-lifted)', borderRadius: 'var(--radius-btn)', padding: 'var(--space-lg)', textAlign: 'center' }}>
               <div className="stat-value" style={{ color: 'var(--color-success)' }}>{summary.market_stats.down}</div>
               <div className="stat-label">下跌</div>
             </div>
@@ -287,7 +287,7 @@ function Dashboard() {
         color: 'var(--color-text-tertiary)',
         fontSize: 'var(--font-size-xs)'
       }}>
-        量化交易系统 v1.0 · <a onClick={() => navigate('/watchlist')} style={{ cursor: 'pointer', color: 'var(--color-accent)' }}>管理自选股</a>
+        量化交易系统 v1.0 · <a onClick={() => navigate('/watchlist')} style={{ cursor: 'pointer', color: 'var(--color-ink)' }}>管理自选股</a>
       </div>
     </div>
   )
