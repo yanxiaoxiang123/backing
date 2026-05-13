@@ -11,7 +11,7 @@
 import logging
 import time
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 from app.agent.config import agent_settings
 from app.agent.llm_adapter import LLMToolAdapter
@@ -79,6 +79,7 @@ class AgentOrchestrator:
         stock_name: str = "",
         query: str = "",
         context_data: Optional[Dict[str, Any]] = None,
+        progress_callback: Optional[Callable[[float, List[Dict[str, Any]]], None]] = None,
     ) -> OrchestratorResult:
         """执行 Agent 分析
 
@@ -87,6 +88,7 @@ class AgentOrchestrator:
             stock_name: 股票名称
             query: 用户查询
             context_data: 预提供的上下文数据
+            progress_callback: 进度回调 (progress_0_100, stages)
 
         Returns:
             OrchestratorResult: 分析结果
@@ -111,13 +113,13 @@ class AgentOrchestrator:
         try:
             # 根据模式执行不同阶段
             if self.mode == "quick":
-                result = self._run_quick(context)
+                result = self._run_quick(context, progress_callback)
             elif self.mode == "standard":
-                result = self._run_standard(context)
+                result = self._run_standard(context, progress_callback)
             elif self.mode == "full":
-                result = self._run_full(context)
+                result = self._run_full(context, progress_callback)
             elif self.mode == "strategy":
-                result = self._run_strategy(context)
+                result = self._run_strategy(context, progress_callback)
             else:
                 result.error = f"Unknown mode: {self.mode}"
 
@@ -128,29 +130,32 @@ class AgentOrchestrator:
         result.duration_s = time.time() - start_time
         return result
 
-    def _run_quick(self, context: AgentContext) -> OrchestratorResult:
+    def _run_quick(self, context: AgentContext, progress_callback: Optional[Callable] = None) -> OrchestratorResult:
         """快速模式: 技术分析 -> 决策"""
         result = OrchestratorResult()
 
+        # 预填充所有阶段为 PENDING，保证前端始终看到完整列表
+        stage_names = ["technical_analysis", "decision"]
+        for name in stage_names:
+            pending = StageResult(stage_name=name)
+            pending.status = StageStatus.PENDING
+            result.stages.append(pending.to_dict())
+
         # 阶段 1: 技术分析
-        stage1 = self._execute_stage(
-            context,
-            "technical_analysis",
-            _get_technical_prompt(context),
-        )
-        result.stages.append(stage1.to_dict())
+        stage1 = self._execute_stage(context, "technical_analysis", _get_technical_prompt(context))
+        result.stages[0] = stage1.to_dict()
+        if progress_callback:
+            progress_callback(50.0, result.stages)
 
         if stage1.opinion:
             result.opinions.append(stage1.opinion.to_dict())
 
         # 阶段 2: 决策
         if stage1.status == StageStatus.COMPLETED:
-            stage2 = self._execute_stage(
-                context,
-                "decision",
-                _get_decision_prompt(context, result.opinions),
-            )
-            result.stages.append(stage2.to_dict())
+            stage2 = self._execute_stage(context, "decision", _get_decision_prompt(context, result.opinions))
+            result.stages[1] = stage2.to_dict()
+            if progress_callback:
+                progress_callback(100.0, result.stages)
 
             if stage2.opinion:
                 result.opinions.append(stage2.opinion.to_dict())
@@ -161,40 +166,41 @@ class AgentOrchestrator:
 
         return result
 
-    def _run_standard(self, context: AgentContext) -> OrchestratorResult:
+    def _run_standard(self, context: AgentContext, progress_callback: Optional[Callable] = None) -> OrchestratorResult:
         """标准模式: 技术分析 -> 情报 -> 决策"""
         result = OrchestratorResult()
 
+        # 预填充所有阶段为 PENDING
+        stage_names = ["technical_analysis", "intel", "decision"]
+        for name in stage_names:
+            pending = StageResult(stage_name=name)
+            pending.status = StageStatus.PENDING
+            result.stages.append(pending.to_dict())
+
         # 阶段 1: 技术分析
-        stage1 = self._execute_stage(
-            context,
-            "technical_analysis",
-            _get_technical_prompt(context),
-        )
-        result.stages.append(stage1.to_dict())
+        stage1 = self._execute_stage(context, "technical_analysis", _get_technical_prompt(context))
+        result.stages[0] = stage1.to_dict()
+        if progress_callback:
+            progress_callback(33.0, result.stages)
 
         if stage1.opinion:
             result.opinions.append(stage1.opinion.to_dict())
 
         # 阶段 2: 情报收集
         if stage1.status == StageStatus.COMPLETED:
-            stage2 = self._execute_stage(
-                context,
-                "intel",
-                _get_intel_prompt(context),
-            )
-            result.stages.append(stage2.to_dict())
+            stage2 = self._execute_stage(context, "intel", _get_intel_prompt(context))
+            result.stages[1] = stage2.to_dict()
+            if progress_callback:
+                progress_callback(66.0, result.stages)
 
             if stage2.opinion:
                 result.opinions.append(stage2.opinion.to_dict())
 
         # 阶段 3: 决策
-        stage3 = self._execute_stage(
-            context,
-            "decision",
-            _get_decision_prompt(context, result.opinions),
-        )
-        result.stages.append(stage3.to_dict())
+        stage3 = self._execute_stage(context, "decision", _get_decision_prompt(context, result.opinions))
+        result.stages[2] = stage3.to_dict()
+        if progress_callback:
+            progress_callback(100.0, result.stages)
 
         if stage3.opinion:
             result.opinions.append(stage3.opinion.to_dict())
@@ -205,50 +211,49 @@ class AgentOrchestrator:
 
         return result
 
-    def _run_full(self, context: AgentContext) -> OrchestratorResult:
+    def _run_full(self, context: AgentContext, progress_callback: Optional[Callable] = None) -> OrchestratorResult:
         """完整模式: 技术分析 -> 情报 -> 风控 -> 决策"""
         result = OrchestratorResult()
 
+        # 预填充所有阶段为 PENDING
+        stage_names = ["technical_analysis", "intel", "risk", "decision"]
+        for name in stage_names:
+            pending = StageResult(stage_name=name)
+            pending.status = StageStatus.PENDING
+            result.stages.append(pending.to_dict())
+
         # 阶段 1: 技术分析
-        stage1 = self._execute_stage(
-            context,
-            "technical_analysis",
-            _get_technical_prompt(context),
-        )
-        result.stages.append(stage1.to_dict())
+        stage1 = self._execute_stage(context, "technical_analysis", _get_technical_prompt(context))
+        result.stages[0] = stage1.to_dict()
+        if progress_callback:
+            progress_callback(25.0, result.stages)
 
         if stage1.opinion:
             result.opinions.append(stage1.opinion.to_dict())
 
         # 阶段 2: 情报收集
-        stage2 = self._execute_stage(
-            context,
-            "intel",
-            _get_intel_prompt(context),
-        )
-        result.stages.append(stage2.to_dict())
+        stage2 = self._execute_stage(context, "intel", _get_intel_prompt(context))
+        result.stages[1] = stage2.to_dict()
+        if progress_callback:
+            progress_callback(50.0, result.stages)
 
         if stage2.opinion:
             result.opinions.append(stage2.opinion.to_dict())
 
         # 阶段 3: 风控分析
-        stage3 = self._execute_stage(
-            context,
-            "risk",
-            _get_risk_prompt(context),
-        )
-        result.stages.append(stage3.to_dict())
+        stage3 = self._execute_stage(context, "risk", _get_risk_prompt(context))
+        result.stages[2] = stage3.to_dict()
+        if progress_callback:
+            progress_callback(75.0, result.stages)
 
         if stage3.opinion:
             result.opinions.append(stage3.opinion.to_dict())
 
         # 阶段 4: 决策
-        stage4 = self._execute_stage(
-            context,
-            "decision",
-            _get_decision_prompt(context, result.opinions),
-        )
-        result.stages.append(stage4.to_dict())
+        stage4 = self._execute_stage(context, "decision", _get_decision_prompt(context, result.opinions))
+        result.stages[3] = stage4.to_dict()
+        if progress_callback:
+            progress_callback(100.0, result.stages)
 
         if stage4.opinion:
             result.opinions.append(stage4.opinion.to_dict())
@@ -259,61 +264,58 @@ class AgentOrchestrator:
 
         return result
 
-    def _run_strategy(self, context: AgentContext) -> OrchestratorResult:
+    def _run_strategy(self, context: AgentContext, progress_callback: Optional[Callable] = None) -> OrchestratorResult:
         """策略模式: 技术分析 -> 情报 -> 风控 -> 策略 -> 决策"""
         result = OrchestratorResult()
 
+        # 预填充所有阶段为 PENDING
+        stage_names = ["technical_analysis", "intel", "risk", "strategy", "decision"]
+        for name in stage_names:
+            pending = StageResult(stage_name=name)
+            pending.status = StageStatus.PENDING
+            result.stages.append(pending.to_dict())
+
         # 阶段 1: 技术分析
-        stage1 = self._execute_stage(
-            context,
-            "technical_analysis",
-            _get_technical_prompt(context),
-        )
-        result.stages.append(stage1.to_dict())
+        stage1 = self._execute_stage(context, "technical_analysis", _get_technical_prompt(context))
+        result.stages[0] = stage1.to_dict()
+        if progress_callback:
+            progress_callback(20.0, result.stages)
 
         if stage1.opinion:
             result.opinions.append(stage1.opinion.to_dict())
 
         # 阶段 2: 情报收集
-        stage2 = self._execute_stage(
-            context,
-            "intel",
-            _get_intel_prompt(context),
-        )
-        result.stages.append(stage2.to_dict())
+        stage2 = self._execute_stage(context, "intel", _get_intel_prompt(context))
+        result.stages[1] = stage2.to_dict()
+        if progress_callback:
+            progress_callback(40.0, result.stages)
 
         if stage2.opinion:
             result.opinions.append(stage2.opinion.to_dict())
 
         # 阶段 3: 风控分析
-        stage3 = self._execute_stage(
-            context,
-            "risk",
-            _get_risk_prompt(context),
-        )
-        result.stages.append(stage3.to_dict())
+        stage3 = self._execute_stage(context, "risk", _get_risk_prompt(context))
+        result.stages[2] = stage3.to_dict()
+        if progress_callback:
+            progress_callback(60.0, result.stages)
 
         if stage3.opinion:
             result.opinions.append(stage3.opinion.to_dict())
 
         # 阶段 4: 策略评估
-        stage4 = self._execute_stage(
-            context,
-            "strategy",
-            _get_strategy_prompt(context),
-        )
-        result.stages.append(stage4.to_dict())
+        stage4 = self._execute_stage(context, "strategy", _get_strategy_prompt(context))
+        result.stages[3] = stage4.to_dict()
+        if progress_callback:
+            progress_callback(80.0, result.stages)
 
         if stage4.opinion:
             result.opinions.append(stage4.opinion.to_dict())
 
         # 阶段 5: 决策
-        stage5 = self._execute_stage(
-            context,
-            "decision",
-            _get_decision_prompt(context, result.opinions),
-        )
-        result.stages.append(stage5.to_dict())
+        stage5 = self._execute_stage(context, "decision", _get_decision_prompt(context, result.opinions))
+        result.stages[4] = stage5.to_dict()
+        if progress_callback:
+            progress_callback(100.0, result.stages)
 
         if stage5.opinion:
             result.opinions.append(stage5.opinion.to_dict())
@@ -332,7 +334,17 @@ class AgentOrchestrator:
     ) -> StageResult:
         """执行单个阶段"""
         result = StageResult(stage_name=stage_name)
+        result.status = StageStatus.RUNNING
         start_time = time.time()
+
+        stage_start_msg = {
+            "technical_analysis": f"📊 正在分析 {context.stock_code} 技术面...",
+            "intel": f"🔍 正在收集 {context.stock_code} 情报信息...",
+            "risk": f"⚖️ 正在评估 {context.stock_code} 风险因素...",
+            "strategy": f"📋 正在评估 {context.stock_code} 策略适用性...",
+            "decision": f"🎯 正在综合各维度分析给出最终决策...",
+        }.get(stage_name, f"🔄 正在执行 {stage_name}...")
+        result.thinking.append(stage_start_msg)
 
         try:
             if stage_name == "intel":
@@ -367,6 +379,10 @@ class AgentOrchestrator:
             content = (
                 response.get("choices", [{}])[0].get("message", {}).get("content", "")
             )
+
+            # 从 LLM 响应中抽取关键发现
+            key_findings = self._extract_thinking_steps(content, stage_name)
+            result.thinking.extend(key_findings)
 
             # 尝试解析 JSON
             import json
@@ -415,6 +431,78 @@ class AgentOrchestrator:
             result.duration_s = time.time() - start_time
 
         return result
+
+    def _extract_thinking_steps(self, content: str, stage_name: str) -> List[str]:
+        """从 LLM 响应中抽取关键发现"""
+        thinking = []
+        content_lower = content.lower()
+
+        if stage_name == "technical_analysis":
+            import re
+
+            # MA 交叉
+            ma_matches = re.findall(r'ma[5,10,20,60,120][=\s]*[\d.]+', content_lower)
+            if ma_matches:
+                for m in ma_matches[:3]:
+                    thinking.append(f"📊 检测到: {m.upper()}")
+
+            # MACD 金叉/死叉
+            if 'macd' in content_lower and ('金叉' in content or '交叉' in content_lower):
+                direction = "金叉" if any(k in content_lower for k in ['上方', '上穿', '金叉']) else "死叉"
+                thinking.append(f"📈 MACD 形成{direction}")
+
+            # RSI
+            rsi_match = re.search(r'RSI[^0-9]*(\d+)', content, re.IGNORECASE)
+            if rsi_match:
+                rsi_val = int(rsi_match.group(1))
+                if rsi_val > 70:
+                    thinking.append(f"⚠️ 注意: RSI({rsi_val}) 处于超买区域")
+                elif rsi_val < 30:
+                    thinking.append(f"⚠️ 注意: RSI({rsi_val}) 处于超卖区域")
+                else:
+                    thinking.append(f"📊 RSI({rsi_val}) 运行正常")
+
+            # 成交量
+            if any(k in content_lower for k in ['放量', '缩量', '量能放大', '量能萎缩']):
+                vol_keywords = re.findall(r'量[能]?[放缩]?[大]?[萎缩]?', content)
+                if vol_keywords:
+                    thinking.append(f"📊 成交量: {vol_keywords[0]}")
+
+        elif stage_name == "intel":
+            news_matches = re.findall(r'标题[：:]\s*["""](.+?)["""]', content)
+            if news_matches:
+                thinking.append(f"📰 找到 {len(news_matches)} 条相关新闻")
+
+            if any(k in content_lower for k in ['利好', '看多', '买入', '上涨']):
+                thinking.append("📈 消息面偏利好")
+            elif any(k in content_lower for k in ['利空', '看空', '卖出', '下跌']):
+                thinking.append("📉 消息面偏利空")
+
+        elif stage_name == "risk":
+            risk_keywords = ['高风险', '中等风险', '低风险', '风险', '止损', '流动性']
+            for kw in risk_keywords:
+                if kw in content_lower:
+                    thinking.append(f"⚠️ 风控: {kw}")
+
+        elif stage_name == "strategy":
+            strategy_keywords = ['仓位', '持仓', '止盈', '止损', '策略']
+            for kw in strategy_keywords:
+                if kw in content_lower:
+                    thinking.append(f"📋 策略: {kw}")
+
+        elif stage_name == "decision":
+            if '买入' in content or 'buy' in content_lower:
+                thinking.append("✅ 决策: 建议买入")
+            elif '卖出' in content or 'sell' in content_lower:
+                thinking.append("✅ 决策: 建议卖出")
+            else:
+                thinking.append("✅ 决策: 建议观望")
+
+        if not thinking and content:
+            snippet = content[:150].replace('\n', ' ').strip()
+            thinking.append(f"💭 {snippet}...")
+
+        return thinking[:6]
 
     def _build_stage_user_content(
         self,
