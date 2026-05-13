@@ -128,7 +128,7 @@ function StockList() {
       dataIndex: 'code',
       key: 'code',
       width: 100,
-      render: (code: string) => <span style={{ color: 'var(--color-accent)', fontWeight: 500 }}>{code}</span>
+      render: (code: string) => <span style={{ color: 'var(--color-ink)', fontWeight: 500 }}>{code}</span>
     },
     {
       title: '名称',
@@ -162,7 +162,7 @@ function StockList() {
             e.stopPropagation()
             handleViewChart(record)
           }}
-          style={{ color: 'var(--color-accent)' }}
+          style={{ color: 'var(--color-ink)' }}
         >
           K线
         </Button>
@@ -179,9 +179,9 @@ function StockList() {
       </div>
 
       {/* 操作栏 */}
-      <div className="apple-card" style={{ marginBottom: 'var(--space-md)' }}>
-        <div className="flex flex-between" style={{ flexWrap: 'wrap', gap: 'var(--space-md)' }}>
-          <div className="flex gap-sm">
+      <div style={{ background: 'var(--color-canvas-lifted)', borderRadius: 'var(--radius-card)', padding: 'var(--space-lg)', marginBottom: 'var(--space-md)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 'var(--space-md)' }}>
+          <div style={{ display: 'flex', gap: 'var(--space-sm)' }}>
             <Button
               type="primary"
               icon={<SyncOutlined spin={syncing} />}
@@ -210,7 +210,7 @@ function StockList() {
       </div>
 
       {/* 股票列表 */}
-      <div className="apple-card">
+      <div style={{ background: 'var(--color-canvas-lifted)', borderRadius: 'var(--radius-card)', overflow: 'hidden' }}>
         <Table
           columns={columns}
           dataSource={filteredStocks}
