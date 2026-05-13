@@ -51,6 +51,7 @@ class StageResult:
     stage_name: str
     status: StageStatus = StageStatus.PENDING
     opinion: Optional[AgentOpinion] = None
+    thinking: List[str] = field(default_factory=list)
     error: Optional[str] = None
     duration_s: float = 0.0
     tokens_used: int = 0
@@ -62,6 +63,7 @@ class StageResult:
             "stage_name": self.stage_name,
             "status": self.status.value,
             "opinion": self.opinion.to_dict() if self.opinion else None,
+            "thinking": self.thinking,
             "error": self.error,
             "duration_s": self.duration_s,
             "tokens_used": self.tokens_used,
