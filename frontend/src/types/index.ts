@@ -254,6 +254,7 @@ export interface AgentStage {
   stage_name: string
   status: 'pending' | 'running' | 'completed' | 'failed'
   opinion?: AgentOpinion
+  thinking: string[]
   error?: string
   duration_s: number
   meta?: Record<string, unknown>
