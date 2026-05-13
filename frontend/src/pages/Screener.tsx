@@ -274,7 +274,7 @@ function Screener() {
             <span>股票筛选器</span>
           </Space>
         }
-        style={{ marginBottom: 16 }}
+        style={{ marginBottom: 16, background: 'var(--color-canvas-lifted)', borderRadius: 'var(--radius-card)' }}
       >
         {/* conditions */}
         <div style={{ marginBottom: 16 }}>
