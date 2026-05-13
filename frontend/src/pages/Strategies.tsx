@@ -423,7 +423,7 @@ function Strategies() {
           borderColor: 'var(--color-border)',
           backgroundColor: 'var(--color-bg-secondary)',
           fillerColor: 'rgba(0, 113, 227, 0.1)',
-          handleStyle: { color: 'var(--color-accent)' }
+          handleStyle: { color: 'var(--color-ink)' }
         }
       ],
       series: [
@@ -657,7 +657,7 @@ function Strategies() {
           borderColor: 'var(--color-border)',
           backgroundColor: 'var(--color-bg-secondary)',
           fillerColor: 'rgba(0, 113, 227, 0.1)',
-          handleStyle: { color: 'var(--color-accent)' },
+          handleStyle: { color: 'var(--color-ink)' },
         },
       ],
       series: seriesData,
