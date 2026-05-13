@@ -1,0 +1,11 @@
+
+> stock-backtest-frontend@1.0.0 dev
+> vite --host 0.0.0.0 --port 5174 --strictPort
+
+
+  VITE v5.4.21  ready in 305 ms
+
+  ➜  Local:   http://localhost:5174/
+  ➜  Network: http://172.22.226.86:5174/
+  ➜  Network: http://172.19.0.1:5174/
+  ➜  Network: http://172.18.0.1:5174/

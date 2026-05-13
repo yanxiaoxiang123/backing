@@ -1,0 +1,11 @@
+/opt/miniconda3/envs/stockbacking/lib/python3.13/site-packages/py_mini_racer/py_mini_racer.py:15: UserWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html. The pkg_resources package is slated for removal as early as 2025-11-30. Refrain from using this package or pin to Setuptools<81.
+  import pkg_resources
+INFO:     Started server process [6]
+INFO:     Waiting for application startup.
+INFO:main:Starting up...
+INFO:main:Database initialized successfully
+INFO:     Application startup complete.
+ERROR:    [Errno 98] error while attempting to bind on address ('0.0.0.0', 8808): address already in use
+INFO:     Waiting for application shutdown.
+INFO:main:Shutting down...
+INFO:     Application shutdown complete.

@@ -1,0 +1,16 @@
+[Unit]
+Description=Stockbacking Backend Service
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/root/stockbacking/backing/backend
+Environment=CUDA_VISIBLE_DEVICES=0,1
+Environment=PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+ExecStart=/bin/bash -lc 'source /opt/miniconda3/etc/profile.d/conda.sh && conda activate stockbacking && python main.py'
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

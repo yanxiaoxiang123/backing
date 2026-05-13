@@ -1,0 +1,15 @@
+__pycache__/
+*.pyc
+*.db
+*.sqlite
+.env
+.venv/
+node_modules/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+dist/
+build/
+*.log
+logs/*.log
+backend/models/llm/
