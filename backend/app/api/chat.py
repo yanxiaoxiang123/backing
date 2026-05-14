@@ -61,10 +61,13 @@ async def chat_stream(request: ChatRequest):
 @router.post("/chat/agent/technical")
 async def chat_technical(request: AgentRequest):
     """技术分析 Agent"""
+    async def stream_callback(chunk):
+        return chunk
+
     async def generate():
         adapter = LLMToolAdapter()
         try:
-            async for chunk in technical_agent.run(request.stock_code, lambda x: x, {}):
+            async for chunk in technical_agent.run(request.stock_code, stream_callback, {}):
                 yield f"data: {json.dumps({'content': chunk})}\n\n"
         except Exception as e:
             yield f"data: {json.dumps({'error': str(e)})}\n\n"
