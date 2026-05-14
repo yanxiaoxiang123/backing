@@ -9,6 +9,7 @@ from pydantic import BaseModel
 from app.agent.llm_adapter import LLMToolAdapter
 from app.agents.technical_agent import TechnicalAgent
 from app.agents.sentiment_agent import SentimentAgent
+from app.agents.news_agent import NewsAgent
 from app.config import get_db
 
 logger = logging.getLogger(__name__)
@@ -16,6 +17,7 @@ router = APIRouter()
 
 technical_agent = TechnicalAgent()
 sentiment_agent = SentimentAgent()
+news_agent = NewsAgent()
 
 
 class ChatMessage(BaseModel):
@@ -87,6 +89,23 @@ async def chat_sentiment(request: AgentRequest):
     async def generate():
         try:
             async for chunk in sentiment_agent.run(request.stock_code, stream_callback, {}):
+                yield f"data: {json.dumps({'content': chunk})}\n\n"
+        except Exception as e:
+            yield f"data: {json.dumps({'error': str(e)})}\n\n"
+        yield f"data: {json.dumps({'content': '[DONE]'})}\n\n"
+
+    return StreamingResponse(generate(), media_type="text/event-stream")
+
+
+@router.post("/chat/agent/news")
+async def chat_news(request: AgentRequest):
+    """新闻分析 Agent"""
+    async def stream_callback(chunk):
+        return chunk
+
+    async def generate():
+        try:
+            async for chunk in news_agent.run(request.stock_code, stream_callback, {}):
                 yield f"data: {json.dumps({'content': chunk})}\n\n"
         except Exception as e:
             yield f"data: {json.dumps({'error': str(e)})}\n\n"
