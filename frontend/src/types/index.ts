@@ -177,6 +177,14 @@ export interface BacktestMetrics {
   total_trades: number
 }
 
+export interface PortfolioValue {
+  date: string
+  total_value: number
+  cash: number
+  position_value: number
+  position: number
+}
+
 export interface StrategyBacktestResponse {
   success: boolean
   strategy_name: string
@@ -187,6 +195,7 @@ export interface StrategyBacktestResponse {
   final_capital: number
   trades: BacktestTradeItem[]
   metrics: BacktestMetrics
+  portfolio_values?: PortfolioValue[]
 }
 
 export interface OptimizeResultItem {

@@ -294,6 +294,10 @@ export async function getJobStatus<T = Record<string, unknown>>(jobId: string): 
   return response.data
 }
 
+export async function cancelJob(jobId: string): Promise<void> {
+  await api.post(`/jobs/${jobId}/cancel`)
+}
+
 // 大盘分析 APIs
 export async function analyzeMarket(
   request: MarketAnalyzeRequest

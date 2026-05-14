@@ -5,9 +5,9 @@ import json
 import logging
 import time
 from datetime import datetime, timedelta
-from typing import List, Optional
+from typing import Any, List, Optional
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 from sqlalchemy.orm import Session
 
 from app.config import SessionLocal, get_db
@@ -66,6 +66,16 @@ class AnalysisRecordResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+    @model_validator(mode="before")
+    @classmethod
+    def _convert_datetime(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            for key in ("analysis_date", "created_at"):
+                val = data.get(key)
+                if hasattr(val, "isoformat"):
+                    data[key] = val.isoformat()
+        return data
 
 
 class AnalyzeSubmitResponse(BaseModel):
@@ -196,9 +206,22 @@ def _run_analysis_job(job_id: str, request_data: dict) -> None:
                 "LLM service not available. Please check API key configuration."
             )
 
+        def _on_progress(progress: float, stages: list):
+            # 检查是否被取消
+            current = job_store.get(job_id)
+            if current and current.status == "failed" and current.error == "Cancelled":
+                raise RuntimeError("Job cancelled by user")
+            job_store.update(
+                job_id,
+                progress=progress / 100.0,
+                message=f"Running: {request.mode} analysis",
+                payload={"stages": stages},
+            )
+
         result = orchestrator.run(
             stock_code=request.stock_code,
             stock_name=request.stock_name or request.stock_code,
+            progress_callback=_on_progress,
         )
         payload = _persist_analysis(db, request, result)
         job_store.update(
@@ -286,7 +309,22 @@ def get_analysis_history(
         .all()
     )
 
-    return [AnalysisRecordResponse.model_validate(r) for r in records]
+    return [
+        AnalysisRecordResponse(
+            id=r.id,
+            stock_code=r.stock_code,
+            stock_name=r.stock_name,
+            analysis_date=str(r.analysis_date),
+            mode=r.mode,
+            final_signal=r.final_signal,
+            final_confidence=r.final_confidence,
+            final_reason=r.final_reason,
+            duration_s=r.duration_s,
+            error=r.error,
+            created_at=str(r.created_at),
+        )
+        for r in records
+    ]
 
 
 @router.get("/agent/{record_id}")

@@ -286,9 +286,9 @@ class BreakoutStrategy(Strategy):
         high = df["high"]
         low = df["low"]
 
-        # Calculate N-day high and low
-        df["highest"] = high.rolling(window=self.period, min_periods=self.period).max()
-        df["lowest"] = low.rolling(window=self.period, min_periods=self.period).min()
+        # Calculate N-day high and low (shifted for proper backtest)
+        df["highest"] = high.rolling(window=self.period, min_periods=self.period).max().shift(1)
+        df["lowest"] = low.rolling(window=self.period, min_periods=self.period).min().shift(1)
 
         # Calculate ATR for confirmation
         df["atr"] = TechnicalFactors.ATR(high, low, close, self.period)
@@ -300,11 +300,11 @@ class BreakoutStrategy(Strategy):
         # Generate signals
         for i in range(1, len(df)):
             if pd.notna(df["highest"].iloc[i]) and pd.notna(df["lowest"].iloc[i]):
-                # Buy: price breaks above highest with ATR confirmation
-                if close.iloc[i] > df["highest"].iloc[i - 1]:
+                # Buy: price breaks above highest (yesterday's high)
+                if close.iloc[i] > df["highest"].iloc[i]:
                     df.loc[df.index[i], "signal"] = 1  # Buy
-                # Sell: price breaks below lowest with ATR confirmation
-                elif close.iloc[i] < df["lowest"].iloc[i - 1]:
+                # Sell: price breaks below lowest (yesterday's low)
+                elif close.iloc[i] < df["lowest"].iloc[i]:
                     df.loc[df.index[i], "signal"] = -1  # Sell
 
         return df
@@ -524,9 +524,9 @@ class DualThrustStrategy(Strategy):
         low = df["low"]
 
         # Calculate N-day high, low, and close
-        df["hh"] = high.rolling(window=self.period, min_periods=self.period).max()
-        df["ll"] = low.rolling(window=self.period, min_periods=self.period).min()
-        df["cc"] = close.rolling(window=self.period, min_periods=self.period).max()
+        df["hh"] = high.rolling(window=self.period, min_periods=self.period).max().shift(1)
+        df["ll"] = low.rolling(window=self.period, min_periods=self.period).min().shift(1)
+        df["cc"] = close.rolling(window=self.period, min_periods=self.period).max().shift(1)
 
         # Calculate pivot range
         df["range"] = df["hh"] - df["ll"]
@@ -544,10 +544,10 @@ class DualThrustStrategy(Strategy):
                 df["lower_rail"].iloc[i]
             ):
                 # Buy: price breaks above upper rail
-                if close.iloc[i] > df["upper_rail"].iloc[i - 1]:
+                if close.iloc[i] > df["upper_rail"].iloc[i]:
                     df.loc[df.index[i], "signal"] = 1  # Buy
                 # Sell: price breaks below lower rail
-                elif close.iloc[i] < df["lower_rail"].iloc[i - 1]:
+                elif close.iloc[i] < df["lower_rail"].iloc[i]:
                     df.loc[df.index[i], "signal"] = -1  # Sell
 
         return df
@@ -1217,94 +1217,5 @@ class MACDHistogramDivergenceStrategy(Strategy):
 
                     if curr_price_val < prev_price_val and curr_hist_val > prev_hist_val:
                         df.loc[df.index[i], "signal"] = 1  # Buy
-
-        return df
-    """
-    Dual Thrust Strategy.
-
-    Calculates upper and lower rails based on pivot points.
-    Buy when price breaks above upper rail, sell when price breaks below lower rail.
-    """
-
-    def __init__(self, k_up: float = 0.5, k_down: float = 0.5, period: int = 20):
-        self.k_up = k_up
-        self.k_down = k_down
-        self.period = period
-
-    def get_name(self) -> str:
-        return "dual_thrust"
-
-    def get_description(self) -> str:
-        return f"Dual Thrust: buy when price breaks upper rail (k_up={self.k_up}), sell when breaks lower rail (k_down={self.k_down})"
-
-    def get_parameters(self) -> Dict[str, Parameter]:
-        return {
-            "k_up": Parameter(
-                name="k_up",
-                param_type=ParameterType.FLOAT,
-                default=self.k_up,
-                min_value=0.3,
-                max_value=1.0,
-                description="Upper rail multiplier",
-            ),
-            "k_down": Parameter(
-                name="k_down",
-                param_type=ParameterType.FLOAT,
-                default=self.k_down,
-                min_value=0.3,
-                max_value=1.0,
-                description="Lower rail multiplier",
-            ),
-            "period": Parameter(
-                name="period",
-                param_type=ParameterType.INT,
-                default=self.period,
-                min_value=5,
-                max_value=30,
-                description="Period for range calculation",
-            ),
-        }
-
-    def generate_signals(self, data: Any) -> pd.DataFrame:
-        df = data.copy() if hasattr(data, "copy") else pd.DataFrame(data)
-
-        required_cols = ["close", "high", "low"]
-        for col in required_cols:
-            if col not in df.columns:
-                raise ValueError(f"DataFrame must contain '{col}' column")
-
-        close = df["close"]
-        high = df["high"]
-        low = df["low"]
-
-        # Calculate N-day high, low, and close
-        df["hh"] = high.rolling(window=self.period, min_periods=self.period).max()
-        df["ll"] = low.rolling(window=self.period, min_periods=self.period).min()
-        df["cc"] = close.rolling(window=self.period, min_periods=self.period).max()
-
-        # Calculate pivot range
-        df["range"] = df["hh"] - df["ll"]
-
-        # Calculate upper and lower rails
-        # Dual Thrust formula:
-        # Upper = Close + k_up * Range
-        # Lower = Close - k_down * Range
-        df["upper_rail"] = df["cc"] + (self.k_up * df["range"])
-        df["lower_rail"] = df["cc"] - (self.k_down * df["range"])
-
-        # Initialize signal column
-        df["signal"] = 0
-
-        # Generate signals
-        for i in range(1, len(df)):
-            if pd.notna(df["upper_rail"].iloc[i]) and pd.notna(
-                df["lower_rail"].iloc[i]
-            ):
-                # Buy: price breaks above upper rail
-                if close.iloc[i] > df["upper_rail"].iloc[i - 1]:
-                    df.loc[df.index[i], "signal"] = 1  # Buy
-                # Sell: price breaks below lower rail
-                elif close.iloc[i] < df["lower_rail"].iloc[i - 1]:
-                    df.loc[df.index[i], "signal"] = -1  # Sell
 
         return df

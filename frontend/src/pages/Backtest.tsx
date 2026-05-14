@@ -128,7 +128,60 @@ function Backtest() {
   }
 
   const getChartOption = () => {
-    if (!result || !result.trades.length) return {}
+    if (!result) return {}
+
+    // Use portfolio_values if available (correct total value including positions)
+    if (result.portfolio_values && result.portfolio_values.length > 0) {
+      const dates = result.portfolio_values.map(pv => pv.date)
+      const values = result.portfolio_values.map(pv => pv.total_value)
+
+      return {
+        tooltip: {
+          trigger: 'axis',
+          backgroundColor: '#fff',
+          borderColor: 'var(--color-border)',
+          textStyle: { color: 'var(--color-text-primary)' },
+          formatter: (params: { dataIndex: number }[]) => {
+            const idx = params[0].dataIndex
+            const pv = result.portfolio_values![idx]
+            return `日期: ${pv.date}<br/>总价值: ${pv.total_value.toFixed(2)}元<br/>现金: ${pv.cash.toFixed(2)}元<br/>持仓: ${pv.position}股 (${pv.position_value.toFixed(2)}元)`
+          }
+        },
+        grid: { left: '10%', right: '5%', bottom: '10%', top: '15%' },
+        xAxis: {
+          type: 'category',
+          data: dates,
+          axisLine: { lineStyle: { color: 'var(--color-border)' } },
+          axisLabel: { color: 'var(--color-text-tertiary)', fontSize: 10 }
+        },
+        yAxis: {
+          type: 'value',
+          name: '资金(元)',
+          axisLine: { show: false },
+          axisLabel: { color: 'var(--color-text-tertiary)', fontSize: 10 },
+          splitLine: { lineStyle: { color: 'var(--color-border-light)', type: 'dashed' } }
+        },
+        series: [{
+          data: values,
+          type: 'line',
+          smooth: true,
+          lineStyle: { color: '#0071e3', width: 2 },
+          areaStyle: {
+            color: {
+              type: 'linear',
+              x: 0, y: 0, x2: 0, y2: 1,
+              colorStops: [
+                { offset: 0, color: 'rgba(0, 113, 227, 0.15)' },
+                { offset: 1, color: 'rgba(0, 113, 227, 0)' }
+              ]
+            }
+          }
+        }]
+      }
+    }
+
+    // Fallback to legacy trade-based calculation
+    if (!result.trades || !result.trades.length) return {}
 
     const trades = result.trades
     const dates: string[] = []

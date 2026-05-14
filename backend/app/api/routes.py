@@ -337,13 +337,16 @@ def submit_sync_kline(
 
 # Index endpoints
 @router.get("/indices")
-def get_indices(_: str = Depends(get_current_api_key)):
+@limiter.limit("10/minute")
+def get_indices(request: Request, _: str = Depends(get_current_api_key)):
     """Get index list"""
     return baostock_service.get_index_list()
 
 
 @router.post("/indices/sync", response_model=SyncResponse)
+@limiter.limit("5/minute")
 def sync_indices(
+    request: Request,
     index_codes: List[str] = Body(None),
     start_date: Optional[str] = Query(None),
     end_date: str = Query(None),
@@ -362,7 +365,9 @@ def sync_indices(
 
 
 @router.post("/indices/sync/submit", response_model=JobResponse)
+@limiter.limit("5/minute")
 def submit_sync_indices(
+    request: Request,
     background_tasks: BackgroundTasks,
     index_codes: List[str] = Body(None),
     start_date: Optional[str] = Query(None),
@@ -463,3 +468,14 @@ def get_job_status(job_id: str, _: str = Depends(get_current_api_key)):
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
     return job.to_dict()
+
+
+@router.post("/jobs/{job_id}/cancel")
+def cancel_job(job_id: str, _: str = Depends(get_current_api_key)):
+    job = job_store.get(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    if job.status in ("completed", "failed"):
+        raise HTTPException(status_code=400, detail="Job already finished")
+    job_store.update(job_id, status="failed", error="Cancelled", message="Cancelled by user")
+    return {"status": "cancelled"}

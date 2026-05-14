@@ -128,6 +128,16 @@ class BacktestMetrics(BaseModel):
     total_trades: int
 
 
+class PortfolioValueItem(BaseModel):
+    """Single portfolio value snapshot."""
+
+    date: str
+    total_value: float
+    cash: float
+    position_value: float
+    position: int
+
+
 class BacktestResponse(BaseModel):
     """Response model for backtest results."""
 
@@ -140,6 +150,7 @@ class BacktestResponse(BaseModel):
     final_capital: float
     trades: List[BacktestTradeItem]
     metrics: BacktestMetrics
+    portfolio_values: Optional[List[PortfolioValueItem]] = None
 
 
 class OptimizeRequest(BaseModel):
@@ -531,6 +542,10 @@ def run_backtest(
             BacktestTradeItem(**trade) for trade in execution.to_api_dict()["trades"]
         ],
         metrics=BacktestMetrics(**execution.to_api_dict()["metrics"]),
+        portfolio_values=[
+            PortfolioValueItem(**pv)
+            for pv in execution.to_api_dict()["portfolio_values"]
+        ],
     )
 
 

@@ -33,6 +33,15 @@ class BacktestMetricsSummary:
 
 
 @dataclass
+class PortfolioValue:
+    date: date
+    total_value: float
+    cash: float
+    position_value: float
+    position: int
+
+
+@dataclass
 class BacktestExecutionResult:
     strategy_name: str
     stock_code: str
@@ -42,6 +51,7 @@ class BacktestExecutionResult:
     final_capital: float
     trades: List[TradeRecord]
     metrics: BacktestMetricsSummary
+    portfolio_values: List[PortfolioValue]
 
     def to_api_dict(self) -> Dict[str, Any]:
         return {
@@ -54,6 +64,16 @@ class BacktestExecutionResult:
             "final_capital": round(self.final_capital, 2),
             "trades": [asdict(trade) for trade in self.trades],
             "metrics": asdict(self.metrics),
+            "portfolio_values": [
+                {
+                    "date": pv.date.isoformat() if hasattr(pv.date, "isoformat") else str(pv.date),
+                    "total_value": round(pv.total_value, 2),
+                    "cash": round(pv.cash, 2),
+                    "position_value": round(pv.position_value, 2),
+                    "position": pv.position,
+                }
+                for pv in self.portfolio_values
+            ],
         }
 
 
@@ -127,7 +147,7 @@ class BacktestExecutor:
         if "signal" not in signal_data.columns:
             raise ValueError("Strategy must generate a 'signal' column")
 
-        trades, final_capital = self._simulate_trades(signal_data, initial_capital)
+        trades, final_capital, portfolio_values = self._simulate_trades(signal_data, initial_capital)
         metrics = self._calculate_metrics(
             trades=trades,
             initial_capital=initial_capital,
@@ -145,6 +165,7 @@ class BacktestExecutor:
             final_capital=round(final_capital, 2),
             trades=trades,
             metrics=metrics,
+            portfolio_values=portfolio_values,
         )
 
     def persist(self, execution: BacktestExecutionResult) -> BacktestResult:
@@ -210,21 +231,36 @@ class BacktestExecutor:
 
     def _simulate_trades(
         self, signal_data: pd.DataFrame, initial_capital: float
-    ) -> tuple[List[TradeRecord], float]:
+    ) -> tuple[List[TradeRecord], float, List[PortfolioValue]]:
         capital = initial_capital
         position = 0
         trades: List[TradeRecord] = []
+        portfolio_values: List[PortfolioValue] = []
 
         for idx, row in signal_data.iterrows():
-            signal = row.get("signal", 0)
-            if pd.isna(signal) or signal == 0:
-                continue
-
             trade_date = row.get("date", idx)
             if hasattr(trade_date, "date"):
                 trade_date = trade_date.date()
 
             price = float(row["close"])
+            signal = row.get("signal", 0)
+
+            # Record portfolio value BEFORE processing the signal
+            position_value = position * price
+            total_value = capital + position_value
+            portfolio_values.append(
+                PortfolioValue(
+                    date=trade_date,
+                    total_value=total_value,
+                    cash=capital,
+                    position_value=position_value,
+                    position=position,
+                )
+            )
+
+            if pd.isna(signal) or signal == 0:
+                continue
+
             if signal == 1 and position == 0:
                 shares = int(capital / price / 100) * 100
                 if shares <= 0:
@@ -255,25 +291,7 @@ class BacktestExecutor:
                 )
                 position = 0
 
-        if position > 0:
-            final_row = signal_data.iloc[-1]
-            final_date = final_row.get("date", signal_data.index[-1])
-            if hasattr(final_date, "date"):
-                final_date = final_date.date()
-            final_price = float(final_row["close"])
-            amount = position * final_price
-            capital += amount
-            trades.append(
-                TradeRecord(
-                    date=final_date,
-                    action="sell",
-                    price=round(final_price, 4),
-                    quantity=position,
-                    amount=round(amount, 4),
-                )
-            )
-
-        return trades, capital
+        return trades, capital, portfolio_values
 
     def _calculate_metrics(
         self,
