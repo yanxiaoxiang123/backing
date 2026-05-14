@@ -55,7 +55,7 @@ const optimizeColumns = [
   }
 ]
 
-const compareColumns = [
+const compareColumns: any[] = [
   {
     title: '策略',
     dataIndex: 'strategy_name',

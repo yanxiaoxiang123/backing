@@ -13,7 +13,7 @@ interface StrategyConfigProps {
   dateRange: [string, string]
   initialCapital: number
   parameters: Record<string, number | string>
-  loading: { signals: boolean; backtest: boolean; optimize: boolean }
+  loading: { signals: boolean; backtest: boolean; optimize: boolean; compare: boolean }
   onStockCodeChange: (code: string) => void
   onDateRangeChange: (range: [string, string]) => void
   onCapitalChange: (capital: number) => void
@@ -216,7 +216,7 @@ export function StrategyConfig({
               danger
               icon={<BarChartOutlined />}
               onClick={onCompare}
-              loading={loading.optimize}
+              loading={loading.compare}
               disabled={!stockCode}
               block
             >

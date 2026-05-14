@@ -1,4 +1,4 @@
-import { Card, Spin, Empty } from 'antd'
+import { Card, Empty } from 'antd'
 import { LineChartOutlined } from '@ant-design/icons'
 import type { StrategyInfo } from '../../types'
 import { STRATEGY_METADATA } from '../../constants/strategy'
