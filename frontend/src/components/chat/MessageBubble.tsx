@@ -1,5 +1,4 @@
 // frontend/src/components/chat/MessageBubble.tsx
-import React from 'react'
 import type { ChatMessage } from '../../types'
 
 interface Props {
