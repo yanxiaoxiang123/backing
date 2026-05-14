@@ -7,10 +7,13 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from app.agent.llm_adapter import LLMToolAdapter
+from app.agents.technical_agent import TechnicalAgent
 from app.config import get_db
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+technical_agent = TechnicalAgent()
 
 
 class ChatMessage(BaseModel):
@@ -53,3 +56,18 @@ async def chat_stream(request: ChatRequest):
         stream_llm_response([m.model_dump() for m in request.messages]),
         media_type="text/event-stream"
     )
+
+
+@router.post("/chat/agent/technical")
+async def chat_technical(request: AgentRequest):
+    """技术分析 Agent"""
+    async def generate():
+        adapter = LLMToolAdapter()
+        try:
+            async for chunk in technical_agent.run(request.stock_code, lambda x: x, {}):
+                yield f"data: {json.dumps({'content': chunk})}\n\n"
+        except Exception as e:
+            yield f"data: {json.dumps({'error': str(e)})}\n\n"
+        yield f"data: {json.dumps({'content': '[DONE]'})}\n\n"
+
+    return StreamingResponse(generate(), media_type="text/event-stream")
