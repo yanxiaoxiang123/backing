@@ -11,6 +11,7 @@ from app.agents.technical_agent import TechnicalAgent
 from app.agents.sentiment_agent import SentimentAgent
 from app.agents.news_agent import NewsAgent
 from app.agents.fundamentals_agent import FundamentalsAgent
+from app.agents.policy_agent import PolicyAgent
 from app.config import get_db
 
 logger = logging.getLogger(__name__)
@@ -20,6 +21,7 @@ technical_agent = TechnicalAgent()
 sentiment_agent = SentimentAgent()
 news_agent = NewsAgent()
 fundamentals_agent = FundamentalsAgent()
+policy_agent = PolicyAgent()
 
 
 class ChatMessage(BaseModel):
@@ -125,6 +127,23 @@ async def chat_fundamentals(request: AgentRequest):
     async def generate():
         try:
             async for chunk in fundamentals_agent.run(request.stock_code, stream_callback, {}):
+                yield f"data: {json.dumps({'content': chunk})}\n\n"
+        except Exception as e:
+            yield f"data: {json.dumps({'error': str(e)})}\n\n"
+        yield f"data: {json.dumps({'content': '[DONE]'})}\n\n"
+
+    return StreamingResponse(generate(), media_type="text/event-stream")
+
+
+@router.post("/chat/agent/policy")
+async def chat_policy(request: AgentRequest):
+    """政策分析 Agent"""
+    async def stream_callback(chunk):
+        return chunk
+
+    async def generate():
+        try:
+            async for chunk in policy_agent.run(request.stock_code, stream_callback, {}):
                 yield f"data: {json.dumps({'content': chunk})}\n\n"
         except Exception as e:
             yield f"data: {json.dumps({'error': str(e)})}\n\n"
