@@ -467,3 +467,32 @@ export interface CompareResponse {
   total_strategies: number
   failed_count: number
 }
+
+// ==================== Chat Types ====================
+
+export interface ChatMessage {
+  id: string
+  role: 'user' | 'assistant'
+  content: string
+  timestamp: number
+  type: 'normal' | 'command'
+  command?: string
+}
+
+export interface ChatRequest {
+  messages: Array<{
+    role: 'user' | 'assistant'
+    content: string
+  }>
+}
+
+export interface AgentRequest {
+  stock_code: string
+  query?: string
+}
+
+export interface CommandItem {
+  command: string
+  description: string
+  example: string
+}
