@@ -1,37 +1,45 @@
-import axios from 'axios'
 import type { ChatMessage, ChatRequest, AgentRequest } from '../types'
 
-const api = axios.create({
-  baseURL: '/api',
-  timeout: 120000
-})
+const API_BASE = '/api'
 
-api.interceptors.request.use((config) => {
+function getHeaders(): HeadersInit {
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+  }
   const apiKey = import.meta.env.VITE_API_KEY
   if (apiKey) {
-    config.headers['X-API-Key'] = apiKey
+    headers['X-API-Key'] = apiKey
   }
-  return config
-})
+  return headers
+}
 
 export async function* streamChat(messages: ChatMessage[]): AsyncGenerator<string> {
   const request: ChatRequest = {
     messages: messages.map(m => ({ role: m.role, content: m.content }))
   }
 
-  const response = await api.post('/chat/stream', request, {
-    responseType: 'text',
-    timeout: 120000
+  const response = await fetch(`${API_BASE}/chat/stream`, {
+    method: 'POST',
+    headers: getHeaders(),
+    body: JSON.stringify(request),
   })
 
-  const reader = response.data.getReader()
+  if (!response.ok) {
+    throw new Error(`HTTP error! status: ${response.status}`)
+  }
+
+  const reader = response.body?.getReader()
+  if (!reader) {
+    throw new Error('No response body')
+  }
+
   const decoder = new TextDecoder()
 
   while (true) {
     const { done, value } = await reader.read()
     if (done) break
 
-    const chunk = decoder.decode(value)
+    const chunk = decoder.decode(value, { stream: true })
     const lines = chunk.split('\n')
 
     for (const line of lines) {
@@ -45,7 +53,7 @@ export async function* streamChat(messages: ChatMessage[]): AsyncGenerator<strin
             throw new Error(data.error)
           }
           yield data.content
-        } catch (e) {
+        } catch {
           // 忽略解析错误
         }
       }
@@ -57,19 +65,28 @@ export async function* streamAgent(
   endpoint: string,
   request: AgentRequest
 ): AsyncGenerator<string> {
-  const response = await api.post(endpoint, request, {
-    responseType: 'text',
-    timeout: 120000
+  const response = await fetch(`${API_BASE}${endpoint}`, {
+    method: 'POST',
+    headers: getHeaders(),
+    body: JSON.stringify(request),
   })
 
-  const reader = response.data.getReader()
+  if (!response.ok) {
+    throw new Error(`HTTP error! status: ${response.status}`)
+  }
+
+  const reader = response.body?.getReader()
+  if (!reader) {
+    throw new Error('No response body')
+  }
+
   const decoder = new TextDecoder()
 
   while (true) {
     const { done, value } = await reader.read()
     if (done) break
 
-    const chunk = decoder.decode(value)
+    const chunk = decoder.decode(value, { stream: true })
     const lines = chunk.split('\n')
 
     for (const line of lines) {
@@ -83,7 +100,7 @@ export async function* streamAgent(
             throw new Error(data.error)
           }
           yield data.content
-        } catch (e) {
+        } catch {
           // 忽略解析错误
         }
       }

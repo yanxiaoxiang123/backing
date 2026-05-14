@@ -46,8 +46,8 @@ async def stream_llm_response(messages: List[Dict[str, str]]) -> AsyncGenerator[
     """流式调用 LLM，返回 SSE 格式"""
     adapter = LLMToolAdapter()
 
-    # 构造 messages 格式
-    llm_messages = [{"role": m.role, "content": m.content} for m in messages]
+    # messages 已经是 dict 列表: [{"role": "user", "content": "..."}]
+    llm_messages = messages
 
     try:
         response = adapter.chat(llm_messages, stream=True)
@@ -79,7 +79,7 @@ async def chat_technical(request: AgentRequest):
     async def generate():
         adapter = LLMToolAdapter()
         try:
-            async for chunk in technical_agent.run(request.stock_code, stream_callback, {}):
+            async for chunk in await technical_agent.run(request.stock_code, stream_callback, {}):
                 yield f"data: {json.dumps({'content': chunk})}\n\n"
         except Exception as e:
             yield f"data: {json.dumps({'error': str(e)})}\n\n"
@@ -96,7 +96,7 @@ async def chat_sentiment(request: AgentRequest):
 
     async def generate():
         try:
-            async for chunk in sentiment_agent.run(request.stock_code, stream_callback, {}):
+            async for chunk in await sentiment_agent.run(request.stock_code, stream_callback, {}):
                 yield f"data: {json.dumps({'content': chunk})}\n\n"
         except Exception as e:
             yield f"data: {json.dumps({'error': str(e)})}\n\n"
@@ -113,7 +113,7 @@ async def chat_news(request: AgentRequest):
 
     async def generate():
         try:
-            async for chunk in news_agent.run(request.stock_code, stream_callback, {}):
+            async for chunk in await news_agent.run(request.stock_code, stream_callback, {}):
                 yield f"data: {json.dumps({'content': chunk})}\n\n"
         except Exception as e:
             yield f"data: {json.dumps({'error': str(e)})}\n\n"
@@ -130,7 +130,7 @@ async def chat_fundamentals(request: AgentRequest):
 
     async def generate():
         try:
-            async for chunk in fundamentals_agent.run(request.stock_code, stream_callback, {}):
+            async for chunk in await fundamentals_agent.run(request.stock_code, stream_callback, {}):
                 yield f"data: {json.dumps({'content': chunk})}\n\n"
         except Exception as e:
             yield f"data: {json.dumps({'error': str(e)})}\n\n"
@@ -147,7 +147,7 @@ async def chat_policy(request: AgentRequest):
 
     async def generate():
         try:
-            async for chunk in policy_agent.run(request.stock_code, stream_callback, {}):
+            async for chunk in await policy_agent.run(request.stock_code, stream_callback, {}):
                 yield f"data: {json.dumps({'content': chunk})}\n\n"
         except Exception as e:
             yield f"data: {json.dumps({'error': str(e)})}\n\n"
@@ -164,7 +164,7 @@ async def chat_hotmoney(request: AgentRequest):
 
     async def generate():
         try:
-            async for chunk in hotmoney_agent.run(request.stock_code, stream_callback, {}):
+            async for chunk in await hotmoney_agent.run(request.stock_code, stream_callback, {}):
                 yield f"data: {json.dumps({'content': chunk})}\n\n"
         except Exception as e:
             yield f"data: {json.dumps({'error': str(e)})}\n\n"
@@ -181,7 +181,7 @@ async def chat_lockup(request: AgentRequest):
 
     async def generate():
         try:
-            async for chunk in lockup_agent.run(request.stock_code, stream_callback, {}):
+            async for chunk in await lockup_agent.run(request.stock_code, stream_callback, {}):
                 yield f"data: {json.dumps({'content': chunk})}\n\n"
         except Exception as e:
             yield f"data: {json.dumps({'error': str(e)})}\n\n"
