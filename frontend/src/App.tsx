@@ -9,6 +9,7 @@ import Backtest from './pages/Backtest'
 import BacktestHistory from './pages/BacktestHistory'
 import Strategies from './pages/Strategies'
 import AgentAnalysis from './pages/AgentAnalysis'
+import Chat from './pages/Chat'
 import DLPrediction from './pages/DLPrediction'
 import Watchlist from './pages/Watchlist'
 import Screener from './pages/Screener'
@@ -22,7 +23,8 @@ const navItems = [
   { key: '/dl-prediction', label: 'DL预测' },
   { key: '/backtest', label: '回测执行' },
   { key: '/history', label: '回测历史' },
-  { key: '/agent', label: 'AI分析' }
+  { key: '/agent', label: 'AI分析' },
+  { key: '/chat', label: 'AI 助手' }
 ]
 
 function App() {
@@ -111,6 +113,7 @@ function App() {
           <Route path="/backtest" element={<Backtest />} />
           <Route path="/history" element={<BacktestHistory />} />
           <Route path="/agent" element={<AgentAnalysis />} />
+          <Route path="/chat" element={<Chat />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
