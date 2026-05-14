@@ -1,5 +1,5 @@
 import { Card, Tag, Row, Col, Empty } from 'antd'
-import type { AgentStage } from '../../../types'
+import type { AgentStage } from '../../types'
 
 interface StageCardProps {
   stage: AgentStage

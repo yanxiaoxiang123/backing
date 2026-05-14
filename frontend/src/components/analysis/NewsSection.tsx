@@ -1,5 +1,5 @@
 import { Card } from 'antd'
-import type { AgentNewsItem } from '../../../types'
+import type { AgentNewsItem } from '../../types'
 
 interface NewsSectionProps {
   newsItems?: AgentNewsItem[]

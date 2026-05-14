@@ -1,12 +1,15 @@
 import { useState, useEffect } from 'react'
-import { Card, Select, Button, Table, Tag, message, Tabs, Progress, Empty, Row, Col, Modal } from 'antd'
+import { Card, Select, Button, Table, Tag, message, Tabs, Progress, Row, Col, Modal } from 'antd'
 import { PlayCircleOutlined, PauseCircleOutlined, HistoryOutlined, TrophyOutlined, AlertOutlined, StockOutlined, ThunderboltOutlined, EyeOutlined, CopyOutlined, DownloadOutlined } from '@ant-design/icons'
 import ReactECharts from 'echarts-for-react'
 import type { EChartsOption } from 'echarts'
 import { getJobStatus, submitAnalyzeStock, getAnalysisHistory, getAnalysisDetail, cancelJob, getStockIndicators } from '../services/api'
 import StockSearch from '../components/StockSearch'
-import type { AgentAnalyzeRequest, AnalysisRecord, AgentAnalyzeResponse, AgentNewsItem, AgentStage, JobStatus, KlineIndicator } from '../types'
+import type { AgentAnalyzeRequest, AnalysisRecord, AgentAnalyzeResponse, AgentStage, JobStatus, KlineIndicator } from '../types'
 import { logger } from '../utils/logger'
+import { DecisionCard } from '../components/analysis/DecisionCard'
+import { StageCard } from '../components/analysis/StageCard'
+import { NewsSection } from '../components/analysis/NewsSection'
 
 const { Option } = Select
 
@@ -411,52 +414,6 @@ export default function AgentAnalysis() {
     },
   ]
 
-  const renderNewsSection = (newsItems?: AgentNewsItem[]) => {
-    if (!newsItems || newsItems.length === 0) {
-      return null
-    }
-
-    return (
-      <Card style={{ marginTop: 16 }}>
-        <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 12 }}>相关新闻</div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {newsItems.map((item, index) => (
-            <div
-              key={`${item.url}-${index}`}
-              style={{
-                padding: 12,
-                borderRadius: 8,
-                background: 'var(--color-bg-secondary)',
-                border: '1px solid var(--color-border)'
-              }}
-            >
-              <a
-                href={item.url}
-                target="_blank"
-                rel="noreferrer"
-                style={{
-                  display: 'block',
-                  fontWeight: 600,
-                  color: 'var(--color-accent)',
-                  marginBottom: 6
-                }}
-              >
-                {item.title || `新闻 ${index + 1}`}
-              </a>
-              <div style={{ fontSize: 13, color: 'var(--color-text-secondary)', lineHeight: 1.6, marginBottom: 8 }}>
-                {item.content || '暂无摘要'}
-              </div>
-              <div style={{ fontSize: 12, color: 'var(--color-text-tertiary)' }}>
-                来源: {item.url}
-                {typeof item.score === 'number' ? ` | 相关度: ${item.score.toFixed(2)}` : ''}
-              </div>
-            </div>
-          ))}
-        </div>
-      </Card>
-    )
-  }
-
   const renderAnalysisPanel = () => (
     <div className="fade-in">
       {/* 分析表单 */}
@@ -542,98 +499,26 @@ export default function AgentAnalysis() {
           )}
 
           {/* 决策卡片 */}
-          <Card style={{ marginBottom: 16 }}>
-            <Row gutter={16} align="middle">
-              <Col>
-                <div style={{
-                  fontSize: 48,
-                  fontWeight: 700,
-                  color: result.final_signal === 'buy' ? 'var(--color-success)' :
-                         result.final_signal === 'sell' ? 'var(--color-danger)' :
-                         'var(--color-text-secondary)'
-                }}>
-                  {result.final_signal === 'buy' ? '↑' : result.final_signal === 'sell' ? '↓' : '→'}
-                </div>
-              </Col>
-              <Col flex="auto">
-                <div style={{ fontSize: 24, fontWeight: 600, marginBottom: 4 }}>
-                  {getSignalLabel(result.final_signal)}
-                </div>
-                <div style={{ color: 'var(--color-text-secondary)' }}>
-                  置信度: {Math.round(result.final_confidence * 100)}% | 耗时: {result.duration_s.toFixed(1)}s
-                </div>
-              </Col>
-              <Col>
-                <Tag color={getSignalColor(result.final_signal)} style={{ fontSize: 16, padding: '4px 12px' }}>
-                  {result.mode}
-                </Tag>
-              </Col>
-            </Row>
-            <div style={{ marginTop: 16, display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-              <Button size="small" icon={<CopyOutlined />} onClick={() => copyToClipboard(result.final_reason || '')}>
-                复制结论
-              </Button>
-              <Button size="small" icon={<DownloadOutlined />} onClick={() => exportPdf(result)}>
-                导出 PDF
-              </Button>
-            </div>
-            {result.final_reason && (
-              <div style={{ marginTop: 16, padding: 12, background: 'var(--color-bg-secondary)', borderRadius: 8 }}>
-                {result.final_reason}
-              </div>
-            )}
-          </Card>
+          <DecisionCard result={result} />
+          <div style={{ marginTop: 16, display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+            <Button size="small" icon={<CopyOutlined />} onClick={() => copyToClipboard(result.final_reason || '')}>
+              复制结论
+            </Button>
+            <Button size="small" icon={<DownloadOutlined />} onClick={() => exportPdf(result)}>
+              导出 PDF
+            </Button>
+          </div>
 
           {/* 各阶段结果 */}
           <Row gutter={16}>
             {result.stages.map((stage, index) => (
               <Col span={24} key={stage.stage_name}>
-                <Card
-                  size="small"
-                  title={
-                    <span>
-                      {index === 0 && <StockOutlined />}
-                      {index === 1 && <ThunderboltOutlined />}
-                      {index === 2 && <AlertOutlined />}
-                      {index === 3 && <TrophyOutlined />}
-                      {' '}{stage.stage_name === 'technical_analysis' ? '技术分析' :
-                         stage.stage_name === 'intel' ? '情报分析' :
-                         stage.stage_name === 'risk' ? '风险评估' :
-                         stage.stage_name === 'strategy' ? '策略评估' : '决策'}
-                    </span>
-                  }
-                  extra={
-                    <Tag color={stage.status === 'completed' ? 'green' : stage.status === 'failed' ? 'red' : 'orange'}>
-                      {stage.status === 'completed' ? '完成' : stage.status === 'failed' ? '失败' : '进行中'}
-                    </Tag>
-                  }
-                  style={{ marginBottom: 8 }}
-                >
-                  {stage.opinion ? (
-                    <Row gutter={16}>
-                      <Col span={4}>
-                        <Tag color={getSignalColor(stage.opinion.signal)} style={{ fontSize: 14 }}>
-                          {getSignalLabel(stage.opinion.signal)}
-                        </Tag>
-                        <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginTop: 4 }}>
-                          置信度: {Math.round(stage.opinion.confidence * 100)}%
-                        </div>
-                      </Col>
-                      <Col span={20}>
-                        <div style={{ fontSize: 13 }}>{stage.opinion.reason || '无'}</div>
-                      </Col>
-                    </Row>
-                  ) : stage.error ? (
-                    <div style={{ color: 'var(--color-danger)' }}>{stage.error}</div>
-                  ) : (
-                    <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} />
-                  )}
-                </Card>
+                <StageCard stage={stage} index={index} />
               </Col>
             ))}
           </Row>
 
-          {renderNewsSection(result.news_items)}
+          <NewsSection newsItems={result.news_items} />
         </div>
       )}
 
@@ -796,90 +681,18 @@ export default function AgentAnalysis() {
         width={800}
       >
         {/* 决策卡片 */}
-        <Card style={{ marginBottom: 16 }}>
-          <Row gutter={16} align="middle">
-            <Col>
-              <div style={{
-                fontSize: 48,
-                fontWeight: 700,
-                color: selectedDetail.final_signal === 'buy' ? 'var(--color-success)' :
-                       selectedDetail.final_signal === 'sell' ? 'var(--color-danger)' :
-                       'var(--color-text-secondary)'
-              }}>
-                {selectedDetail.final_signal === 'buy' ? '↑' : selectedDetail.final_signal === 'sell' ? '↓' : '→'}
-              </div>
-            </Col>
-            <Col flex="auto">
-              <div style={{ fontSize: 24, fontWeight: 600, marginBottom: 4 }}>
-                {getSignalLabel(selectedDetail.final_signal)}
-              </div>
-              <div style={{ color: 'var(--color-text-secondary)' }}>
-                置信度: {Math.round(selectedDetail.final_confidence * 100)}% | 耗时: {selectedDetail.duration_s.toFixed(1)}s
-              </div>
-            </Col>
-            <Col>
-              <Tag color={getSignalColor(selectedDetail.final_signal)} style={{ fontSize: 16, padding: '4px 12px' }}>
-                {selectedDetail.mode}
-              </Tag>
-            </Col>
-          </Row>
-          {selectedDetail.final_reason && (
-            <div style={{ marginTop: 16, padding: 12, background: 'var(--color-bg-secondary)', borderRadius: 8 }}>
-              {selectedDetail.final_reason}
-            </div>
-          )}
-        </Card>
+        <DecisionCard result={selectedDetail} />
 
         {/* 各阶段结果 */}
         <Row gutter={16}>
-          {selectedDetail.stages.map((stage: { stage_name: string; status: string; opinion?: { agent_name: string; signal: string; confidence: number; reason: string }; error?: string }, index: number) => (
+          {selectedDetail.stages.map((stage, index) => (
             <Col span={24} key={stage.stage_name}>
-              <Card
-                size="small"
-                title={
-                  <span>
-                    {index === 0 && <StockOutlined />}
-                    {index === 1 && <ThunderboltOutlined />}
-                    {index === 2 && <AlertOutlined />}
-                    {index === 3 && <TrophyOutlined />}
-                    {' '}{stage.stage_name === 'technical_analysis' ? '技术分析' :
-                       stage.stage_name === 'intel' ? '情报分析' :
-                       stage.stage_name === 'risk' ? '风险评估' :
-                       stage.stage_name === 'strategy' ? '策略评估' : '决策'}
-                  </span>
-                }
-                extra={
-                  <Tag color={stage.status === 'completed' ? 'green' : stage.status === 'failed' ? 'red' : 'orange'}>
-                    {stage.status === 'completed' ? '完成' : stage.status === 'failed' ? '失败' : '进行中'}
-                  </Tag>
-                }
-                style={{ marginBottom: 8 }}
-              >
-                {stage.opinion ? (
-                  <Row gutter={16}>
-                    <Col span={4}>
-                      <Tag color={getSignalColor(stage.opinion.signal)} style={{ fontSize: 14 }}>
-                        {getSignalLabel(stage.opinion.signal)}
-                      </Tag>
-                      <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginTop: 4 }}>
-                        置信度: {Math.round(stage.opinion.confidence * 100)}%
-                      </div>
-                    </Col>
-                    <Col span={20}>
-                      <div style={{ fontSize: 13 }}>{stage.opinion.reason || '无'}</div>
-                    </Col>
-                  </Row>
-                ) : stage.error ? (
-                  <div style={{ color: 'var(--color-danger)' }}>{stage.error}</div>
-                ) : (
-                  <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} />
-                )}
-              </Card>
+              <StageCard stage={stage} index={index} />
             </Col>
           ))}
         </Row>
 
-        {renderNewsSection(selectedDetail.news_items)}
+        <NewsSection newsItems={selectedDetail.news_items} />
       </Modal>
     )
   }

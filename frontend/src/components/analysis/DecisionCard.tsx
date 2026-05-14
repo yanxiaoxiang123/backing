@@ -1,5 +1,5 @@
 import { Card, Tag, Row, Col } from 'antd'
-import type { AgentAnalyzeResponse } from '../../../types'
+import type { AgentAnalyzeResponse } from '../../types'
 
 interface DecisionCardProps {
   result: AgentAnalyzeResponse
