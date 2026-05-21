@@ -19,3 +19,4 @@ pytest>=8.3.0
 httpx>=0.28.0
 slowapi>=0.1.9
 langchain-core>=0.3.0
+mootdx>=0.11.7
