@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import axios from 'axios'
-import { Table, Button, message, Modal, Form, Input } from 'antd'
+import { Table, Button, message, Modal, Form, Input, Select } from 'antd'
 import { SyncOutlined, LineChartOutlined, SearchOutlined } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
 import { getJobStatus, getStocks, submitSyncKline, submitSyncStocks } from '../services/api'
@@ -103,11 +103,11 @@ function StockList() {
     setSyncModalVisible(true)
   }
 
-  const handleSyncKlineConfirm = async (values: { stockCodes: string; startDate: string; endDate: string }) => {
+  const handleSyncKlineConfirm = async (values: { stockCodes: string; strategy: string }) => {
     setSyncing(true)
     try {
       const codes = values.stockCodes ? values.stockCodes.split(',').map(s => s.trim()) : undefined
-      const submission = await submitSyncKline(codes, values.startDate, values.endDate)
+      const submission = await submitSyncKline(codes, values.strategy as 'incremental' | 'full')
       const result = await waitForJob<{ klines_synced: number; message: string }>(submission.job_id)
       message.success(result.message || `同步成功: ${result.klines_synced} 条K线数据`)
     } catch (error) {
@@ -245,23 +245,19 @@ function StockList() {
         <Form
           layout="vertical"
           onFinish={handleSyncKlineConfirm}
-          initialValues={{
-            startDate: '2020-01-01',
-            endDate: new Date().toISOString().split('T')[0]
-          }}
         >
           <Form.Item
             name="stockCodes"
             label="股票代码（可选）"
-            extra="多个代码用逗号分隔，如: sh.600000,sz.000001"
+            extra="多个代码用逗号分隔，如: sh.600000,sz.000001。留空则同步所有股票。"
           >
             <Input placeholder="留空同步所有股票" />
           </Form.Item>
-          <Form.Item name="startDate" label="开始日期" rules={[{ required: true }]}>
-            <Input type="date" />
-          </Form.Item>
-          <Form.Item name="endDate" label="结束日期" rules={[{ required: true }]}>
-            <Input type="date" />
+          <Form.Item name="strategy" label="同步策略">
+            <Select>
+              <Select.Option value="incremental">增量同步（有数据则从最新日期更新）</Select.Option>
+              <Select.Option value="full">全量同步（重新拉取2020年至今所有数据）</Select.Option>
+            </Select>
           </Form.Item>
           <Form.Item>
             <Button type="primary" htmlType="submit" loading={syncing} block>
