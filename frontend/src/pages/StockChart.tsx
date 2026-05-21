@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { Select, Spin, message } from 'antd'
 import ReactECharts from 'echarts-for-react'
 import type { EChartsOption } from 'echarts'
-import { getStockIndicators, getStock, getRealtimeBars } from '../services/api'
+import { getStock, getRealtimeBars } from '../services/api'
 import type { KlineIndicator } from '../types'
 import { ArrowLeftOutlined } from '@ant-design/icons'
 
@@ -25,48 +25,6 @@ function StockChart() {
     }
   }, [code, period])
 
-  // Realtime polling every 10 seconds - updates the latest K-line bar with live data
-  useEffect(() => {
-    if (!code) return
-
-    const pollRealtime = async () => {
-      try {
-        const res = await getRealtimeBars(code)
-        if (!res.data?.length) return
-        setKlineData(prev => {
-          const merged = [...prev]
-          for (const bar of res.data) {
-            // Convert RealtimeBar format to KlineIndicator format
-            const indicatorBar: KlineIndicator = {
-              date: bar.date,
-              open: bar.open,
-              high: bar.high,
-              low: bar.low,
-              close: bar.close,
-              volume: bar.volume,
-              // Technical indicators will be recalculated below
-            }
-            const existIdx = merged.findIndex(b => b.date === bar.date)
-            if (existIdx >= 0) {
-              merged[existIdx] = indicatorBar
-            } else {
-              merged.push(indicatorBar)
-            }
-          }
-          return merged
-            .sort((a, b) => a.date.localeCompare(b.date))
-            .slice(-120)
-        })
-      } catch (e) {
-        console.warn('StockChart realtime poll failed:', e)
-      }
-    }
-
-    pollRealtime()
-    const interval = setInterval(pollRealtime, 10_000)
-    return () => clearInterval(interval)
-  }, [code])
-
   const loadData = async () => {
     if (!code) return
 
@@ -75,11 +33,35 @@ function StockChart() {
       const stockInfo = await getStock(code)
       setStockName(stockInfo.name)
 
-      const endDate = new Date().toISOString().split('T')[0]
-      const startDate = new Date(Date.now() - 730 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+      // 直接用 mootdx 实时数据
+      const res = await getRealtimeBars(code)
 
-      const response = await getStockIndicators(code, period, startDate, endDate)
-      setKlineData(response.data)
+      // 将 RealtimeBar 格式转换为 KlineIndicator 格式
+      const klineData: KlineIndicator[] = (res.data ?? []).map((bar: any) => ({
+        date: bar.date,
+        open: bar.open,
+        high: bar.high,
+        low: bar.low,
+        close: bar.close,
+        volume: bar.volume,
+        amount: bar.amount,
+        ma5: undefined,
+        ma10: undefined,
+        ma20: undefined,
+        ma60: undefined,
+        ma120: undefined,
+        dif: undefined,
+        dea: undefined,
+        macd: undefined,
+        kdj_k: undefined,
+        kdj_d: undefined,
+        kdj_j: undefined,
+        rsi6: undefined,
+        rsi12: undefined,
+        rsi24: undefined,
+      }))
+
+      setKlineData(klineData)
     } catch (error) {
       message.error('加载K线数据失败')
     } finally {
@@ -97,20 +79,6 @@ function StockChart() {
       itemColor: d.close >= d.open ? '#EB001B' : '#F79E1B'
     }))
 
-    const ma5 = klineData.map(d => d.ma5)
-    const ma10 = klineData.map(d => d.ma10)
-    const ma20 = klineData.map(d => d.ma20)
-    const ma60 = klineData.map(d => d.ma60)
-    const ma120 = klineData.map(d => d.ma120)
-
-    const dif = klineData.map(d => d.dif)
-    const dea = klineData.map(d => d.dea)
-    const macd = klineData.map(d => d.macd)
-
-    const kdjK = klineData.map(d => d.kdj_k)
-    const kdjD = klineData.map(d => d.kdj_d)
-    const kdjJ = klineData.map(d => d.kdj_j)
-
     return {
       backgroundColor: 'transparent',
       animation: false,
@@ -118,7 +86,7 @@ function StockChart() {
         top: 10,
         left: 'center',
         textStyle: { color: '#696969', fontSize: 11, fontWeight: 450 },
-        data: ['K线', 'MA5', 'MA10', 'MA20', 'MA60', 'MA120']
+        data: ['K线', '成交量']
       },
       tooltip: {
         trigger: 'axis',
@@ -152,10 +120,8 @@ function StockChart() {
         label: { backgroundColor: '#696969' }
       },
       grid: [
-        { left: '10%', right: '8%', top: 50, height: '42%' },
-        { left: '10%', right: '8%', top: '55%', height: '10%' },
-        { left: '10%', right: '8%', top: '69%', height: '10%' },
-        { left: '10%', right: '8%', top: '83%', height: '10%' }
+        { left: '10%', right: '8%', top: 50, height: '65%' },
+        { left: '10%', right: '8%', top: '70%', height: '15%' }
       ],
       xAxis: [
         {
@@ -171,26 +137,6 @@ function StockChart() {
         {
           type: 'category',
           gridIndex: 1,
-          data: dates,
-          boundaryGap: false,
-          axisLine: { onZero: false, lineStyle: { color: '#D1CDC7' } },
-          axisTick: { show: false },
-          splitLine: { show: false },
-          axisLabel: { show: false }
-        },
-        {
-          type: 'category',
-          gridIndex: 2,
-          data: dates,
-          boundaryGap: false,
-          axisLine: { onZero: false, lineStyle: { color: '#D1CDC7' } },
-          axisTick: { show: false },
-          splitLine: { show: false },
-          axisLabel: { show: false }
-        },
-        {
-          type: 'category',
-          gridIndex: 3,
           data: dates,
           boundaryGap: false,
           axisLine: { onZero: false, lineStyle: { color: '#D1CDC7' } },
@@ -216,36 +162,18 @@ function StockChart() {
           axisLine: { show: false },
           axisTick: { show: false },
           splitLine: { show: false }
-        },
-        {
-          scale: true,
-          gridIndex: 2,
-          splitNumber: 2,
-          axisLabel: { show: true, color: '#696969', fontSize: 9, fontWeight: 450 },
-          axisLine: { show: false },
-          axisTick: { show: false },
-          splitLine: { show: false }
-        },
-        {
-          scale: true,
-          gridIndex: 3,
-          splitNumber: 2,
-          axisLabel: { show: true, color: '#696969', fontSize: 9, fontWeight: 450 },
-          axisLine: { show: false },
-          axisTick: { show: false },
-          splitLine: { show: false }
         }
       ],
       dataZoom: [
         {
           type: 'inside',
-          xAxisIndex: [0, 1, 2, 3],
+          xAxisIndex: [0, 1],
           start: 0,
           end: 100
         },
         {
           show: true,
-          xAxisIndex: [0, 1, 2, 3],
+          xAxisIndex: [0, 1],
           type: 'slider',
           bottom: 10,
           start: 0,
@@ -270,59 +198,12 @@ function StockChart() {
             borderColor0: '#F79E1B'
           }
         },
-        { name: 'MA5', type: 'line', data: ma5, smooth: true, lineStyle: { width: 1, opacity: 0.6 } },
-        { name: 'MA10', type: 'line', data: ma10, smooth: true, lineStyle: { width: 1, opacity: 0.6 } },
-        { name: 'MA20', type: 'line', data: ma20, smooth: true, lineStyle: { width: 1, opacity: 0.6 } },
-        { name: 'MA60', type: 'line', data: ma60, smooth: true, lineStyle: { width: 1, opacity: 0.6 } },
-        { name: 'MA120', type: 'line', data: ma120, smooth: true, lineStyle: { width: 1, opacity: 0.6 } },
         {
           name: '成交量',
           type: 'bar',
           xAxisIndex: 1,
           yAxisIndex: 1,
           data: volumes
-        },
-        {
-          name: 'MACD',
-          type: 'bar',
-          xAxisIndex: 2,
-          yAxisIndex: 2,
-          data: macd
-        },
-        {
-          name: 'DIF',
-          type: 'line',
-          xAxisIndex: 2,
-          yAxisIndex: 2,
-          data: dif
-        },
-        {
-          name: 'DEA',
-          type: 'line',
-          xAxisIndex: 2,
-          yAxisIndex: 2,
-          data: dea
-        },
-        {
-          name: 'K',
-          type: 'line',
-          xAxisIndex: 3,
-          yAxisIndex: 3,
-          data: kdjK
-        },
-        {
-          name: 'D',
-          type: 'line',
-          xAxisIndex: 3,
-          yAxisIndex: 3,
-          data: kdjD
-        },
-        {
-          name: 'J',
-          type: 'line',
-          xAxisIndex: 3,
-          yAxisIndex: 3,
-          data: kdjJ
         }
       ]
     }
@@ -384,8 +265,8 @@ function StockChart() {
             className="mastercard-select"
             options={[
               { value: 'daily', label: '日K' },
-              { value: 'weekly', label: '周K' },
-              { value: 'monthly', label: '月K' }
+              // { value: 'weekly', label: '周K' }, // 暂时禁用
+              // { value: 'monthly', label: '月K' } // 暂时禁用
             ]}
           />
         </div>
