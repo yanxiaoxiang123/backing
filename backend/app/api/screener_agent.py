@@ -5,7 +5,7 @@ import threading
 import time
 from typing import Optional
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel
 
 from app.auth import get_current_api_key
@@ -58,6 +58,7 @@ class ScreenerSubmitResponse(BaseModel):
 @router.post("/screener/submit", response_model=ScreenerSubmitResponse)
 @limiter.limit("2/minute")
 def submit_screener_job(
+    request: Request,
     _: str = Depends(get_current_api_key),
 ):
     """提交选股任务，返回 job_id"""
