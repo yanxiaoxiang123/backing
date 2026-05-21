@@ -394,6 +394,22 @@ export async function runScreener(request: ScreenerRequest): Promise<ScreenerRes
   return response.data
 }
 
+export async function submitScreener(): Promise<{ job_id: string }> {
+  const response = await api.post<{ job_id: string }>('/screener/submit')
+  return response.data
+}
+
+export async function getScreenerStatus(jobId: string): Promise<{
+  status: string
+  progress: number
+  payload?: { stage: string; current: number; total: number; message: string }
+  result?: { success: boolean; total_scanned: number; results: any[] }
+  error?: string
+}> {
+  const response = await api.get(`/screener/${jobId}`)
+  return response.data
+}
+
 // Strategy Comparison API
 export async function compareStrategies(request: CompareRequest): Promise<CompareResponse> {
   const response = await api.post<CompareResponse>('/strategies/compare', request)
