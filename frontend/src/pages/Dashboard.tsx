@@ -1,10 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import { Spin, Select } from 'antd'
 import { LineChartOutlined, TableOutlined } from '@ant-design/icons'
 import ReactECharts from 'echarts-for-react'
-import type { EChartsOption } from 'echarts'
 import { useNavigate } from 'react-router-dom'
-import { getDashboardSummary, getStockKline } from '../services/api'
+import { getRealtimeQuotes, getRealtimeIndices, getStockKline } from '../services/api'
 import type { DashboardIndex, DashboardSummary, DashboardStock } from '../types'
 import { logger } from '../utils/logger'
 
@@ -26,20 +25,65 @@ function Dashboard() {
     loadData()
   }, [])
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       setLoading(true)
-      const data = await getDashboardSummary()
-      logger.info('Dashboard data:', data)
-      setSummary(data)
+      // 从 settings.watchlist_stocks 获取自选股代码列表
+      // 如果有 watchlist 数据，从中提取代码
+      let codes: string[] = []
+      if (summary?.watchlist && summary.watchlist.length > 0) {
+        codes = summary.watchlist.map((w: any) => {
+          // 去掉市场前缀 sh.600036 -> 600036
+          return w.code.split('.')[-1]
+        })
+      }
+
+      const [quotesRes, indicesRes] = await Promise.all([
+        codes.length > 0 ? getRealtimeQuotes(codes) : Promise.resolve({ success: true, data: [] }),
+        getRealtimeIndices(),
+      ])
+
+      const watchlistData = quotesRes.data.map((q: any, idx: number) => {
+        const name = summary?.watchlist?.[idx]?.name || q.symbol
+        return {
+          id: idx,
+          code: q.symbol,
+          name: name,
+          current_price: q.close,
+          high: q.high,
+          low: q.low,
+          volume: q.volume,
+          change: q.change,
+          change_percent: q.change_percent,
+        }
+      })
+
+      const indicesData = indicesRes.data.map((idx: any) => ({
+        code: idx.symbol,
+        name: idx.name,
+        value: idx.close,
+        change: idx.change,
+        change_percent: idx.change_percent,
+      }))
+
+      const up = watchlistData.filter((s: any) => s.change_percent > 0).length
+      const down = watchlistData.filter((s: any) => s.change_percent < 0).length
+      const flat = watchlistData.length - up - down
+
+      setSummary(prev => ({
+        watchlist: watchlistData,
+        indices: indicesData,
+        market_stats: { up, down, flat, total: watchlistData.length },
+        trend: prev?.trend || { name: watchlistData[0]?.name || '', dates: [], values: [] },
+      }))
     } catch (error) {
       logger.error('Failed to load dashboard data:', error)
     } finally {
       setLoading(false)
     }
-  }
+  }, [summary?.watchlist?.length])
 
-  const loadTrendData = async (stockCode: string) => {
+  const loadTrendData = useCallback(async (stockCode: string) => {
     try {
       setTrendLoading(true)
       const endDate = new Date().toISOString().split('T')[0]
@@ -59,16 +103,16 @@ function Dashboard() {
     } finally {
       setTrendLoading(false)
     }
-  }
+  }, [summary])
 
-  const handleTrendStockChange = (stockCode: string) => {
+  const handleTrendStockChange = useCallback((stockCode: string) => {
     setSelectedTrendStock(stockCode)
     if (stockCode) {
       loadTrendData(stockCode)
     } else {
       setTrendData(null)
     }
-  }
+  }, [loadTrendData])
 
   const IndexCard = ({ name, value, change, change_percent }: DashboardIndex) => {
     const isUp = change >= 0
@@ -108,7 +152,7 @@ function Dashboard() {
     )
   }
 
-  const getTrendChartOption = (): EChartsOption => {
+  const getTrendChartOption = useMemo(() => {
     // Use selected trend data if available, otherwise fall back to summary trend
     const currentTrend = trendData || (summary ? summary.trend : null)
     if (!currentTrend || currentTrend.values.length === 0) return {}
@@ -153,7 +197,7 @@ function Dashboard() {
         }
       }]
     }
-  }
+  }, [trendData, summary])
 
   const WatchlistTable = ({ stocks }: { stocks: DashboardStock[] }) => (
     <div style={{ background: 'var(--color-canvas-lifted)', borderRadius: 'var(--radius-card)', overflow: 'hidden' }}>
@@ -255,7 +299,7 @@ function Dashboard() {
               options={summary.watchlist.map(w => ({ value: w.code, label: `${w.code} ${w.name}` }))}
             />
           </div>
-          <ReactECharts option={getTrendChartOption()} style={{ height: 280 }} />
+          <ReactECharts option={getTrendChartOption} style={{ height: 280 }} />
         </div>
         <div style={{ background: 'var(--color-canvas-lifted)', borderRadius: 'var(--radius-card)', padding: 'var(--space-lg)' }}>
           <div style={{ fontSize: 'var(--font-size-sm)', fontWeight: 600, marginBottom: 'var(--space-sm)', color: 'var(--color-text-secondary)' }}>
