@@ -1,10 +1,12 @@
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 from typing import List
+import logging
 
 from app.services.realtime_service import realtime_service
 from app.auth import get_current_api_key
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
@@ -50,3 +52,55 @@ def get_realtime_bars(
         code=code,
         data=[RealtimeBar(**item) for item in data],
     )
+
+
+class RealtimeQuote(BaseModel):
+    symbol: str
+    open: float
+    high: float
+    low: float
+    close: float
+    volume: float
+    amount: float
+    change: float
+    change_percent: float
+    prev_close: float
+
+
+class RealtimeIndex(BaseModel):
+    symbol: str
+    name: str
+    close: float
+    change: float
+    change_percent: float
+    prev_close: float
+
+
+class RealtimeQuotesResponse(BaseModel):
+    success: bool
+    data: List[RealtimeQuote]
+
+
+class RealtimeIndicesResponse(BaseModel):
+    success: bool
+    data: List[RealtimeIndex]
+
+
+@router.get('/realtime/quotes', response_model=RealtimeQuotesResponse)
+def get_realtime_quotes(
+    codes: str = Query(..., description="股票代码，逗号分隔，如 600036,000001"),
+    _: str = Query(None, alias='api_key'),
+):
+    """批量获取股票实时行情（最新价格/涨跌幅）"""
+    symbol_list = [s.strip() for s in codes.split(',') if s.strip()]
+    data = realtime_service.get_realtime_quotes(symbol_list)
+    return RealtimeQuotesResponse(success=True, data=[RealtimeQuote(**item) for item in data])
+
+
+@router.get('/realtime/indices', response_model=RealtimeIndicesResponse)
+def get_realtime_indices(
+    _: str = Query(None, alias='api_key'),
+):
+    """获取主要指数实时行情"""
+    data = realtime_service.get_index_realtime()
+    return RealtimeIndicesResponse(success=True, data=[RealtimeIndex(**item) for item in data])
