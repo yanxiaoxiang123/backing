@@ -3,7 +3,7 @@ import { Spin, Select } from 'antd'
 import { LineChartOutlined, TableOutlined } from '@ant-design/icons'
 import ReactECharts from 'echarts-for-react'
 import { useNavigate } from 'react-router-dom'
-import { getRealtimeQuotes, getRealtimeIndices, getStockKline } from '../services/api'
+import { getRealtimeQuotes, getRealtimeIndices, getWatchlist, getRealtimeBars } from '../services/api'
 import type { DashboardIndex, DashboardSummary, DashboardStock } from '../types'
 import { logger } from '../utils/logger'
 
@@ -28,35 +28,30 @@ function Dashboard() {
   const loadData = useCallback(async () => {
     try {
       setLoading(true)
-      // 从 settings.watchlist_stocks 获取自选股代码列表
-      // 如果有 watchlist 数据，从中提取代码
-      let codes: string[] = []
-      if (summary?.watchlist && summary.watchlist.length > 0) {
-        codes = summary.watchlist.map((w: any) => {
-          // 去掉市场前缀 sh.600036 -> 600036
-          return w.code.split('.')[-1]
-        })
-      }
+      // 从 DB 获取自选股列表（代码+名称）
+      const watchlistRes = await getWatchlist()
+      const codes = watchlistRes.items.map((item: any) => item.stock_code)
+      const nameMap: Record<string, string> = {}
+      watchlistRes.items.forEach((item: any) => {
+        nameMap[item.stock_code] = item.stock_name || item.stock_code
+      })
 
       const [quotesRes, indicesRes] = await Promise.all([
         codes.length > 0 ? getRealtimeQuotes(codes) : Promise.resolve({ success: true, data: [] }),
         getRealtimeIndices(),
       ])
 
-      const watchlistData = quotesRes.data.map((q: any, idx: number) => {
-        const name = summary?.watchlist?.[idx]?.name || q.symbol
-        return {
-          id: idx,
-          code: q.symbol,
-          name: name,
-          current_price: q.close,
-          high: q.high,
-          low: q.low,
-          volume: q.volume,
-          change: q.change,
-          change_percent: q.change_percent,
-        }
-      })
+      const watchlistData = quotesRes.data.map((q: any) => ({
+        id: 0,
+        code: q.symbol,
+        name: nameMap[q.symbol] || q.symbol,
+        current_price: q.close,
+        high: q.high,
+        low: q.low,
+        volume: q.volume,
+        change: q.change,
+        change_percent: q.change_percent,
+      }))
 
       const indicesData = indicesRes.data.map((idx: any) => ({
         code: idx.symbol,
@@ -86,16 +81,14 @@ function Dashboard() {
   const loadTrendData = useCallback(async (stockCode: string) => {
     try {
       setTrendLoading(true)
-      const endDate = new Date().toISOString().split('T')[0]
-      const startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
-      const klines = await getStockKline(stockCode, startDate, endDate)
+      const klines = await getRealtimeBars(stockCode, 'daily')
 
-      if (klines.length > 0) {
-        const stockName = summary?.watchlist.find(w => w.code === stockCode)?.name || stockCode
+      if (klines.data.length > 0) {
+        const stockName = summary?.watchlist.find((w: any) => w.code === stockCode)?.name || stockCode
         setTrendData({
           name: `${stockName} (${stockCode})`,
-          dates: klines.map(k => k.date),
-          values: klines.map(k => k.close)
+          dates: klines.data.map((k: any) => k.date),
+          values: klines.data.map((k: any) => k.close)
         })
       }
     } catch (error) {
