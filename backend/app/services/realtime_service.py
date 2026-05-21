@@ -19,28 +19,28 @@ class RealtimeService:
             cls._client = Quotes.factory(market='std')
         return cls._client
 
-    def bars(self, symbol: str, offset: int = 10) -> pd.DataFrame:
-        """获取实时日K数据
+    def bars(self, symbol: str, frequency: int = 9, offset: int = 750) -> pd.DataFrame:
+        """获取实时K线数据
 
         Args:
             symbol: 股票代码，如 "600036"（不带市场前缀）
-            offset: 返回最近 N 条，默认 10 条
+            frequency: 周期，9=日K，5=周K，6=月K
+            offset: 返回最近 N 条，默认 750（3年交易日）
 
         Returns:
-            DataFrame，列名: date, open, high, low, close, volume, amount, symbol
+            DataFrame，列名: open, close, high, low, vol, amount, datetime, volume
         """
         client = self.get_client()
         try:
-            # frequency=9 表示日K线
-            df = client.bars(symbol=symbol, frequency=9, offset=offset)
+            df = client.bars(symbol=symbol, frequency=frequency, offset=offset)
             return df if df is not None else pd.DataFrame()
         except Exception as e:
             logger.error(f"mootdx bars error for {symbol}: {e}")
             return pd.DataFrame()
 
-    def normalise_bars(self, symbol: str, offset: int = 10) -> List[Dict[str, Any]]:
+    def normalise_bars(self, symbol: str, frequency: int = 9, offset: int = 750) -> List[Dict[str, Any]]:
         """将 bars 数据规范化为 dict 列表"""
-        df = self.bars(symbol=symbol, offset=offset)
+        df = self.bars(symbol=symbol, frequency=frequency, offset=offset)
         if df is None or (hasattr(df, 'empty') and df.empty):
             return []
 

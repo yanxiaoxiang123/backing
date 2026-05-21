@@ -45,35 +45,36 @@ api.interceptors.request.use((config) => {
 // Stock APIs
 export async function getStocks(
   market?: string,
-  skip = 0,
+  cursor = 0,
   limit = 100
-): Promise<{ items: Stock[]; total: number }> {
+): Promise<{ items: Stock[]; total: number; nextCursor: number | null }> {
   const params = new URLSearchParams()
   if (market) params.append('market', market)
-  params.append('skip', String(skip))
+  params.append('cursor', String(cursor))
   params.append('limit', String(limit))
   const response = await api.get<Stock[]>(`/stocks?${params}`)
+  const items = response.data
+  const nextCursor = items.length > 0 ? items[items.length - 1].id : null
   return {
-    items: response.data,
-    total: Number(response.headers['x-total-count'] || response.data.length)
+    items,
+    total: Number(response.headers['x-total-count'] || items.length),
+    nextCursor
   }
 }
 
 export async function getAllStocks(market?: string): Promise<Stock[]> {
   const pageSize = 500
-  let skip = 0
-  let total = 0
+  let cursor = 0
   const items: Stock[] = []
 
   do {
-    const response = await getStocks(market, skip, pageSize)
+    const response = await getStocks(market, cursor, pageSize)
     items.push(...response.items)
-    total = response.total
-    skip += response.items.length
     if (response.items.length === 0) {
       break
     }
-  } while (items.length < total)
+    cursor = response.nextCursor ?? -1
+  } while (cursor !== -1)
 
   return items
 }
@@ -144,13 +145,9 @@ export async function submitSyncStocks(): Promise<JobSubmission> {
 
 export async function submitSyncKline(
   stockCodes?: string[],
-  startDate = '2020-01-01',
-  endDate?: string
+  strategy: 'incremental' | 'full' = 'incremental'
 ): Promise<JobSubmission> {
-  const params: Record<string, string> = { start_date: startDate }
-  if (endDate) {
-    params.end_date = endDate
-  }
+  const params: Record<string, string> = { strategy }
   const response = await api.post<JobSubmission>('/stocks/sync-kline/submit', stockCodes, {
     params
   })
@@ -400,6 +397,38 @@ export async function runScreener(request: ScreenerRequest): Promise<ScreenerRes
 // Strategy Comparison API
 export async function compareStrategies(request: CompareRequest): Promise<CompareResponse> {
   const response = await api.post<CompareResponse>('/strategies/compare', request)
+  return response.data
+}
+
+// Realtime Bars API
+export async function getRealtimeBars(code: string, period: string = 'daily'): Promise<{
+  success: boolean
+  code: string
+  data: Array<{
+    date: string
+    open: number
+    high: number
+    low: number
+    close: number
+    volume: number
+    amount: number
+    symbol: string
+  }>
+}> {
+  const response = await api.get<{
+    success: boolean
+    code: string
+    data: Array<{
+      date: string
+      open: number
+      high: number
+      low: number
+      close: number
+      volume: number
+      amount: number
+      symbol: string
+    }>
+  }>(`/realtime/${code}?period=${period}`)
   return response.data
 }
 

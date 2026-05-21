@@ -34,7 +34,7 @@ function StockChart() {
       setStockName(stockInfo.name)
 
       // 直接用 mootdx 实时数据
-      const res = await getRealtimeBars(code)
+      const res = await getRealtimeBars(code, period)
 
       // 将 RealtimeBar 格式转换为 KlineIndicator 格式
       const klineData: KlineIndicator[] = (res.data ?? []).map((bar: any) => ({
@@ -265,8 +265,8 @@ function StockChart() {
             className="mastercard-select"
             options={[
               { value: 'daily', label: '日K' },
-              // { value: 'weekly', label: '周K' }, // 暂时禁用
-              // { value: 'monthly', label: '月K' } // 暂时禁用
+              { value: 'weekly', label: '周K' },
+              { value: 'monthly', label: '月K' }
             ]}
           />
         </div>
