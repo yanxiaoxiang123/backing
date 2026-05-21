@@ -34,7 +34,7 @@ def get_realtime_bars(
     # 去掉市场前缀 (sh.600036 -> 600036)
     symbol = code.split('.')[-1] if '.' in code else code
 
-    data = realtime_service.normalise_bars(symbol=symbol, offset=10)
+    data = realtime_service.normalise_bars(symbol=symbol, offset=750)
 
     return RealtimeBarsResponse(
         success=True,
