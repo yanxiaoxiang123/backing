@@ -10,6 +10,7 @@ from app.auth import get_current_api_key
 from app.limiter import limiter
 from app.services.screener_service import screener_service
 from app.services.job_store import job_store
+from app.agent.orchestrator import AgentOrchestrator
 from app.config import SessionLocal
 from app.models.models import Stock
 
@@ -61,6 +62,32 @@ def submit_screener_job(
             progress_callback('scoring', 0, 1, '正在综合评分排序...')
             top5 = screener_service.filter_and_rank(scan_results, progress_callback=progress_callback)
             logger.info(f"Screener job {job_id}: top 5 = {[s['stock_code'] for s in top5]}")
+
+            # 阶段3: AI 深度分析 TOP 5
+            for i, stock in enumerate(top5):
+                progress_callback(
+                    'ai_analysis',
+                    i + 1,
+                    5,
+                    f'🤖 AI 深度分析中 ({i+1}/5): {stock["stock_name"]}'
+                )
+
+                try:
+                    orchestrator = AgentOrchestrator(mode='full')
+                    result = orchestrator.run(
+                        stock_code=stock['stock_code'],
+                        stock_name=stock['stock_name'],
+                        progress_callback=None
+                    )
+                    stock['ai_signal'] = result.final_signal
+                    stock['ai_confidence'] = result.final_confidence
+                    stock['ai_reason'] = result.final_reason if result.final_reason else 'AI 分析完成'
+                    logger.info(f"Screener AI: {stock['stock_code']} -> signal={result.final_signal}, confidence={result.final_confidence:.2f}")
+                except Exception as e:
+                    logger.error(f"AI analysis failed for {stock['stock_code']}: {e}")
+                    stock['ai_signal'] = 'hold'
+                    stock['ai_confidence'] = 0.0
+                    stock['ai_reason'] = f'AI 分析失败: {str(e)}'
 
             # 完成
             job_store.update(job_id, status='completed', progress=1.0,
