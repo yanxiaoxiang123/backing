@@ -432,4 +432,40 @@ export async function getRealtimeBars(code: string, period: string = 'daily'): P
   return response.data
 }
 
+// Realtime Quotes API
+export async function getRealtimeQuotes(codes: string[]): Promise<{
+  success: boolean
+  data: Array<{
+    symbol: string
+    open: number
+    high: number
+    low: number
+    close: number
+    volume: number
+    amount: number
+    change: number
+    change_percent: number
+    prev_close: number
+  }>
+}> {
+  const response = await api.get<any>(`/realtime/quotes?codes=${codes.join(',')}`)
+  return response.data
+}
+
+// Realtime Indices API
+export async function getRealtimeIndices(): Promise<{
+  success: boolean
+  data: Array<{
+    symbol: string
+    name: string
+    close: number
+    change: number
+    change_percent: number
+    prev_close: number
+  }>
+}> {
+  const response = await api.get<any>('/realtime/indices')
+  return response.data
+}
+
 export default api
