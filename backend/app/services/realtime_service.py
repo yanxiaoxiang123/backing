@@ -62,5 +62,81 @@ class RealtimeService:
         return records
 
 
+    def get_realtime_quotes(self, symbols: List[str]) -> List[Dict[str, Any]]:
+        """批量获取多只股票最新行情
+
+        Args:
+            symbols: 股票代码列表，如 ["600036", "000001"]
+
+        Returns:
+            每只股票的 {symbol, last_close, open, high, low, close, volume, change, change_percent}
+        """
+        client = self.get_client()
+        results = []
+        for symbol in symbols:
+            try:
+                # offset=2 拿最近2条（第1条是今天，第2条是昨天）
+                df = client.bars(symbol=symbol, frequency=9, offset=2)
+                if df is None or len(df) < 2:
+                    continue
+                today = df.iloc[-1]
+                yesterday = df.iloc[-2]
+                close = float(today.get('close', 0))
+                prev_close = float(yesterday.get('close', close))
+                change = close - prev_close
+                change_percent = (change / prev_close * 100) if prev_close else 0
+                results.append({
+                    'symbol': symbol,
+                    'open': float(today.get('open', 0)),
+                    'high': float(today.get('high', 0)),
+                    'low': float(today.get('low', 0)),
+                    'close': close,
+                    'volume': float(today.get('vol', 0)),
+                    'amount': float(today.get('amount', 0)),
+                    'change': change,
+                    'change_percent': change_percent,
+                    'prev_close': prev_close,
+                })
+            except Exception as e:
+                logger.error(f"get_realtime_quotes error for {symbol}: {e}")
+                continue
+        return results
+
+    def get_index_realtime(self) -> List[Dict[str, Any]]:
+        """获取主要指数实时数据（上证/深证/沪深300/创业板/科创50）
+
+        Returns:
+            每只指数的 {symbol, name, close, change, change_percent}
+        """
+        client = self.get_client()
+        index_codes = ['000001', '399001', '000300', '399006', '000688']
+        index_names = {'000001': '上证指数', '399001': '深证成指', '000300': '沪深300',
+                      '399006': '创业板指', '000688': '科创50'}
+        results = []
+        for code in index_codes:
+            try:
+                df = client.index(symbol=code, frequency=9, offset=2)
+                if df is None or len(df) < 2:
+                    continue
+                today = df.iloc[-1]
+                yesterday = df.iloc[-2]
+                close = float(today.get('close', 0))
+                prev_close = float(yesterday.get('close', close))
+                change = close - prev_close
+                change_percent = (change / prev_close * 100) if prev_close else 0
+                results.append({
+                    'symbol': code,
+                    'name': index_names.get(code, code),
+                    'close': close,
+                    'change': change,
+                    'change_percent': change_percent,
+                    'prev_close': prev_close,
+                })
+            except Exception as e:
+                logger.error(f"get_index_realtime error for {code}: {e}")
+                continue
+        return results
+
+
 # Singleton instance
 realtime_service = RealtimeService()
