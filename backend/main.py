@@ -15,7 +15,7 @@ from app.api.agent import router as agent_router
 from app.api.dl_prediction import router as dl_prediction_router
 from app.api.watchlist import router as watchlist_router
 from app.api.screener import router as screener_router
-from app.api.chat import router as chat_router
+from app.api.realtime import router as realtime_router
 from app.models.models import Strategy
 import app.services.strategy  # noqa: F401 - Import to register strategies
 
@@ -108,12 +108,12 @@ app.add_middleware(
 
 # Include routers
 app.include_router(router, prefix="/api", tags=["api"])
+app.include_router(realtime_router, prefix="/api", tags=["realtime"])
 app.include_router(strategies_router)
 app.include_router(agent_router, prefix="/api", tags=["agent"])
 app.include_router(dl_prediction_router, prefix="/api/dl", tags=["dl"])
 app.include_router(watchlist_router)
 app.include_router(screener_router, prefix="/api", tags=["screener"])
-app.include_router(chat_router, prefix="/api", tags=["chat"])
 
 
 @app.get("/")
