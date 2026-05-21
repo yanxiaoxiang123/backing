@@ -10,7 +10,7 @@ Supports multi-condition screening with AND/OR logic across:
 """
 
 import logging
-from datetime import date, timedelta
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Optional, List, Dict
 
 import pandas as pd
@@ -21,7 +21,8 @@ from sqlalchemy.orm import Session
 from app.auth import get_current_api_key
 from app.config import get_db
 from app.limiter import limiter
-from app.models.models import Stock, DailyKline
+from app.models.models import Stock
+from app.services.realtime_service import realtime_service
 from app.services.strategy.factors import TechnicalFactors
 
 logger = logging.getLogger(__name__)
@@ -356,48 +357,23 @@ def run_screener(
     total_scanned = 0
     matched: List[ScreenerResultItem] = []
 
-    # pre-load lookback period: need enough bars for the longest indicator param
-    max_lookback = 120  # generous default
-    end_date_obj = date.today()
-    start_date_obj = end_date_obj - timedelta(days=max_lookback + 10)
+    # max lookback: 120 days is enough for all supported indicators
+    bar_offset = 150
 
-    for stock in stocks:
-        if len(matched) >= req.max_results:
-            break
+    def process_stock(stock: Stock) -> Optional[ScreenerResultItem]:
+        """Fetch mootdx bars and evaluate screener conditions for one stock."""
+        # strip market prefix: sh.600036 → 600036
+        symbol = stock.code.split('.')[-1] if '.' in stock.code else stock.code
+        bars = realtime_service.normalise_bars(symbol=symbol, frequency=9, offset=bar_offset)
+        if len(bars) < 20:
+            return None
 
-        klines = (
-            db.query(DailyKline)
-            .filter(
-                DailyKline.stock_code == stock.code,
-                DailyKline.date >= start_date_obj,
-                DailyKline.date <= end_date_obj,
-            )
-            .order_by(DailyKline.date)
-            .all()
-        )
-
-        if len(klines) < 20:
-            continue
-
-        total_scanned += 1
-
-        df = pd.DataFrame(
-            [
-                {
-                    "date": k.date,
-                    "open": k.open,
-                    "high": k.high,
-                    "low": k.low,
-                    "close": k.close,
-                    "volume": k.volume,
-                }
-                for k in klines
-            ]
-        )
+        df = pd.DataFrame(bars)
+        df = df.rename(columns={'vol': 'volume'})
 
         indicators = _compute_indicators(df, req.conditions)
         if not indicators:
-            continue
+            return None
 
         # evaluate conditions
         matched_conds: List[str] = []
@@ -413,9 +389,8 @@ def run_screener(
             ok = len(matched_conds) > 0
 
         if not ok:
-            continue
+            return None
 
-        # compute price change for display
         change_pct = None
         if len(df) >= 2:
             prev = df["close"].iloc[-2]
@@ -423,7 +398,6 @@ def run_screener(
             if prev > 0:
                 change_pct = round((cur - prev) / prev * 100, 2)
 
-        # pick display-safe indicator values
         display_indicators: Dict[str, Optional[float]] = {}
         for cond in req.conditions:
             key = _value_key_for_indicator(cond.indicator)
@@ -431,17 +405,26 @@ def run_screener(
                 round(indicators[key], 2) if indicators.get(key) is not None else None
             )
 
-        matched.append(
-            ScreenerResultItem(
-                stock_code=stock.code,
-                stock_name=stock.name,
-                close=round(df["close"].iloc[-1], 2),
-                volume=int(df["volume"].iloc[-1]),
-                change_pct=change_pct,
-                indicators=display_indicators,
-                matched_conditions=matched_conds,
-            )
+        return ScreenerResultItem(
+            stock_code=stock.code,
+            stock_name=stock.name,
+            close=round(df["close"].iloc[-1], 2),
+            volume=int(df["volume"].iloc[-1]),
+            change_pct=change_pct,
+            indicators=display_indicators,
+            matched_conditions=matched_conds,
         )
+
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        futures = {executor.submit(process_stock, s): s for s in stocks}
+        for future in as_completed(futures):
+            if len(matched) >= req.max_results:
+                executor.shutdown(wait=False)
+                break
+            result_item = future.result()
+            total_scanned += 1
+            if result_item is not None:
+                matched.append(result_item)
 
     elapsed = round(time.monotonic() - t0, 2)
     return ScreenerResponse(

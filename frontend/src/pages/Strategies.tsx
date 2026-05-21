@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { message } from 'antd'
 import ReactECharts from 'echarts-for-react'
 import {
@@ -90,7 +90,7 @@ function Strategies() {
     }
   }
 
-  const handleGenerateSignals = async () => {
+  const handleGenerateSignals = useCallback(async () => {
     if (!selectedStrategy || !stockCode || !dateRange[0] || !dateRange[1]) {
       message.warning('请选择策略、股票和日期范围')
       return
@@ -120,9 +120,9 @@ function Strategies() {
     } finally {
       setLoadingSignals(false)
     }
-  }
+  }, [selectedStrategy, stockCode, dateRange, parameters])
 
-  const handleRunBacktest = async () => {
+  const handleRunBacktest = useCallback(async () => {
     if (!selectedStrategy || !stockCode || !dateRange[0] || !dateRange[1]) {
       message.warning('请选择策略、股票和日期范围')
       return
@@ -146,9 +146,9 @@ function Strategies() {
     } finally {
       setLoadingBacktest(false)
     }
-  }
+  }, [selectedStrategy, stockCode, dateRange, initialCapital, parameters])
 
-  const handleOptimize = async () => {
+  const handleOptimize = useCallback(async () => {
     if (!selectedStrategy || !stockCode || !dateRange[0] || !dateRange[1]) {
       message.warning('请选择策略、股票和日期范围')
       return
@@ -198,9 +198,9 @@ function Strategies() {
     } finally {
       setLoadingOptimize(false)
     }
-  }
+  }, [selectedStrategy, stockCode, dateRange, initialCapital, strategies])
 
-  const handleCompare = async () => {
+  const handleCompare = useCallback(async () => {
     if (!stockCode || !dateRange[0] || !dateRange[1]) {
       message.warning('请选择股票和日期范围')
       return
@@ -222,7 +222,7 @@ function Strategies() {
     } finally {
       setLoadingCompare(false)
     }
-  }
+  }, [stockCode, dateRange, initialCapital])
 
   const waitForJob = async <T,>(jobId: string): Promise<T> => {
     while (true) {
@@ -237,7 +237,7 @@ function Strategies() {
     }
   }
 
-  const getCurrentChartOption = () => getChartOption(klineData, signals, backtestResult)
+  const getCurrentChartOption = useMemo(() => getChartOption(klineData, signals, backtestResult), [klineData, signals, backtestResult])
 
   return (
     <div className="fade-in">
@@ -283,7 +283,7 @@ function Strategies() {
           backtestResult={backtestResult}
           loading={{ signals: loadingSignals, backtest: loadingBacktest }}
           chartRef={chartRef}
-          getChartOption={getCurrentChartOption}
+          chartOption={getCurrentChartOption}
         >
           <BacktestDetails
             signalStats={signalStats}

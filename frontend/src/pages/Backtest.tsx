@@ -305,9 +305,9 @@ function Backtest() {
         </p>
       </div>
 
-      <div className="grid" style={{ gridTemplateColumns: '340px 1fr', gap: 'var(--space-lg)' }}>
+      <div className="grid" style={{ gridTemplateColumns: '340px 1fr', gap: 'var(--space-2xl)' }}>
         {/* 参数配置 */}
-        <div style={{ background: 'var(--color-canvas-lifted)', borderRadius: '40px' }}>
+        <div style={{ background: 'var(--color-canvas-lifted)', borderRadius: '40px', padding: 'var(--space-xl)' }}>
           <div style={{ fontSize: 'var(--font-size-md)', fontWeight: 600, marginBottom: 'var(--space-lg)' }}>
             回测参数
           </div>
@@ -375,7 +375,7 @@ function Backtest() {
           {!running && result && (
             <div>
               {/* 统计指标 */}
-              <div className="grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)', marginBottom: 'var(--space-md)' }}>
+              <div className="grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)', marginBottom: 'var(--space-lg)' }}>
                 <StatBox
                   label="总收益率"
                   value={totalReturn.toFixed(2)}
@@ -400,7 +400,7 @@ function Backtest() {
                 />
               </div>
 
-              <div className="grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)', marginBottom: 'var(--space-lg)' }}>
+              <div className="grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)', marginBottom: 'var(--space-2xl)' }}>
                 <StatBox label="胜率" value={winRate.toFixed(2)} suffix="%" />
                 <StatBox label="交易次数" value={totalTrades} />
                 <StatBox label="盈亏比" value={profitFactor.toFixed(2)} />
@@ -408,7 +408,7 @@ function Backtest() {
               </div>
 
               {/* 资金曲线 */}
-              <div style={{ marginBottom: 'var(--space-md)', padding: 'var(--space-md)', background: 'var(--color-canvas-lifted)', borderRadius: '40px' }}>
+              <div style={{ marginBottom: 'var(--space-2xl)', padding: 'var(--space-xl)', background: 'var(--color-canvas-lifted)', borderRadius: '40px' }}>
                 <div style={{ fontSize: 'var(--font-size-sm)', fontWeight: 600, marginBottom: 'var(--space-sm)', color: 'var(--color-text-secondary)' }}>
                   资金曲线
                 </div>
@@ -416,7 +416,7 @@ function Backtest() {
               </div>
 
               {/* 交易记录 */}
-              <div style={{ background: 'var(--color-canvas-lifted)', borderRadius: '40px' }}>
+              <div style={{ background: 'var(--color-canvas-lifted)', borderRadius: '40px', padding: 'var(--space-xl)', marginBottom: 'var(--space-2xl)' }}>
                 <div style={{ fontSize: 'var(--font-size-md)', fontWeight: 600, marginBottom: 'var(--space-md)' }}>
                   交易记录
                 </div>

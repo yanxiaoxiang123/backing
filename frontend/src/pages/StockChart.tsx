@@ -76,7 +76,7 @@ function StockChart() {
     const ohlc = klineData.map(d => [d.open, d.close, d.low, d.high])
     const volumes = klineData.map((d) => ({
       value: d.volume,
-      itemColor: d.close >= d.open ? '#EB001B' : '#F79E1B'
+      itemColor: d.close >= d.open ? '#EB001B' : '#52C41A'
     }))
 
     return {
@@ -103,7 +103,7 @@ function StockChart() {
           let html = `<div style="font-weight:500;margin-bottom:4px;letter-spacing:-0.02em">${date}</div>`
           if (kline) {
             const [o, c, l, h] = kline.data as number[]
-            const color = c >= o ? '#EB001B' : '#F79E1B'
+            const color = c >= o ? '#EB001B' : '#52C41A'
             html += `<div style="font-size:14px;font-weight:450">开: <b>${o.toFixed(2)}</b> 收: <b style="color:${color}">${c.toFixed(2)}</b></div>`
             html += `<div style="font-size:14px;font-weight:450">高: <b>${h.toFixed(2)}</b> 低: <b>${l.toFixed(2)}</b></div>`
             html += `<div style="font-size:14px;font-weight:450">涨跌: <b style="color:${color}">${((c - o) / o * 100).toFixed(2)}%</b></div>`
@@ -193,9 +193,9 @@ function StockChart() {
           data: ohlc,
           itemStyle: {
             color: '#EB001B',
-            color0: '#F79E1B',
+            color0: '#52C41A',
             borderColor: '#EB001B',
-            borderColor0: '#F79E1B'
+            borderColor0: '#52C41A'
           }
         },
         {

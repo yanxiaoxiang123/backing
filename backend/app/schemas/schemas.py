@@ -144,3 +144,48 @@ class WatchlistItemResponse(BaseModel):
 class WatchlistListResponse(BaseModel):
     items: List[WatchlistItemResponse]
     total: int
+
+
+# Job schemas — maps directly from JobDbRecord ORM rows
+class JobRecordSchema(BaseModel):
+    id: str
+    job_type: str
+    status: str
+    message: str
+    progress: float
+    payload: dict = {}
+    result: Optional[dict] = None
+    error: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+# Screener schemas
+class ScreenerStockResult(BaseModel):
+    stock_code: str
+    stock_name: str
+    close: float
+    volume: float
+    change_pct: float
+    ma5: float
+    ma10: float
+    ma20: float
+    macd_dif: float
+    macd_dea: float
+    macd_hist: float
+    rsi: float
+    volume_ratio: float
+    composite_score: float
+    ai_signal: Optional[str] = None
+    ai_confidence: Optional[float] = None
+    ai_reason: Optional[str] = None
+
+
+class ScreenerAgentResponse(BaseModel):
+    success: bool
+    total_scanned: int
+    results: List[ScreenerStockResult] = []
+    execution_time_s: float = 0.0

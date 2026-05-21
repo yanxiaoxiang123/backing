@@ -13,3 +13,4 @@ build/
 *.log
 logs/*.log
 backend/models/llm/
+.gstack/

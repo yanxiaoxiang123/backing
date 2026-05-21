@@ -500,17 +500,59 @@ export default function AgentAnalysis() {
 
           {/* 决策卡片 */}
           <DecisionCard result={result} />
-          <div style={{ marginTop: 16, display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-            <Button size="small" icon={<CopyOutlined />} onClick={() => copyToClipboard(result.final_reason || '')}>
+          {/* 复制结论按钮组 */}
+          <div style={{ marginTop: 'var(--space-md)', display: 'flex', gap: 'var(--space-md)', justifyContent: 'flex-end' }}>
+            <button
+              onClick={() => copyToClipboard(result.final_reason || '')}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 'var(--space-sm)',
+                padding: '6px 24px',
+                background: '#FFFFFF',
+                color: '#141413',
+                border: '1.5px solid #141413',
+                borderRadius: 'var(--radius-btn)',
+                fontSize: 'var(--font-size-md)',
+                fontWeight: 450,
+                cursor: 'pointer',
+                transition: 'transform 0.1s',
+              }}
+              onMouseDown={(e) => (e.currentTarget.style.transform = 'scale(0.98)')}
+              onMouseUp={(e) => (e.currentTarget.style.transform = 'scale(1)')}
+              onMouseLeave={(e) => (e.currentTarget.style.transform = 'scale(1)')}
+            >
+              <CopyOutlined />
               复制结论
-            </Button>
-            <Button size="small" icon={<DownloadOutlined />} onClick={() => exportPdf(result)}>
+            </button>
+            <button
+              onClick={() => exportPdf(result)}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 'var(--space-sm)',
+                padding: '6px 24px',
+                background: '#141413',
+                color: '#F3F0EE',
+                border: '1.5px solid #141413',
+                borderRadius: 'var(--radius-btn)',
+                fontSize: 'var(--font-size-md)',
+                fontWeight: 500,
+                letterSpacing: '-0.32px',
+                cursor: 'pointer',
+                transition: 'transform 0.1s',
+              }}
+              onMouseDown={(e) => (e.currentTarget.style.transform = 'scale(0.98)')}
+              onMouseUp={(e) => (e.currentTarget.style.transform = 'scale(1)')}
+              onMouseLeave={(e) => (e.currentTarget.style.transform = 'scale(1)')}
+            >
+              <DownloadOutlined />
               导出 PDF
-            </Button>
+            </button>
           </div>
 
           {/* 各阶段结果 */}
-          <Row gutter={16}>
+          <Row gutter={[0, 'var(--space-md)']} style={{ marginTop: 'var(--space-md)' }}>
             {result.stages.map((stage, index) => (
               <Col span={24} key={stage.stage_name}>
                 <StageCard stage={stage} index={index} />
@@ -524,12 +566,12 @@ export default function AgentAnalysis() {
 
       {/* 加载状态 - 进度条 */}
       {analyzing && (
-        <Card style={{ padding: 24 }}>
-          <div style={{ textAlign: 'center', marginBottom: 20 }}>
-            <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 8 }}>
+        <Card style={{ padding: 'var(--space-lg)' }}>
+          <div style={{ textAlign: 'center', marginBottom: 'var(--space-lg)' }}>
+            <div style={{ fontSize: 'var(--font-size-md)', fontWeight: 600, marginBottom: 'var(--space-sm)' }}>
               AI Agent 正在分析股票 {selectedStock}...
             </div>
-            <div style={{ color: 'var(--color-text-secondary)', fontSize: 13, marginBottom: 16 }}>
+            <div style={{ color: 'var(--color-text-secondary)', fontSize: 'var(--font-size-sm)', marginBottom: 'var(--space-md)' }}>
               {modeOptions.find(m => m.value === mode)?.desc} | 模式: {mode}
             </div>
           </div>
@@ -537,7 +579,7 @@ export default function AgentAnalysis() {
           <Progress
             percent={jobProgress}
             status={jobProgress >= 100 ? 'success' : 'active'}
-            style={{ marginBottom: 24 }}
+            style={{ marginBottom: 'var(--space-lg)' }}
           />
 
           {/* 阶段进度 */}
@@ -598,15 +640,15 @@ export default function AgentAnalysis() {
                       </Row>
                       {stage.thinking && stage.thinking.length > 0 && (
                         <div style={{
-                          marginTop: 12,
-                          padding: '8px 12px',
+                          marginTop: 'var(--space-md)',
+                          padding: 'var(--space-sm) var(--space-md)',
                           background: 'var(--color-bg-secondary)',
-                          borderRadius: 6,
-                          fontSize: 13,
+                          borderRadius: 'var(--radius-btn)',
+                          fontSize: 'var(--font-size-sm)',
                           lineHeight: 1.8
                         }}>
                           {stage.thinking.map((t, i) => (
-                            <div key={i} style={{ marginBottom: 4 }}>{t}</div>
+                            <div key={i} style={{ marginBottom: 'var(--space-xs)' }}>{t}</div>
                           ))}
                         </div>
                       )}
@@ -684,7 +726,7 @@ export default function AgentAnalysis() {
         <DecisionCard result={selectedDetail} />
 
         {/* 各阶段结果 */}
-        <Row gutter={16}>
+        <Row gutter={[0, 'var(--space-md)']} style={{ marginTop: 'var(--space-md)' }}>
           {selectedDetail.stages.map((stage, index) => (
             <Col span={24} key={stage.stage_name}>
               <StageCard stage={stage} index={index} />

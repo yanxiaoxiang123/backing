@@ -11,15 +11,17 @@ export function NewsSection({ newsItems }: NewsSectionProps) {
   }
 
   return (
-    <Card style={{ marginTop: 16 }}>
-      <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 12 }}>相关新闻</div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+    <Card style={{ marginTop: 'var(--space-lg)' }}
+      styles={{ body: { padding: 'var(--space-lg)' } }}
+    >
+      <div style={{ fontSize: 'var(--font-size-md)', fontWeight: 600, marginBottom: 'var(--space-lg)' }}>相关新闻</div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-lg)' }}>
         {newsItems.map((item, index) => (
           <div
             key={`${item.url}-${index}`}
             style={{
-              padding: 12,
-              borderRadius: 8,
+              padding: 'var(--space-lg)',
+              borderRadius: 'var(--radius-btn)',
               background: 'var(--color-bg-secondary)',
               border: '1px solid var(--color-border)'
             }}
@@ -32,15 +34,15 @@ export function NewsSection({ newsItems }: NewsSectionProps) {
                 display: 'block',
                 fontWeight: 600,
                 color: 'var(--color-accent)',
-                marginBottom: 6
+                marginBottom: 'var(--space-sm)'
               }}
             >
               {item.title || `新闻 ${index + 1}`}
             </a>
-            <div style={{ fontSize: 13, color: 'var(--color-text-secondary)', lineHeight: 1.6, marginBottom: 8 }}>
+            <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-text-secondary)', lineHeight: 1.8, marginBottom: 'var(--space-md)' }}>
               {item.content || '暂无摘要'}
             </div>
-            <div style={{ fontSize: 12, color: 'var(--color-text-tertiary)' }}>
+            <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-text-tertiary)' }}>
               来源: {item.url}
               {typeof item.score === 'number' ? ` | 相关度: ${item.score.toFixed(2)}` : ''}
             </div>

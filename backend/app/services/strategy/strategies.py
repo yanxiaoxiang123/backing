@@ -157,13 +157,11 @@ class MeanReversionStrategy(Strategy):
         # Initialize signal column
         df["signal"] = 0
 
-        # Generate signals
-        for i in range(len(df)):
-            if pd.notna(df["distance"].iloc[i]):
-                if df["distance"].iloc[i] < -self.std_threshold:
-                    df.loc[df.index[i], "signal"] = 1  # Buy (price below lower band)
-                elif df["distance"].iloc[i] > self.std_threshold:
-                    df.loc[df.index[i], "signal"] = -1  # Sell (price above upper band)
+        # Generate signals using vectorized operations
+        buy_condition = (df["distance"] < -self.std_threshold) & pd.notna(df["distance"])
+        sell_condition = (df["distance"] > self.std_threshold) & pd.notna(df["distance"])
+        df.loc[buy_condition, "signal"] = 1
+        df.loc[sell_condition, "signal"] = -1
 
         return df
 
@@ -224,13 +222,11 @@ class MomentumStrategy(Strategy):
         # Initialize signal column
         df["signal"] = 0
 
-        # Generate signals
-        for i in range(len(df)):
-            if pd.notna(df["momentum_pct"].iloc[i]):
-                if df["momentum_pct"].iloc[i] > self.threshold:
-                    df.loc[df.index[i], "signal"] = 1  # Buy (positive momentum)
-                elif df["momentum_pct"].iloc[i] < -self.threshold:
-                    df.loc[df.index[i], "signal"] = -1  # Sell (negative momentum)
+        # Generate signals using vectorized operations
+        buy_condition = (df["momentum_pct"] > self.threshold) & pd.notna(df["momentum_pct"])
+        sell_condition = (df["momentum_pct"] < -self.threshold) & pd.notna(df["momentum_pct"])
+        df.loc[buy_condition, "signal"] = 1
+        df.loc[sell_condition, "signal"] = -1
 
         return df
 
@@ -297,15 +293,11 @@ class BreakoutStrategy(Strategy):
         # Initialize signal column
         df["signal"] = 0
 
-        # Generate signals
-        for i in range(1, len(df)):
-            if pd.notna(df["highest"].iloc[i]) and pd.notna(df["lowest"].iloc[i]):
-                # Buy: price breaks above highest (yesterday's high)
-                if close.iloc[i] > df["highest"].iloc[i]:
-                    df.loc[df.index[i], "signal"] = 1  # Buy
-                # Sell: price breaks below lowest (yesterday's low)
-                elif close.iloc[i] < df["lowest"].iloc[i]:
-                    df.loc[df.index[i], "signal"] = -1  # Sell
+        # Generate breakout signals using vectorized operations
+        buy_cross = (close > df["highest"]) & pd.notna(df["highest"]) & pd.notna(df["lowest"])
+        sell_cross = (close < df["lowest"]) & pd.notna(df["highest"]) & pd.notna(df["lowest"])
+        df.loc[buy_cross, "signal"] = 1
+        df.loc[sell_cross, "signal"] = -1
 
         return df
 
@@ -372,13 +364,11 @@ class RSIReversalStrategy(Strategy):
         # Initialize signal column
         df["signal"] = 0
 
-        # Generate signals
-        for i in range(len(df)):
-            if pd.notna(df["rsi"].iloc[i]):
-                if df["rsi"].iloc[i] < self.oversold:
-                    df.loc[df.index[i], "signal"] = 1  # Buy (oversold)
-                elif df["rsi"].iloc[i] > self.overbought:
-                    df.loc[df.index[i], "signal"] = -1  # Sell (overbought)
+        # Generate signals using vectorized operations
+        buy_condition = (df["rsi"] < self.oversold) & pd.notna(df["rsi"])
+        sell_condition = (df["rsi"] > self.overbought) & pd.notna(df["rsi"])
+        df.loc[buy_condition, "signal"] = 1
+        df.loc[sell_condition, "signal"] = -1
 
         return df
 
@@ -448,17 +438,13 @@ class MACDCrossStrategy(Strategy):
         # Initialize signal column
         df["signal"] = 0
 
-        # Generate crossover signals
-        for i in range(1, len(df)):
-            if pd.notna(df["dif"].iloc[i]) and pd.notna(df["dea"].iloc[i]):
-                # Buy: DIF crosses above DEA
-                if df["dif"].iloc[i] > df["dea"].iloc[i]:
-                    if df["dif"].iloc[i - 1] <= df["dea"].iloc[i - 1]:
-                        df.loc[df.index[i], "signal"] = 1  # Buy
-                # Sell: DIF crosses below DEA
-                elif df["dif"].iloc[i] < df["dea"].iloc[i]:
-                    if df["dif"].iloc[i - 1] >= df["dea"].iloc[i - 1]:
-                        df.loc[df.index[i], "signal"] = -1  # Sell
+        # Generate crossover signals using vectorized operations
+        # DIF crosses above DEA -> buy
+        buy_cross = (df["dif"] > df["dea"]) & (df["dif"].shift(1) <= df["dea"].shift(1))
+        # DIF crosses below DEA -> sell
+        sell_cross = (df["dif"] < df["dea"]) & (df["dif"].shift(1) >= df["dea"].shift(1))
+        df.loc[buy_cross, "signal"] = 1
+        df.loc[sell_cross, "signal"] = -1
 
         return df
 
@@ -538,17 +524,11 @@ class DualThrustStrategy(Strategy):
         # Initialize signal column
         df["signal"] = 0
 
-        # Generate signals
-        for i in range(1, len(df)):
-            if pd.notna(df["upper_rail"].iloc[i]) and pd.notna(
-                df["lower_rail"].iloc[i]
-            ):
-                # Buy: price breaks above upper rail
-                if close.iloc[i] > df["upper_rail"].iloc[i]:
-                    df.loc[df.index[i], "signal"] = 1  # Buy
-                # Sell: price breaks below lower rail
-                elif close.iloc[i] < df["lower_rail"].iloc[i]:
-                    df.loc[df.index[i], "signal"] = -1  # Sell
+        # Generate signals using vectorized operations
+        buy_cross = (close > df["upper_rail"]) & pd.notna(df["upper_rail"]) & pd.notna(df["lower_rail"])
+        sell_cross = (close < df["lower_rail"]) & pd.notna(df["upper_rail"]) & pd.notna(df["lower_rail"])
+        df.loc[buy_cross, "signal"] = 1
+        df.loc[sell_cross, "signal"] = -1
 
         return df
 

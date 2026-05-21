@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List
 
-from sqlalchemy import func
+from sqlalchemy import case, func
 from sqlalchemy.orm import Session, aliased
 
 from app.config import settings
@@ -57,50 +57,67 @@ class DashboardService:
         }
 
     def _get_watchlist_data(self, watchlist_codes: List[str]) -> List[Dict[str, Any]]:
-        """Get latest price data for watchlist stocks only"""
+        """Get latest price data for watchlist stocks only - single query with window functions"""
         if not watchlist_codes:
             return []
 
-        # Get the latest date that exists for ANY watchlist stock
-        latest_date = (
-            self.db.query(func.max(DailyKline.date))
+        # Use window functions to get latest and previous in one query
+        ranked_subquery = (
+            self.db.query(
+                DailyKline.stock_code,
+                DailyKline.date,
+                DailyKline.close,
+                DailyKline.high,
+                DailyKline.low,
+                DailyKline.volume,
+                func.dense_rank().over(
+                    partition_by=DailyKline.stock_code,
+                    order_by=DailyKline.date.desc()
+                ).label("dr")
+            )
             .filter(DailyKline.stock_code.in_(watchlist_codes))
-            .scalar()
+            .subquery()
         )
-        if latest_date is None:
-            return []
-
-        previous_date = (
-            self.db.query(func.max(DailyKline.date))
-            .filter(DailyKline.stock_code.in_(watchlist_codes))
-            .filter(DailyKline.date < latest_date)
-            .scalar()
-        )
-
-        # Query watchlist stocks only
-        latest = aliased(DailyKline)
-        previous = aliased(DailyKline)
 
         rows = (
             self.db.query(
                 Stock.id,
                 Stock.code,
                 Stock.name,
-                latest.close.label("latest_close"),
-                latest.high.label("latest_high"),
-                latest.low.label("latest_low"),
-                latest.volume.label("latest_volume"),
-                previous.close.label("previous_close"),
+                func.max(
+                    case(
+                        (ranked_subquery.c.dr == 1, ranked_subquery.c.close),
+                        else_=None
+                    )
+                ).label("latest_close"),
+                func.max(
+                    case(
+                        (ranked_subquery.c.dr == 1, ranked_subquery.c.high),
+                        else_=None
+                    )
+                ).label("latest_high"),
+                func.max(
+                    case(
+                        (ranked_subquery.c.dr == 1, ranked_subquery.c.low),
+                        else_=None
+                    )
+                ).label("latest_low"),
+                func.max(
+                    case(
+                        (ranked_subquery.c.dr == 1, ranked_subquery.c.volume),
+                        else_=None
+                    )
+                ).label("latest_volume"),
+                func.max(
+                    case(
+                        (ranked_subquery.c.dr == 2, ranked_subquery.c.close),
+                        else_=None
+                    )
+                ).label("previous_close"),
             )
-            .join(
-                latest,
-                (latest.stock_code == Stock.code) & (latest.date == latest_date),
-            )
-            .outerjoin(
-                previous,
-                (previous.stock_code == Stock.code) & (previous.date == previous_date),
-            )
+            .join(ranked_subquery, ranked_subquery.c.stock_code == Stock.code)
             .filter(Stock.code.in_(watchlist_codes))
+            .group_by(Stock.id, Stock.code, Stock.name)
             .all()
         )
 

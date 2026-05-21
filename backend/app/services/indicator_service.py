@@ -306,7 +306,7 @@ class IndicatorService:
 
         # 按月聚合
         monthly = (
-            df.resample("M", on="date")
+            df.resample("ME", on="date")
             .agg(
                 {
                     "open": "first",

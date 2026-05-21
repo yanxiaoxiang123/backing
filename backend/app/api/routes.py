@@ -82,12 +82,13 @@ def _run_stock_sync_job(job_id: str) -> None:
 def _run_kline_sync_job(
     job_id: str,
     stock_codes: Optional[List[str]],
-    start_date: str,
-    end_date: Optional[str],
+    strategy: str,
 ) -> None:
     db = SessionLocal()
     try:
         job_store.update(job_id, status="running", message="Syncing kline data")
+        start_date = "2020-01-01" if strategy == "full" else None
+        end_date = None
         count, message = baostock_service.sync_kline_data(
             db,
             stock_codes=stock_codes,
@@ -150,15 +151,18 @@ def get_stocks(
     db: Session = Depends(get_db),
     _: str = Depends(get_current_api_key),
     market: str = Query(None, description="Filter by market (sh/sz)"),
-    skip: int = Query(0, ge=0),
+    cursor: int = Query(0, description="Cursor: last stock id (exclusive)"),
     limit: int = Query(100, ge=1, le=500),
 ):
-    """Get stock list"""
+    """Get stock list with cursor-based pagination"""
     query = db.query(Stock)
     if market:
         query = query.filter(Stock.market == market)
+    # Cursor-based: fetch stocks with id > cursor
+    query = query.filter(Stock.id > cursor)
+    query = query.order_by(Stock.id.asc())
     response.headers["X-Total-Count"] = str(query.count())
-    stocks = query.offset(skip).limit(limit).all()
+    stocks = query.limit(limit).all()
     return stocks
 
 
@@ -290,15 +294,15 @@ def submit_sync_stocks(
 def sync_kline(
     request: Request,
     stock_codes: List[str] = Body(None),
-    start_date: Optional[str] = Query(None),
-    end_date: str = Query(None),
+    strategy: str = Query("incremental"),
     db: Session = Depends(get_db),
     _: str = Depends(get_current_api_key),
 ):
     """Sync kline data from baostock"""
     try:
+        start_date = "2020-01-01" if strategy == "full" else None
         count, message = baostock_service.sync_kline_data(
-            db, stock_codes=stock_codes, start_date=start_date, end_date=end_date
+            db, stock_codes=stock_codes, start_date=start_date
         )
         return SyncResponse(success=True, message=message, klines_synced=count)
     except Exception:
@@ -312,20 +316,18 @@ def submit_sync_kline(
     request: Request,
     background_tasks: BackgroundTasks,
     stock_codes: List[str] = Body(None),
-    start_date: Optional[str] = Query(None),
-    end_date: str = Query(None),
+    strategy: str = Query("incremental"),
     _: str = Depends(get_current_api_key),
 ):
     job = job_store.create(
         job_type="sync_kline",
         payload={
             "stock_codes": stock_codes or [],
-            "start_date": start_date,
-            "end_date": end_date,
+            "strategy": strategy,
         },
     )
     background_tasks.add_task(
-        _run_kline_sync_job, job.id, stock_codes, start_date, end_date
+        _run_kline_sync_job, job.id, stock_codes, strategy
     )
     return JobResponse(
         job_id=job.id,
@@ -467,7 +469,7 @@ def get_job_status(job_id: str, _: str = Depends(get_current_api_key)):
     job = job_store.get(job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
-    return job.to_dict()
+    return job
 
 
 @router.post("/jobs/{job_id}/cancel")

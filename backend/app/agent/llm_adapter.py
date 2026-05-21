@@ -3,8 +3,9 @@
 
 import json
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, AsyncGenerator
 import requests
+import httpx
 from app.agent.config import agent_settings
 
 logger = logging.getLogger(__name__)
@@ -51,7 +52,8 @@ class LLMToolAdapter:
         temperature: float = 0.7,
         max_tokens: int = 4096,
         tools: Optional[List[Dict[str, Any]]] = None,
-    ) -> Dict[str, Any]:
+        stream: bool = False,
+    ):
         """发送聊天请求"""
         headers = {
             "Authorization": f"Bearer {self.api_key}",
@@ -68,6 +70,9 @@ class LLMToolAdapter:
         if tools:
             payload["tools"] = tools
 
+        if stream:
+            payload["stream"] = True
+
         try:
             response = requests.post(
                 f"{self.base_url}/chat/completions",
@@ -75,11 +80,52 @@ class LLMToolAdapter:
                 json=payload,
                 timeout=120,
                 proxies=self.proxies,
+                stream=stream,
             )
             response.raise_for_status()
-            return response.json()
+            return response if stream else response.json()
         except requests.exceptions.RequestException as e:
             logger.error(f"LLM request failed: {e}")
+            raise
+
+    async def chat_stream(
+        self,
+        messages: List[Dict[str, str]],
+        temperature: float = 0.7,
+        max_tokens: int = 4096,
+    ) -> AsyncGenerator[str, None]:
+        """异步流式调用 LLM"""
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json",
+        }
+
+        payload: Dict[str, Any] = {
+            "model": self.model,
+            "messages": messages,
+            "temperature": temperature,
+            "max_tokens": max_tokens,
+            "stream": True,
+        }
+
+        try:
+            async with httpx.AsyncClient(timeout=120.0, proxy=self.proxies.get("https") if self.proxies else None) as client:
+                async with client.stream("POST", f"{self.base_url}/chat/completions", headers=headers, json=payload) as response:
+                    response.raise_for_status()
+                    async for line in response.aiter_lines():
+                        if line.startswith("data: "):
+                            data_str = line[6:]
+                            if data_str == "[DONE]":
+                                break
+                            try:
+                                data = json.loads(data_str)
+                                content = data.get("choices", [{}])[0].get("delta", {}).get("content", "")
+                                if content:
+                                    yield content
+                            except json.JSONDecodeError:
+                                pass
+        except httpx.HTTPError as e:
+            logger.error(f"LLM streaming error: {e}")
             raise
 
     def chat_with_json(

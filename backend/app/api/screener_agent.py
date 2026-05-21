@@ -2,16 +2,15 @@
 
 import logging
 import time
-from typing import Optional
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
 from app.auth import get_current_api_key
 from app.limiter import limiter
 from app.services.screener_service import screener_service
 from app.services.job_store import job_store
-from app.config import get_db
+from app.config import SessionLocal
 from app.models.models import Stock
 
 logger = logging.getLogger(__name__)
@@ -26,7 +25,6 @@ class ScreenerSubmitResponse(BaseModel):
 @limiter.limit("2/minute")
 def submit_screener_job(
     _: str = Depends(get_current_api_key),
-    db=Depends(get_db),
 ):
     """提交选股任务，返回 job_id"""
     job_id = f"screener_{int(time.time() * 1000)}"
@@ -37,6 +35,7 @@ def submit_screener_job(
                                'message': '正在初始化...'})
 
     def run_job():
+        db = SessionLocal()
         try:
             def progress_callback(stage: str, current: int, total: int, message: str):
                 job_store.update(job_id, status='running', progress=current / total if total else 0,
@@ -59,7 +58,7 @@ def submit_screener_job(
             logger.info(f"Screener job {job_id}: scanned {len(scan_results)} stocks with data")
 
             # 阶段2: 过滤排序
-            progress_callback('scoring', 0, 1, f'正在综合评分排序...')
+            progress_callback('scoring', 0, 1, '正在综合评分排序...')
             top5 = screener_service.filter_and_rank(scan_results, progress_callback=progress_callback)
             logger.info(f"Screener job {job_id}: top 5 = {[s['stock_code'] for s in top5]}")
 
@@ -75,6 +74,8 @@ def submit_screener_job(
         except Exception as e:
             logger.error(f"Screener job {job_id} failed: {e}")
             job_store.update(job_id, status='failed', error=str(e))
+        finally:
+            db.close()
 
     # 后台线程执行
     import threading

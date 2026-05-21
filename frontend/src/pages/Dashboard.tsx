@@ -25,6 +25,15 @@ function Dashboard() {
     loadData()
   }, [])
 
+  useEffect(() => {
+    if (summary && summary.watchlist.length > 0 && !trendData) {
+      const firstCode = summary.watchlist[0].code
+      setSelectedTrendStock(firstCode)
+      loadTrendData(firstCode)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [summary])
+
   const loadData = useCallback(async () => {
     try {
       setLoading(true)
@@ -86,7 +95,7 @@ function Dashboard() {
       if (klines.data.length > 0) {
         const stockName = summary?.watchlist.find((w: any) => w.code === stockCode)?.name || stockCode
         setTrendData({
-          name: `${stockName} (${stockCode})`,
+          name: stockName !== stockCode ? `${stockName} (${stockCode})` : stockCode,
           dates: klines.data.map((k: any) => k.date),
           values: klines.data.map((k: any) => k.close)
         })
@@ -280,7 +289,7 @@ function Dashboard() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-sm)' }}>
             <div style={{ fontSize: 'var(--font-size-sm)', fontWeight: 600, color: 'var(--color-text-secondary)', display: 'flex', alignItems: 'center', gap: 'var(--space-sm)' }}>
               <LineChartOutlined />
-              {(trendData || summary.trend).name} 近30日走势
+              {(trendData || summary.trend).name}
             </div>
             <Select
               placeholder="选择股票"
@@ -289,7 +298,7 @@ function Dashboard() {
               onChange={handleTrendStockChange}
               style={{ width: 160 }}
               loading={trendLoading}
-              options={summary.watchlist.map(w => ({ value: w.code, label: `${w.code} ${w.name}` }))}
+              options={summary.watchlist.map(w => ({ value: w.code, label: w.name !== w.code ? `${w.name} (${w.code})` : w.code }))}
             />
           </div>
           <ReactECharts option={getTrendChartOption} style={{ height: 280 }} />

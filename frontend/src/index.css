@@ -32,6 +32,9 @@
   --color-warning: #F79E1B;
   --color-warning-light: rgba(247, 158, 27, 0.1);
 
+  /* Background Colors */
+  --color-bg-secondary: rgba(0, 0, 0, 0.04);
+
   /* Text Colors */
   --color-text-primary: var(--color-ink);
   --color-text-secondary: #696969;    /* Slate Gray */

@@ -12,7 +12,7 @@ interface StrategyResultsProps {
   backtestResult: StrategyBacktestResponse | null
   loading: { signals: boolean; backtest: boolean }
   chartRef: React.RefObject<ReactECharts>
-  getChartOption: () => EChartsOption
+  chartOption: EChartsOption
   children?: React.ReactNode
 }
 
@@ -23,7 +23,7 @@ export function StrategyResults({
   backtestResult,
   loading,
   chartRef,
-  getChartOption,
+  chartOption,
   children
 }: StrategyResultsProps) {
   const showChart = klineData.length > 0 || signals.length > 0 || backtestResult
@@ -44,7 +44,7 @@ export function StrategyResults({
         ) : showChart ? (
           <ReactECharts
             ref={chartRef}
-            option={getChartOption()}
+            option={chartOption}
             style={{ height: 400 }}
             opts={{ renderer: 'canvas' }}
           />
