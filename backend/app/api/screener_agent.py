@@ -1,7 +1,9 @@
 # backend/app/api/screener_agent.py
 
 import logging
+import threading
 import time
+from typing import Optional
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
@@ -16,6 +18,37 @@ from app.models.models import Stock
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+
+def run_orchestrator_with_timeout(
+    orchestrator: AgentOrchestrator,
+    stock_code: str,
+    stock_name: str,
+    timeout_s: int = 120,
+) -> Optional[AgentOrchestrator]:
+    """Run orchestrator with a timeout using threading."""
+    result = [None]
+    error = [None]
+
+    def target():
+        try:
+            result[0] = orchestrator.run(
+                stock_code=stock_code,
+                stock_name=stock_name,
+                progress_callback=None
+            )
+        except Exception as e:
+            error[0] = e
+
+    t = threading.Thread(target=target)
+    t.start()
+    t.join(timeout_s)
+    if t.is_alive():
+        logger.warning(f"AI analysis timed out for {stock_code} after {timeout_s}s")
+        return None
+    if error[0]:
+        raise error[0]
+    return result[0]
 
 
 class ScreenerSubmitResponse(BaseModel):
@@ -64,21 +97,28 @@ def submit_screener_job(
             logger.info(f"Screener job {job_id}: top 5 = {[s['stock_code'] for s in top5]}")
 
             # 阶段3: AI 深度分析 TOP 5
+            orchestrator = AgentOrchestrator(mode='full')
+
             for i, stock in enumerate(top5):
                 progress_callback(
                     'ai_analysis',
                     i + 1,
                     5,
-                    f'🤖 AI 深度分析中 ({i+1}/5): {stock["stock_name"]}'
+                    f' AI 深度分析中 ({i+1}/5): {stock["stock_name"]}'
                 )
 
                 try:
-                    orchestrator = AgentOrchestrator(mode='full')
-                    result = orchestrator.run(
-                        stock_code=stock['stock_code'],
-                        stock_name=stock['stock_name'],
-                        progress_callback=None
+                    result = run_orchestrator_with_timeout(
+                        orchestrator,
+                        stock['stock_code'],
+                        stock['stock_name'],
+                        timeout_s=120
                     )
+                    if result is None:
+                        stock['ai_signal'] = 'hold'
+                        stock['ai_confidence'] = 0.0
+                        stock['ai_reason'] = 'AI 分析超时 (120s)'
+                        continue
                     stock['ai_signal'] = result.final_signal
                     stock['ai_confidence'] = result.final_confidence
                     stock['ai_reason'] = result.final_reason if result.final_reason else 'AI 分析完成'
@@ -105,7 +145,6 @@ def submit_screener_job(
             db.close()
 
     # 后台线程执行
-    import threading
     t = threading.Thread(target=run_job, daemon=True)
     t.start()
 
