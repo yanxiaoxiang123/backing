@@ -14,9 +14,10 @@ from app.api.strategies import router as strategies_router
 from app.api.agent import router as agent_router
 from app.api.dl_prediction import router as dl_prediction_router
 from app.api.watchlist import router as watchlist_router
-from app.api.screener import router as screener_router
 from app.api.realtime import router as realtime_router
+from app.api.screener_agent import router as screener_agent_router
 from app.models.models import Strategy
+from app.services.job_store import job_store
 import app.services.strategy  # noqa: F401 - Import to register strategies
 
 # Configure logging
@@ -79,6 +80,7 @@ async def lifespan(app: FastAPI):
     # Startup
     logger.info("Starting up...")
     init_db()
+    job_store.reset_stale_jobs()
     yield
     # Shutdown
     logger.info("Shutting down...")
@@ -113,7 +115,7 @@ app.include_router(strategies_router)
 app.include_router(agent_router, prefix="/api", tags=["agent"])
 app.include_router(dl_prediction_router, prefix="/api/dl", tags=["dl"])
 app.include_router(watchlist_router)
-app.include_router(screener_router, prefix="/api", tags=["screener"])
+app.include_router(screener_agent_router, prefix="/api", tags=["screener_agent"])
 
 
 @app.get("/")
