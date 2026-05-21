@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Table, Button, message, Spin, Empty, Popconfirm, Card } from 'antd'
 import { DeleteOutlined, PlusOutlined, StarFilled, ReloadOutlined } from '@ant-design/icons'
-import { getWatchlist, addToWatchlist, removeFromWatchlist, getWatchlistCodes, syncKline, getDashboardSummary } from '../services/api'
+import { getWatchlist, addToWatchlist, removeFromWatchlist, getRealtimeQuotes } from '../services/api'
 import StockSearch from '../components/StockSearch'
 import type { WatchlistItem, DashboardStock } from '../types'
 
@@ -20,16 +20,29 @@ function Watchlist() {
   const loadWatchlistWithPrices = async () => {
     try {
       setLoading(true)
-      const [watchlistData, dashboardData] = await Promise.all([
-        getWatchlist(),
-        getDashboardSummary()
-      ])
+      const watchlistData = await getWatchlist()
       setWatchlist(watchlistData.items)
 
-      // Build price map from dashboard watchlist data
+      const codes = watchlistData.items.map((item: WatchlistItem) => item.stock_code)
+      if (codes.length === 0) {
+        setLoading(false)
+        return
+      }
+
+      const quotes = await getRealtimeQuotes(codes)
       const priceMap: Record<string, DashboardStock> = {}
-      for (const stock of dashboardData.watchlist) {
-        priceMap[stock.code] = stock
+      for (const q of quotes.data) {
+        priceMap[q.symbol] = {
+          id: 0,
+          code: q.symbol,
+          name: '',
+          current_price: q.close,
+          high: q.high,
+          low: q.low,
+          volume: q.volume,
+          change: q.change,
+          change_percent: q.change_percent,
+        }
       }
       setStockPriceMap(priceMap)
     } catch (error) {
@@ -42,22 +55,11 @@ function Watchlist() {
   const handleUpdate = async () => {
     try {
       setUpdating(true)
-      const codes = await getWatchlistCodes()
-      if (codes.length === 0) {
-        message.warning('自选股为空，请先添加股票')
-        setUpdating(false)
-        return
-      }
-      await syncKline(codes, undefined, undefined)
-      message.success('正在更新数据...')
-      // Reload after a short delay to allow sync to complete
-      setTimeout(() => {
-        setUpdating(false)
-        loadWatchlistWithPrices()
-        message.success('自选股数据已更新')
-      }, 2000)
+      await loadWatchlistWithPrices()
+      message.success('自选股数据已更新')
     } catch (error) {
       message.error('更新失败')
+    } finally {
       setUpdating(false)
     }
   }
