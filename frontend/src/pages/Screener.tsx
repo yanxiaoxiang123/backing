@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Card, Button, Progress, Tag, message, Row, Col } from 'antd'
 import { PlayCircleOutlined, CheckCircleOutlined, ReloadOutlined } from '@ant-design/icons'
-import { submitScreener, getScreenerStatus } from '../services/api'
+import { submitScreener, getScreenerStatus, cancelJob } from '../services/api'
 
 interface StockResult {
   stock_code: string
@@ -38,6 +38,7 @@ function Screener() {
   const [current, setCurrent] = useState(0)
   const [total, setTotal] = useState(0)
   const [messageText, setMessageText] = useState('')
+  const [jobId, setJobId] = useState<string | null>(null)
   const [results, setResults] = useState<StockResult[]>([])
   const [totalScanned, setTotalScanned] = useState(0)
 
@@ -50,6 +51,7 @@ function Screener() {
       setMessageText('正在提交选股任务...')
 
       const res = await submitScreener()
+      setJobId(res.job_id)
       await pollJob(res.job_id)
     } catch (e: any) {
       message.error(e?.response?.data?.detail || '提交选股任务失败')
@@ -58,7 +60,15 @@ function Screener() {
   }
 
   const pollJob = async (jobId: string) => {
+    const startTime = Date.now()
+    const MAX_POLL_MS = 10 * 60 * 1000  // 10 minutes
+
     while (true) {
+      if (Date.now() - startTime > MAX_POLL_MS) {
+        message.error('任务超时，请稍后重试')
+        setRunning(false)
+        break
+      }
       try {
         const job = await getScreenerStatus(jobId)
 
@@ -98,6 +108,17 @@ function Screener() {
         break
       }
     }
+  }
+
+  const handleCancel = async () => {
+    if (jobId) {
+      try {
+        await cancelJob(jobId)
+      } catch (e) {
+        // ignore cancel errors
+      }
+    }
+    setRunning(false)
   }
 
   const getSignalColor = (signal?: string) => {
@@ -213,7 +234,7 @@ function Screener() {
             </div>
           )}
           <div style={{ marginTop: 16 }}>
-            <Button onClick={() => setRunning(false)}>取消</Button>
+            <Button onClick={handleCancel}>取消</Button>
           </div>
         </Card>
       )}
