@@ -118,12 +118,13 @@ class JobStore:
         self,
         job_type: str,
         payload: Optional[Dict[str, Any]] = None,
+        job_id: Optional[str] = None,
         *,
         db: Optional[Session] = None,
     ) -> JobRecordSchema:
         with self._session(db) as (session, _owned):
             row = JobDbRecord(
-                id=str(uuid4()),
+                id=job_id or str(uuid4()),
                 job_type=job_type,
                 payload=payload or {},
             )

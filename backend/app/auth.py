@@ -3,8 +3,7 @@
 
 import secrets
 from typing import Optional
-
-from fastapi import HTTPException, Security, status
+from fastapi import HTTPException, Security, status, Request
 from fastapi.security import APIKeyHeader
 
 from app.config import settings
@@ -42,7 +41,6 @@ def validate_api_key(api_key: Optional[str]) -> str:
         raise AuthError("Missing API key - provide X-API-Key header")
 
     if not settings.API_KEY:
-        # If no API key is configured, reject all requests
         raise AuthError("API key not configured on server")
 
     # Use constant-time comparison to prevent timing attacks
@@ -52,16 +50,22 @@ def validate_api_key(api_key: Optional[str]) -> str:
     return api_key
 
 
-async def get_current_api_key(api_key: Optional[str] = Security(api_key_header)) -> str:
+async def get_current_api_key(
+    api_key: Optional[str] = Security(api_key_header),
+    request: Request = None,
+) -> str:
     """
-    FastAPI 依赖项：获取当前验证的 API 密钥
+    FastAPI 依赖项：获取当前已验证的用户身份。
 
-    Args:
-        api_key: 从请求头提取的 API 密钥
-
-    Returns:
-        验证通过的 API 密钥
+    认证方式（按优先级）：
+    1. HTTP-only session cookie（前端浏览器使用，API key 不暴露在 JS bundle 中）
+    2. X-API-Key 请求头（外部 API 客户端使用）
     """
+    # 优先检查 session cookie（前端浏览器请求）
+    if request is not None and request.session.get("authenticated"):
+        return "session_user"
+
+    # 回退到 X-API-Key 请求头（外部客户端 / curl）
     return validate_api_key(api_key)
 
 

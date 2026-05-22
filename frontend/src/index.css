@@ -1012,3 +1012,79 @@ a:hover {
     border-radius: var(--radius-btn);
   }
 }
+
+/* ============================================================
+   Error Boundary
+   ============================================================ */
+.error-boundary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40vh;
+  padding: var(--space-xl);
+}
+
+.error-boundary-content {
+  text-align: center;
+  max-width: 480px;
+}
+
+.error-boundary-icon {
+  font-size: 48px;
+  line-height: 1;
+  margin-bottom: var(--space-md);
+  color: var(--color-warning);
+}
+
+.error-boundary-content h2 {
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+  margin: 0 0 var(--space-sm);
+  color: var(--color-text-primary);
+}
+
+.error-boundary-message {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  margin: 0 0 var(--space-lg);
+}
+
+.error-boundary-actions {
+  display: flex;
+  gap: var(--space-sm);
+  justify-content: center;
+}
+
+.error-boundary-btn {
+  padding: var(--space-sm) var(--space-lg);
+  border: none;
+  border-radius: var(--radius-btn);
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  cursor: pointer;
+  background: var(--color-ink);
+  color: var(--color-canvas);
+  transition: opacity 0.15s;
+}
+
+.error-boundary-btn:hover {
+  opacity: 0.85;
+}
+
+.error-boundary-btn-secondary {
+  background: var(--color-canvas-lifted);
+  color: var(--color-text-primary);
+}
+
+.error-boundary-stack {
+  margin-top: var(--space-lg);
+  padding: var(--space-md);
+  background: var(--color-canvas);
+  border-radius: var(--radius-btn);
+  font-size: 11px;
+  text-align: left;
+  overflow-x: auto;
+  color: var(--color-text-secondary);
+  white-space: pre-wrap;
+  word-break: break-all;
+}

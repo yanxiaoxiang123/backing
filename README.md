@@ -1,54 +1,86 @@
 # Backing
 
-基于 React + FastAPI 的股票研究与回测系统，当前包含三条核心能力：
+基于 React + FastAPI 的股票研究与回测系统，包含以下核心能力：
 
-- 股票数据同步与技术指标查看
-- 多策略信号生成、统一回测、参数优化
-- 基于 DeepSeek 的多阶段 AI 分析（技术面 + 消息面 + 风险 + 策略 + 决策）
+- **数据服务**：股票列表同步、K 线数据、技术指标计算
+- **策略研究**：多策略信号生成、统一回测、参数优化
+- **AI 分析**：基于 DeepSeek 的多阶段 AI 分析（技术面 + 消息面 + 风险 + 策略 + 决策）
+- **股票筛选器**：全市场扫描 + 技术指标选股 + AI 深度分析 TOP 5
+- **实时行情**：股票/指数实时行情（HTTP + WebSocket）
 
 ## 技术栈
 
 - 前端：React 18、TypeScript、Vite、Ant Design、ECharts
-- 后端：FastAPI、SQLAlchemy、Pydantic v2
-- 数据：SQLite（默认开发配置）/ MySQL（可选）、baostock
-- AI：DeepSeek，可选 Tavily 搜索
+- 后端：FastAPI、SQLAlchemy、Pydantic v2、slowapi（限流）
+- 数据：SQLite（默认）/ MySQL、baostock、mootdx
+- AI：DeepSeek（支持多 Agent 编排）、可选 Tavily 搜索
 
-## 当前架构
+## 项目结构
 
-```text
+```
 frontend/
-  src/pages
-    Dashboard.tsx         仪表盘
-    StockList.tsx         股票同步和管理
-    StockChart.tsx        K线与指标查看
-    Strategies.tsx        多策略研究/回测/优化
-    Backtest.tsx          兼容旧版均线回测页
-    BacktestHistory.tsx   历史回测结果
-    AgentAnalysis.tsx     AI 个股/大盘分析
+  src/
+    pages/
+      Dashboard.tsx         仪表盘
+      StockList.tsx         股票同步和管理
+      StockChart.tsx         K线与指标查看
+      Strategies.tsx         多策略研究/回测/优化
+      AgentAnalysis.tsx      AI 个股/大盘分析
+      Screener.tsx           AI 股票筛选器
+      DLPrediction.tsx       深度学习价格预测
+      Watchlist.tsx          自选股管理
+      BacktestHistory.tsx    历史回测结果
+    components/
+      ErrorBoundary.tsx      React 错误边界
+      strategies/            策略配置和结果显示组件
+      analysis/               AI 分析结果展示组件
+    services/api.ts          前端 API 调用封装
 
 backend/
-  app/api
-    routes.py             基础股票、回测、任务状态接口
-    strategies.py         策略研究接口
-    agent.py              AI 分析接口
-  app/services
-    backtest_executor.py  统一回测执行器
-    backtest_engine.py   回测引擎核心
-    job_store.py         轻量后台任务状态存储
-    baostock_service.py  股票数据同步服务
-    dashboard_service.py 仪表盘数据服务
-    strategy/            策略注册、指标、优化
-  app/agent/
-    agents/              多阶段 AI Agent
-      technical_agent.py    技术面分析
-      intel_agent.py        消息面/情报分析
-      risk_agent.py         风险评估
-      strategy_agent.py    策略建议
-      decision_agent.py    最终决策
-    tools/               Agent 工具集（搜索等）
-    orchestrator.py      Agent 编排器
-  migrations/            Alembic 迁移
-  tests/                 pytest 基础测试
+  app/
+    api/
+      routes.py              基础股票、回测、任务状态接口
+      strategies.py           策略研究接口
+      agent.py                AI 分析接口
+      screener.py             股票筛选器接口
+      screener_agent.py       筛选器 AI 深度分析任务
+      realtime.py             实时行情（HTTP + WebSocket）
+      watchlist.py            自选股接口
+      dl_prediction.py        深度学习预测接口
+    services/
+      backtest_executor.py    统一回测执行器
+      backtest_engine.py      回测引擎核心
+      indicator_service.py    技术指标计算（带缓存）
+      screener_service.py     选股扫描服务
+      realtime_service.py     实时行情服务
+      job_store.py            后台任务状态存储
+      baostock_service.py     股票数据同步服务
+      dashboard_service.py    仪表盘数据服务
+      strategy/
+        base.py              策略基类
+        factors.py           技术指标库
+        optimizer.py          参数优化器
+        registry.py          策略注册表
+        strategies.py        内置策略
+    agent/
+      agents/
+        technical_agent.py   技术面分析 Agent
+        intel_agent.py       消息面/情报 Agent
+        risk_agent.py        风险评估 Agent
+        strategy_agent.py    策略建议 Agent
+        decision_agent.py    最终决策 Agent
+      tools/                  Agent 工具集
+      orchestrator.py         多阶段 Agent 编排器
+      runner.py               Agent 运行器
+      memory.py               Agent 记忆管理
+    models/
+      models.py              核心数据模型
+      analysis.py            分析记录模型
+    error_handlers.py         统一错误处理
+    exceptions.py            自定义异常类
+    limiter.py               限流配置
+  migrations/                 Alembic 数据库迁移
+  tests/                     pytest 测试
 ```
 
 ## 已完成的关键收敛
@@ -58,6 +90,8 @@ backend/
 - 长任务支持后台提交 + 轮询：股票同步、K 线同步、策略优化、AI 分析均支持提交任务后查询状态
 - 去掉代码中的敏感默认值：数据库和 API key 改为环境变量输入
 - 增加 Alembic 迁移骨架和 pytest 基础测试
+- 实时行情统一认证（HTTP + WebSocket 均需 API Key）
+- 股票筛选器：全市场并行扫描 + 技术指标 + AI 深度分析 TOP 5
 
 ## 快速开始
 
@@ -89,20 +123,27 @@ npm run dev
 
 ### 基础数据
 
-- `GET /api/stocks`
-- `GET /api/stocks/{code}`
-- `GET /api/stocks/{code}/kline`
-- `GET /api/stocks/{code}/indicators`
-- `GET /api/dashboard`
-- `GET /api/health`
+- `GET /api/stocks` - 股票列表
+- `GET /api/stocks/{code}` - 股票详情
+- `GET /api/stocks/{code}/kline` - K线数据
+- `GET /api/stocks/{code}/indicators` - 技术指标
+- `GET /api/dashboard` - 仪表盘数据
+- `GET /api/health` - 健康检查
+- `GET /api/indices` - 指数列表
+- `GET /api/indices/{code}/kline` - 指数K线
 
-### 任务型接口
+### 实时行情
 
-- `POST /api/stocks/sync` / `POST /api/stocks/sync/submit`
-- `POST /api/stocks/sync-kline` / `POST /api/stocks/sync-kline/submit`
-- `POST /api/strategies/optimize` / `POST /api/strategies/optimize/submit`
-- `POST /api/agent/analyze` / `POST /api/agent/analyze/submit`
-- `GET /api/jobs/{job_id}`
+- `GET /api/realtime/quotes?codes=600036,000001` - 批量股票行情
+- `GET /api/realtime/indices` - 主要指数行情
+- `GET /api/realtime/{code}?period=daily|weekly|monthly` - 股票K线数据
+- `WS /api/ws/realtime/{code}?api_key=xxx` - WebSocket 实时K线推送
+
+### 股票筛选器
+
+- `POST /api/screener` - 执行筛选（同步）
+- `POST /api/screener/submit` - 提交筛选任务（异步，AI 深度分析）
+- `GET /api/screener/{job_id}` - 查询筛选任务状态
 
 ### 回测与策略
 

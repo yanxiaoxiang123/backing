@@ -103,6 +103,10 @@ class BacktestResult(Base):
     stock = relationship("Stock", back_populates="backtest_results")
     trades = relationship("BacktestTrade", back_populates="backtest_result")
 
+    __table_args__ = (
+        Index("idx_backtest_stock_created", "stock_code", "created_at"),
+    )
+
 
 class BacktestTrade(Base):
     __tablename__ = "backtest_trades"

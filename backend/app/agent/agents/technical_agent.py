@@ -90,6 +90,12 @@ class TechnicalAgent(BaseAgent):
 
             return json.dumps(data, ensure_ascii=False, indent=2, default=str)
 
+        except Exception:
+            logger.error("Failed to fetch kline data for %s", stock_code, exc_info=True)
+            return (
+                f"股票 {stock_code} 的 K 线数据暂时无法获取（数据库查询异常），"
+                "请稍后重试或检查数据同步状态。"
+            )
         finally:
             db.close()
 

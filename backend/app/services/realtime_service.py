@@ -1,4 +1,5 @@
 import logging
+import threading
 from typing import Optional, List, Dict, Any
 
 import pandas as pd
@@ -9,15 +10,15 @@ logger = logging.getLogger(__name__)
 class RealtimeService:
     """mootdx 实时行情服务"""
 
-    _client: Optional[Any] = None
+    _local = threading.local()
 
     @classmethod
     def get_client(cls):
-        """获取或创建 mootdx Quotes 客户端（单例）"""
-        if cls._client is None:
+        """获取当前线程的 mootdx Quotes 客户端（每线程独立实例，线程安全）"""
+        if not hasattr(cls._local, 'client') or cls._local.client is None:
             from mootdx.quotes import Quotes
-            cls._client = Quotes.factory(market='std')
-        return cls._client
+            cls._local.client = Quotes.factory(market='std')
+        return cls._local.client
 
     def bars(self, symbol: str, frequency: int = 9, offset: int = 750) -> pd.DataFrame:
         """获取实时K线数据

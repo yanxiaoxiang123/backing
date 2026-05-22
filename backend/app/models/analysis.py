@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """分析记录表模型"""
 
-from sqlalchemy import Column, Integer, String, Float, Date, DateTime, Text
+from sqlalchemy import Column, Integer, String, Float, Date, DateTime, Text, Index
 from sqlalchemy.sql import func
 from app.config import Base
 
@@ -31,3 +31,7 @@ class AnalysisRecord(Base):
     error = Column(Text, nullable=True)
 
     created_at = Column(DateTime, server_default=func.now())
+
+    __table_args__ = (
+        Index("idx_analysis_stock_date", "stock_code", "analysis_date"),
+    )

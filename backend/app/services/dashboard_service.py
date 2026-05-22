@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any, Dict, List
 
 from sqlalchemy import case, func
-from sqlalchemy.orm import Session, aliased
+from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.models.models import DailyKline, Stock, WatchlistItem
@@ -27,17 +27,21 @@ class DashboardService:
         # Use database watchlist if not empty, otherwise fallback to env variable
         watchlist = db_codes if db_codes else settings.watchlist_stocks
 
-        # Get trend from first watchlist stock, fallback to 300 index if no watchlist
-        if watchlist:
-            first_stock = watchlist[0]
-            trend = self._get_stock_trend(stock_code=first_stock)
-        else:
-            trend = self._get_index_trend(index_code="sh.000300")
-
         indices = self._get_major_indices()
 
         # Get watchlist stocks with latest prices
         watchlist_data = self._get_watchlist_data(watchlist)
+
+        # Get trend from first watchlist stock, fallback to 300 index if no watchlist
+        if watchlist_data:
+            trend = self._get_stock_trend(
+                stock_code=watchlist_data[0]["code"],
+                stock_name=watchlist_data[0]["name"],
+            )
+        elif watchlist:
+            trend = self._get_stock_trend(stock_code=watchlist[0])
+        else:
+            trend = self._get_index_trend(index_code="sh.000300")
 
         # Calculate stats from watchlist only
         up = sum(1 for s in watchlist_data if s["change_percent"] > 0)
@@ -165,11 +169,11 @@ class DashboardService:
             "values": [round(float(row.close), 2) for row in rows],
         }
 
-    def _get_stock_trend(self, stock_code: str, days: int = 30) -> Dict[str, Any]:
+    def _get_stock_trend(self, stock_code: str, days: int = 30, stock_name: str | None = None) -> Dict[str, Any]:
         """Get trend data for a stock"""
-        # Get stock name
-        stock = self.db.query(Stock.name).filter(Stock.code == stock_code).first()
-        stock_name = stock.name if stock else stock_code
+        if stock_name is None:
+            stock = self.db.query(Stock.name).filter(Stock.code == stock_code).first()
+            stock_name = stock.name if stock else stock_code
 
         rows = (
             self.db.query(DailyKline.date, DailyKline.close)
@@ -189,51 +193,31 @@ class DashboardService:
 
     def _get_major_indices(self) -> List[Dict[str, Any]]:
         target_codes = [item["code"] for item in MAJOR_INDICES[:3]]
-        latest_subquery = (
+
+        ranked = (
             self.db.query(
-                DailyKline.stock_code.label("stock_code"),
-                func.max(DailyKline.date).label("latest_date"),
+                DailyKline.stock_code,
+                DailyKline.close,
+                func.dense_rank()
+                .over(partition_by=DailyKline.stock_code, order_by=DailyKline.date.desc())
+                .label("dr"),
             )
             .filter(DailyKline.stock_code.in_(target_codes))
-            .group_by(DailyKline.stock_code)
-            .subquery()
-        )
-
-        latest = aliased(DailyKline)
-        previous = aliased(DailyKline)
-        previous_subquery = (
-            self.db.query(
-                DailyKline.stock_code.label("stock_code"),
-                func.max(DailyKline.date).label("previous_date"),
-            )
-            .join(
-                latest_subquery,
-                (DailyKline.stock_code == latest_subquery.c.stock_code)
-                & (DailyKline.date < latest_subquery.c.latest_date),
-            )
-            .group_by(DailyKline.stock_code)
             .subquery()
         )
 
         rows = (
             self.db.query(
-                latest.stock_code.label("code"),
-                latest.close.label("latest_close"),
-                previous.close.label("previous_close"),
+                ranked.c.stock_code.label("code"),
+                func.max(
+                    case((ranked.c.dr == 1, ranked.c.close), else_=None)
+                ).label("latest_close"),
+                func.max(
+                    case((ranked.c.dr == 2, ranked.c.close), else_=None)
+                ).label("previous_close"),
             )
-            .join(
-                latest_subquery,
-                (latest.stock_code == latest_subquery.c.stock_code)
-                & (latest.date == latest_subquery.c.latest_date),
-            )
-            .outerjoin(
-                previous_subquery, latest.stock_code == previous_subquery.c.stock_code
-            )
-            .outerjoin(
-                previous,
-                (previous.stock_code == previous_subquery.c.stock_code)
-                & (previous.date == previous_subquery.c.previous_date),
-            )
+            .filter(ranked.c.dr.in_([1, 2]))
+            .group_by(ranked.c.stock_code)
             .all()
         )
         data_map = {row.code: row for row in rows}

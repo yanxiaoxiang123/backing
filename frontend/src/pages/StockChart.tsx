@@ -1,9 +1,9 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { Select, Spin, message } from 'antd'
 import ReactECharts from 'echarts-for-react'
 import type { EChartsOption } from 'echarts'
-import { getStock, getRealtimeBars } from '../services/api'
+import { getStock } from '../services/api'
 import type { KlineIndicator } from '../types'
 import { ArrowLeftOutlined } from '@ant-design/icons'
 
@@ -19,25 +19,149 @@ function StockChart() {
   const [period, setPeriod] = useState<PeriodType>('daily')
   const [klineData, setKlineData] = useState<KlineIndicator[]>([])
 
-  useEffect(() => {
-    if (code) {
-      loadData()
+  // WebSocket 引用，用于重连时清理
+  const wsRef = useRef<WebSocket | null>(null)
+  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout>>()
+
+  // ── 通过 WebSocket 获取实时 K 线 ──
+  const connectWs = useCallback(() => {
+    if (!code) return
+
+    // 清理旧连接
+    if (wsRef.current) {
+      wsRef.current.close()
+      wsRef.current = null
+    }
+    if (reconnectTimerRef.current) {
+      clearTimeout(reconnectTimerRef.current)
+      reconnectTimerRef.current = undefined
+    }
+
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+    const url = `${protocol}//${window.location.host}/api/v1/ws/realtime/${code}?period=${period}`
+
+    let cancelled = false
+    const ws = new WebSocket(url)
+    wsRef.current = ws
+
+    ws.onopen = () => {
+      // 连接状态保持由消息驱动
+    }
+
+    ws.onmessage = (event) => {
+      if (cancelled) return
+      try {
+        const msg = JSON.parse(event.data)
+
+        if (msg.type === 'init') {
+          // 初始全量
+          const transformed = (msg.data ?? []).map((bar: any): KlineIndicator => ({
+            date: bar.date,
+            open: bar.open,
+            high: bar.high,
+            low: bar.low,
+            close: bar.close,
+            volume: bar.volume,
+            amount: bar.amount,
+            ma5: undefined,
+            ma10: undefined,
+            ma20: undefined,
+            ma60: undefined,
+            ma120: undefined,
+            dif: undefined,
+            dea: undefined,
+            macd: undefined,
+            kdj_k: undefined,
+            kdj_d: undefined,
+            kdj_j: undefined,
+            rsi6: undefined,
+            rsi12: undefined,
+            rsi24: undefined,
+          }))
+          setKlineData(transformed)
+          setLoading(false)
+        } else if (msg.type === 'update') {
+          // 增量更新: 合并最新 K 线
+          const updates = (msg.data ?? []) as Array<{
+            date: string; open: number; high: number; low: number
+            close: number; volume: number; amount: number
+          }>
+          if (updates.length === 0) return
+
+          setKlineData((prev) => {
+            const next = [...prev]
+            for (const bar of updates) {
+              const idx = next.findIndex((b) => b.date === bar.date)
+              if (idx !== -1) {
+                // 已存在 → 更新（最新价/量可能变化）
+                next[idx] = {
+                  ...next[idx],
+                  open: bar.open,
+                  high: bar.high,
+                  low: bar.low,
+                  close: bar.close,
+                  volume: bar.volume,
+                  amount: bar.amount,
+                }
+              } else {
+                // 新 K 线 → 追加
+                next.push({
+                  date: bar.date,
+                  open: bar.open,
+                  high: bar.high,
+                  low: bar.low,
+                  close: bar.close,
+                  volume: bar.volume,
+                  amount: bar.amount,
+                  ma5: undefined,
+                  ma10: undefined,
+                  ma20: undefined,
+                  ma60: undefined,
+                  ma120: undefined,
+                  dif: undefined,
+                  dea: undefined,
+                  macd: undefined,
+                  kdj_k: undefined,
+                  kdj_d: undefined,
+                  kdj_j: undefined,
+                  rsi6: undefined,
+                  rsi12: undefined,
+                  rsi24: undefined,
+                })
+              }
+            }
+            return next
+          })
+        }
+      } catch {
+        // 忽略解析失败的报文
+      }
+    }
+
+    ws.onerror = () => {
+      if (cancelled) return
+      // 降级到 HTTP fallback
+      loadDataFallback()
+    }
+
+    ws.onclose = () => {
+      wsRef.current = null
+      if (!cancelled) {
+        // 非主动断开 → 5s 后重连
+        reconnectTimerRef.current = setTimeout(() => connectWs(), 5000)
+      }
     }
   }, [code, period])
 
-  const loadData = async () => {
+  // ── HTTP fallback（WebSocket 连接失败时降级） ──
+  const loadDataFallback = useCallback(async () => {
     if (!code) return
-
     setLoading(true)
     try {
-      const stockInfo = await getStock(code)
-      setStockName(stockInfo.name)
-
-      // 直接用 mootdx 实时数据
+      // 动态导入 HTTP 函数，避免顶层依赖
+      const { getRealtimeBars } = await import('../services/api')
       const res = await getRealtimeBars(code, period)
-
-      // 将 RealtimeBar 格式转换为 KlineIndicator 格式
-      const klineData: KlineIndicator[] = (res.data ?? []).map((bar: any) => ({
+      const transformed = (res.data ?? []).map((bar: any): KlineIndicator => ({
         date: bar.date,
         open: bar.open,
         high: bar.high,
@@ -45,29 +169,40 @@ function StockChart() {
         close: bar.close,
         volume: bar.volume,
         amount: bar.amount,
-        ma5: undefined,
-        ma10: undefined,
-        ma20: undefined,
-        ma60: undefined,
-        ma120: undefined,
-        dif: undefined,
-        dea: undefined,
-        macd: undefined,
-        kdj_k: undefined,
-        kdj_d: undefined,
-        kdj_j: undefined,
-        rsi6: undefined,
-        rsi12: undefined,
-        rsi24: undefined,
+        ma5: undefined, ma10: undefined, ma20: undefined,
+        ma60: undefined, ma120: undefined,
+        dif: undefined, dea: undefined, macd: undefined,
+        kdj_k: undefined, kdj_d: undefined, kdj_j: undefined,
+        rsi6: undefined, rsi12: undefined, rsi24: undefined,
       }))
-
-      setKlineData(klineData)
-    } catch (error) {
+      setKlineData(transformed)
+    } catch {
       message.error('加载K线数据失败')
     } finally {
       setLoading(false)
     }
-  }
+  }, [code, period])
+
+  // ── 代码/周期变化时重连 WebSocket ──
+  useEffect(() => {
+    if (!code) return
+
+    // 加载股票名称（走 HTTP，只加载一次）
+    getStock(code).then((info) => setStockName(info.name)).catch(() => {})
+
+    connectWs()
+
+    return () => {
+      if (wsRef.current) {
+        wsRef.current.close()
+        wsRef.current = null
+      }
+      if (reconnectTimerRef.current) {
+        clearTimeout(reconnectTimerRef.current)
+        reconnectTimerRef.current = undefined
+      }
+    }
+  }, [code, period, connectWs])
 
   const getChartOption = (): EChartsOption => {
     if (!klineData.length) return {}

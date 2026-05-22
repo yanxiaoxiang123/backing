@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { message } from 'antd'
 import type {
   Stock,
   DailyKline,
@@ -29,27 +30,75 @@ import type {
 } from '../types'
 
 const api = axios.create({
-  baseURL: '/api',
+  baseURL: '/api/v1',
   timeout: 120000  // 120秒超时，分析需要较长时间
 })
 
-// 添加 API Key 到所有请求
-api.interceptors.request.use((config) => {
+// Session cookie 认证 — 启动时用 API key 换一次 session cookie
+let _sessionInited = false
+
+export async function initSession(): Promise<void> {
+  if (_sessionInited) return
+  _sessionInited = true
+
   const apiKey = import.meta.env.VITE_API_KEY
-  if (apiKey) {
-    config.headers['X-API-Key'] = apiKey
+  if (!apiKey) return
+
+  try {
+    await axios.post('/api/v1/auth/session', { api_key: apiKey }, {
+      baseURL: '',
+      // withCredentials 由 Cookie 自动携带
+    } as any)
+  } catch {
+    // session 初始化失败不影响后续请求（会回退到 X-API-Key 或 401）
+    console.warn('[api] session init failed, requests may fall back to header auth')
   }
-  return config
-})
+}
+
+// 全局响应拦截器 — 统一错误提示
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (!axios.isAxiosError(error)) {
+      // 非网络错误 —— 直接透传
+      return Promise.reject(error)
+    }
+
+    const status = error.response?.status
+    const data = error.response?.data as Record<string, unknown> | undefined
+
+    // 提取后端统一错误体 { error: { code, message } }
+    const backendMsg =
+      (data?.error as Record<string, unknown> | undefined)?.message as string | undefined
+
+    const userMessage = backendMsg || error.message || '请求失败'
+
+    // 401/403 静默（由页面自行处理跳转登录）
+    if (status === 401 || status === 403) {
+      console.warn(`[api] ${status} ${error.config?.url}: ${userMessage}`)
+      return Promise.reject(error)
+    }
+
+    // 其它错误 —— toast 提示
+    if (status !== 422) {
+      // 422 通常是表单校验错误，由调用方按字段处理，不 toast
+      message.error(userMessage)
+    }
+
+    return Promise.reject(error)
+  }
+)
 
 // Stock APIs
 export async function getStocks(
   market?: string,
   cursor = 0,
-  limit = 100
+  limit = 100,
+  search?: string,
 ): Promise<{ items: Stock[]; total: number; nextCursor: number | null }> {
   const params = new URLSearchParams()
   if (market) params.append('market', market)
+  if (search) params.append('search', search)
   params.append('cursor', String(cursor))
   params.append('limit', String(limit))
   const response = await api.get<Stock[]>(`/stocks?${params}`)

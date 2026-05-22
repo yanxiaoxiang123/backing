@@ -1,5 +1,6 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.sessions import SessionMiddleware
 from contextlib import asynccontextmanager
 import pymysql
 import logging
@@ -9,6 +10,7 @@ from slowapi.errors import RateLimitExceeded
 
 from app.config import settings, engine, Base, SessionLocal
 from app.limiter import limiter
+from app.error_handlers import register_error_handlers
 from app.api.routes import router
 from app.api.strategies import router as strategies_router
 from app.api.agent import router as agent_router
@@ -18,6 +20,7 @@ from app.api.realtime import router as realtime_router
 from app.api.screener_agent import router as screener_agent_router
 from app.models.models import Strategy
 from app.services.job_store import job_store
+from app.auth import validate_api_key
 import app.services.strategy  # noqa: F401 - Import to register strategies
 
 # Configure logging
@@ -41,6 +44,13 @@ def init_db():
                 charset="utf8mb4",
             )
             with connection.cursor() as cursor:
+                # Validate db_name to prevent SQL injection (only allow \w chars)
+                import re
+                if not re.fullmatch(r"\w+", db_name):
+                    raise ValueError(
+                        f"Invalid database name {db_name!r}: only letters, digits, "
+                        "and underscores are allowed"
+                    )
                 cursor.execute(
                     f"CREATE DATABASE IF NOT EXISTS `{db_name}` "
                     "CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
@@ -94,6 +104,9 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# Register unified error handlers (covers all router + middleware errors)
+register_error_handlers(app)
+
 # Add rate limiter to app state and error handler
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
@@ -108,14 +121,32 @@ app.add_middleware(
     expose_headers=["X-Total-Count"],
 )
 
+# Session cookie middleware – signs the cookie so frontend can't tamper with it.
+# Data is stored client-side (signed cookie). The secret key must be persistent
+# across restarts so existing sessions remain valid.
+app.add_middleware(SessionMiddleware, secret_key=settings.session_secret)
+
 # Include routers
-app.include_router(router, prefix="/api", tags=["api"])
-app.include_router(realtime_router, prefix="/api", tags=["realtime"])
+app.include_router(router, prefix="/api/v1", tags=["api"])
+app.include_router(realtime_router, prefix="/api/v1", tags=["realtime"])
 app.include_router(strategies_router)
-app.include_router(agent_router, prefix="/api", tags=["agent"])
-app.include_router(dl_prediction_router, prefix="/api/dl", tags=["dl"])
+app.include_router(agent_router, prefix="/api/v1", tags=["agent"])
+app.include_router(dl_prediction_router, prefix="/api/v1/dl", tags=["dl"])
 app.include_router(watchlist_router)
-app.include_router(screener_agent_router, prefix="/api", tags=["screener_agent"])
+app.include_router(screener_agent_router, prefix="/api/v1", tags=["screener_agent"])
+
+
+@app.post("/api/v1/auth/session")
+async def create_session(request: Request) -> dict:
+    """Exchange an API key for an HTTP-only session cookie.
+
+    The frontend calls this once on startup so the API key is never exposed
+    in subsequent XHR requests (which only carry the session cookie).
+    """
+    body = await request.json()
+    validate_api_key(body.get("api_key", ""))
+    request.session["authenticated"] = True
+    return {"success": True}
 
 
 @app.get("/")
@@ -130,6 +161,6 @@ if __name__ == "__main__":
         "main:app",
         host=settings.HOST,
         port=settings.PORT,
-        reload=True,
+        reload=False,
         access_log=False,
     )

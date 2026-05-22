@@ -23,6 +23,7 @@ class Settings(BaseSettings):
 
     # API 认证配置
     API_KEY: Optional[str] = None  # 用于 API 认证的密钥，为 None 时表示禁用认证
+    SESSION_SECRET: Optional[str] = None  # session cookie 签名密钥，默认用 API_KEY
 
     # Agent 配置
     DEEPSEEK_API_KEY: Optional[str] = None
@@ -70,6 +71,11 @@ class Settings(BaseSettings):
     @property
     def database_name(self) -> Optional[str]:
         return make_url(self.DATABASE_URL).database
+
+    @property
+    def session_secret(self) -> str:
+        """Session cookie signing key – defaults to API_KEY or a dev fallback."""
+        return self.SESSION_SECRET or self.API_KEY or "dev-session-secret-do-not-use-in-prod"
 
     @property
     def bootstrap_database_url(self) -> Optional[str]:

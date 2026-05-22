@@ -81,33 +81,44 @@ class ScreenerService:
         volume = df['volume']
         results: Dict[str, Any] = {}
 
+        # 安全获取 Series 最后一个有效值，空/NaN 时返回 None
+        def _last(s: pd.Series) -> Optional[float]:
+            if s.empty:
+                return None
+            val = s.iloc[-1]
+            return None if pd.isna(val) else float(val)
+
         # 均线
-        results['ma5'] = float(TechnicalFactors.SMA(close, 5).iloc[-1])
-        results['ma10'] = float(TechnicalFactors.SMA(close, 10).iloc[-1])
-        results['ma20'] = float(TechnicalFactors.SMA(close, 20).iloc[-1])
+        results['ma5'] = _last(TechnicalFactors.SMA(close, 5))
+        results['ma10'] = _last(TechnicalFactors.SMA(close, 10))
+        results['ma20'] = _last(TechnicalFactors.SMA(close, 20))
 
         # MACD
         macd = TechnicalFactors.MACD(close, 12, 26, 9)
-        results['macd_dif'] = float(macd['dif'].iloc[-1])
-        results['macd_dea'] = float(macd['dea'].iloc[-1])
-        results['macd_hist'] = float(macd['histogram'].iloc[-1])
+        results['macd_dif'] = _last(macd['dif'])
+        results['macd_dea'] = _last(macd['dea'])
+        results['macd_hist'] = _last(macd['histogram'])
 
         # RSI
-        results['rsi'] = float(TechnicalFactors.RSI(close, 14).iloc[-1])
+        results['rsi'] = _last(TechnicalFactors.RSI(close, 14))
 
         # 成交量比
         vol_ma = TechnicalFactors.VolumeMA(volume, 20)
-        results['volume_ratio'] = float(volume.iloc[-1] / vol_ma.iloc[-1]) if vol_ma.iloc[-1] > 0 else 0.0
+        latest_vol_ma = _last(vol_ma)
+        if latest_vol_ma and latest_vol_ma > 0:
+            results['volume_ratio'] = round(_last(volume) / latest_vol_ma, 2) if _last(volume) else 0.0
+        else:
+            results['volume_ratio'] = 0.0
 
         # 最新价格和成交量
-        results['close'] = float(df['close'].iloc[-1])
-        results['volume'] = float(df['volume'].iloc[-1])
+        results['close'] = _last(df['close'])
+        results['volume'] = _last(df['volume'])
 
         # 涨跌幅
         if len(df) >= 2:
-            prev_close = float(df['close'].iloc[-2])
-            cur_close = float(df['close'].iloc[-1])
-            if prev_close > 0:
+            prev_close = _last(df['close'].iloc[:-1])
+            cur_close = _last(df['close'])
+            if prev_close and prev_close > 0:
                 results['change_pct'] = round((cur_close - prev_close) / prev_close * 100, 2)
             else:
                 results['change_pct'] = 0.0
@@ -123,21 +134,25 @@ class ScreenerService:
         """计算综合评分（0-100）"""
         score = 0.0
 
+        # None → 安全默认值
+        ma5 = indicators.get('ma5') or 0
+        ma10 = indicators.get('ma10') or 0
+        ma20 = indicators.get('ma20') or 0
+        macd_hist = indicators.get('macd_hist') or 0
+        rsi = indicators.get('rsi') or 50
+        volume_ratio = indicators.get('volume_ratio') or 0
+
         # 技术面 25%
         tech_score = 0
-        ma5 = indicators.get('ma5', 0)
-        ma10 = indicators.get('ma10', 0)
-        ma20 = indicators.get('ma20', 0)
         if ma5 > ma10 > ma20:
             tech_score += 10  # 均线多头
-        if indicators.get('macd_hist', 0) > 0:
+        if macd_hist > 0:
             tech_score += 8  # MACD 红柱
-        rsi = indicators.get('rsi', 50)
         if rsi < 30:
             tech_score += 7  # RSI 超卖
         elif rsi > 70:
             tech_score += 2  # RSI 超买（轻微负面）
-        if indicators.get('volume_ratio', 0) > 1.5:
+        if volume_ratio > 1.5:
             tech_score += 5  # 成交量放大
         score += tech_score * 0.25 / 30 * 100
 

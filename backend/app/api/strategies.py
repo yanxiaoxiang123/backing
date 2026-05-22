@@ -20,7 +20,7 @@ from app.services.strategy.optimizer import GridSearchOptimizer
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/strategies", tags=["strategies"])
+router = APIRouter(prefix="/api/v1/strategies", tags=["strategies"])
 
 
 # ==================== Request/Response Models ====================
@@ -453,6 +453,10 @@ def generate_signals(
         signal_data = strategy.generate_signals(df.copy())
 
     except Exception:
+        logger.warning(
+            "Strategy signal generation failed, falling back to MA cross",
+            exc_info=True,
+        )
         # Fall back to built-in MA cross strategy
         params = request.parameters or {}
         signal_data = generate_ma_cross_signals(df, params)

@@ -15,6 +15,9 @@ class IndicatorService:
     def __init__(self):
         self._cache: Dict[str, Tuple[float, List[Dict[str, Any]]]] = {}
         self._cache_ttl: int = 300  # 5 分钟缓存有效期
+        self._max_size: int = 200  # 最大缓存条目数（防止内存持续增长）
+        self._access_count: int = 0  # 读写计数，定期触发过期清理
+        self._cleanup_interval: int = 10  # 每 10 次读写自动清理过期条目
 
     def _cache_key(
         self,
@@ -26,6 +29,7 @@ class IndicatorService:
         return f"indicator:{stock_code}:{period}:{start_date}:{end_date}"
 
     def _cache_get(self, key: str) -> Optional[List[Dict[str, Any]]]:
+        self._maybe_cleanup()
         entry = self._cache.get(key)
         if entry is None:
             return None
@@ -36,7 +40,41 @@ class IndicatorService:
         return result
 
     def _cache_set(self, key: str, result: List[Dict[str, Any]]) -> None:
+        self._maybe_cleanup()
         self._cache[key] = (time.monotonic(), result)
+        if len(self._cache) > self._max_size:
+            self._evict()
+
+    def _maybe_cleanup(self) -> None:
+        """定期清理过期条目 —— 防缓存沉默增长（即使 _cache_get 从未访问）。"""
+        self._access_count += 1
+        if self._access_count % self._cleanup_interval != 0:
+            return
+        now = time.monotonic()
+        expired = [k for k, (ts, _) in self._cache.items() if now - ts > self._cache_ttl]
+        for k in expired:
+            del self._cache[k]
+
+    def _evict(self) -> None:
+        """移除过期条目；仍超上限时淘汰最旧条目（按写入时间排序）。"""
+        now = time.monotonic()
+        # 先清除过期条目
+        expired_keys = [
+            k for k, (ts, _) in self._cache.items()
+            if now - ts > self._cache_ttl
+        ]
+        for k in expired_keys:
+            del self._cache[k]
+
+        # 仍超上限 → 淘汰最旧的一半
+        if len(self._cache) > self._max_size:
+            sorted_keys = sorted(
+                self._cache.keys(),
+                key=lambda k: self._cache[k][0],  # 按写入时间戳升序
+            )
+            to_drop = len(self._cache) - self._max_size
+            for k in sorted_keys[:to_drop]:
+                del self._cache[k]
 
     def clear_cache(self, stock_code: Optional[str] = None) -> None:
         """清除全部或指定股票的缓存"""

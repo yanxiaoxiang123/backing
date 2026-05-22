@@ -130,7 +130,9 @@ class ScreenerResponse(BaseModel):
 
 
 def _compute_indicators(
-    df: pd.DataFrame, conditions: List[ScreenerCondition]
+    df: pd.DataFrame,
+    conditions: List[ScreenerCondition],
+    stock_code: str = "",
 ) -> Dict[str, Optional[float]]:
     """Compute all requested indicator values for the latest bar.
 
@@ -264,8 +266,11 @@ def _compute_indicators(
                         )
 
         except Exception:
-            logger.debug(
-                "Indicator computation failed for %s", indicator, exc_info=True
+            logger.warning(
+                "Indicator '%s' failed for %s",
+                indicator,
+                stock_code,
+                exc_info=True,
             )
 
     return values
@@ -371,7 +376,7 @@ def run_screener(
         df = pd.DataFrame(bars)
         df = df.rename(columns={'vol': 'volume'})
 
-        indicators = _compute_indicators(df, req.conditions)
+        indicators = _compute_indicators(df, req.conditions, stock.code)
         if not indicators:
             return None
 
@@ -401,8 +406,9 @@ def run_screener(
         display_indicators: Dict[str, Optional[float]] = {}
         for cond in req.conditions:
             key = _value_key_for_indicator(cond.indicator)
+            val = indicators.get(key)
             display_indicators[cond.indicator] = (
-                round(indicators[key], 2) if indicators.get(key) is not None else None
+                round(val, 2) if val is not None else None
             )
 
         return ScreenerResultItem(

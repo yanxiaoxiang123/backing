@@ -43,11 +43,13 @@ def run_orchestrator_with_timeout(
     t = threading.Thread(target=target)
     t.start()
     t.join(timeout_s)
+    # 先检查 error —— 如果线程恰好在超时瞬间完成并报错，error[0] 已设置但
+    # is_alive() 可能仍为 True，旧顺序会丢失异常信息。
+    if error[0]:
+        raise error[0]
     if t.is_alive():
         logger.warning(f"AI analysis timed out for {stock_code} after {timeout_s}s")
         return None
-    if error[0]:
-        raise error[0]
     return result[0]
 
 
@@ -56,7 +58,7 @@ class ScreenerSubmitResponse(BaseModel):
 
 
 @router.post("/screener/submit", response_model=ScreenerSubmitResponse)
-@limiter.limit("2/minute")
+@limiter.limit("10/minute")
 def submit_screener_job(
     request: Request,
     _: str = Depends(get_current_api_key),
@@ -64,22 +66,49 @@ def submit_screener_job(
     """提交选股任务，返回 job_id"""
     job_id = f"screener_{int(time.time() * 1000)}"
 
-    # 初始化 job 状态
-    job_store.update(job_id, status='pending', progress=0.0,
-                      payload={'stage': 'initializing', 'current': 0, 'total': 0,
-                               'message': '正在初始化...'})
+    # 初始化 job 状态（用 create 而不是 update，因为 update 在记录不存在时返回 None）
+    job_store.create(
+        job_type='screener',
+        job_id=job_id,
+        payload={'stage': 'initializing', 'current': 0, 'total': 0,
+                 'message': '正在初始化...'}
+    )
 
     def run_job():
         db = SessionLocal()
+
+        def _check_cancelled():
+            """检查 job 是否被用户取消 —— 避免与 cancel_job 端点的竞态条件。"""
+            record = job_store.get(job_id)
+            if record and record.status in ("failed", "cancelled") and "cancelled" in (record.error or ""):
+                return True
+            return False
+
+        def _safe_update(**changes):
+            """取消后不再写入更新，避免覆盖取消状态。"""
+            if _check_cancelled():
+                return
+            job_store.update(job_id, **changes)
+
         try:
             def progress_callback(stage: str, current: int, total: int, message: str):
-                job_store.update(job_id, status='running', progress=current / total if total else 0,
-                                  payload={'stage': stage, 'current': current, 'total': total, 'message': message})
+                _safe_update(
+                    status='running',
+                    progress=current / total if total else 0,
+                    payload={
+                        'stage': stage, 'current': current, 'total': total,
+                        'message': message,
+                    },
+                )
 
             # 加载股票列表
-            job_store.update(job_id, status='running', progress=0,
-                              payload={'stage': 'scanning', 'current': 0, 'total': 0,
-                                       'message': '正在加载股票列表...'})
+            _safe_update(
+                status='running', progress=0,
+                payload={
+                    'stage': 'scanning', 'current': 0, 'total': 0,
+                    'message': '正在加载股票列表...',
+                },
+            )
 
             stocks = db.query(Stock).all()
             logger.info(f"Screener job {job_id}: loaded {len(stocks)} stocks")
@@ -131,22 +160,24 @@ def submit_screener_job(
                     stock['ai_reason'] = f'AI 分析失败: {str(e)}'
 
             # 完成
-            job_store.update(job_id, status='completed', progress=1.0,
-                              result={
-                                  'success': True,
-                                  'total_scanned': len(scan_results),
-                                  'results': top5,
-                                  'execution_time_s': 0,  # TODO: compute actual time
-                              })
+            _safe_update(
+                status='completed', progress=1.0,
+                result={
+                    'success': True,
+                    'total_scanned': len(scan_results),
+                    'results': top5,
+                    'execution_time_s': 0,  # TODO: compute actual time
+                },
+            )
 
         except Exception as e:
             logger.error(f"Screener job {job_id} failed: {e}")
-            job_store.update(job_id, status='failed', error=str(e))
+            _safe_update(status='failed', error=str(e))
         finally:
             db.close()
 
-    # 后台线程执行
-    t = threading.Thread(target=run_job, daemon=True)
+    # 后台线程执行（非 daemon，确保主进程退出前等待 job 完成，避免数据丢失）
+    t = threading.Thread(target=run_job, daemon=False)
     t.start()
 
     return ScreenerSubmitResponse(job_id=job_id)

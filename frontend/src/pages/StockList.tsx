@@ -20,26 +20,19 @@ function StockList() {
   const [filteredStocks, setFilteredStocks] = useState<Stock[]>([])
 
   useEffect(() => {
-    loadStocks()
-  }, [page, pageSize])
+    setPage(1)
+  }, [searchText])
 
   useEffect(() => {
-    if (searchText) {
-      const filtered = stocks.filter(
-        s => s.code.toLowerCase().includes(searchText.toLowerCase()) ||
-             s.name.toLowerCase().includes(searchText.toLowerCase())
-      )
-      setFilteredStocks(filtered)
-    } else {
-      setFilteredStocks(stocks)
-    }
-  }, [searchText, stocks])
+    loadStocks()
+  }, [page, pageSize, searchText])
 
   const loadStocks = async () => {
     setLoading(true)
     try {
-      const data = await getStocks(undefined, (page - 1) * pageSize, pageSize)
+      const data = await getStocks(undefined, (page - 1) * pageSize, pageSize, searchText || undefined)
       setStocks(data.items)
+      setFilteredStocks(data.items)
       setTotal(data.total)
     } catch (error) {
       message.error('加载股票列表失败')

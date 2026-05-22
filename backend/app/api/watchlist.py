@@ -11,7 +11,7 @@ from app.schemas.schemas import (
     WatchlistListResponse,
 )
 
-router = APIRouter(prefix="/api/watchlist", tags=["watchlist"])
+router = APIRouter(prefix="/api/v1/watchlist", tags=["watchlist"])
 
 
 @router.get("", response_model=WatchlistListResponse)

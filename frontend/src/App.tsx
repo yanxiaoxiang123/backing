@@ -1,5 +1,5 @@
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { SearchOutlined, MenuOutlined, CloseOutlined } from '@ant-design/icons'
 
 import Dashboard from './pages/Dashboard'
@@ -11,6 +11,8 @@ import Strategies from './pages/Strategies'
 import AgentAnalysis from './pages/AgentAnalysis'
 import DLPrediction from './pages/DLPrediction'
 import Watchlist from './pages/Watchlist'
+import ErrorBoundary from './components/ErrorBoundary'
+import { initSession } from './services/api'
 import Screener from './pages/Screener'
 
 const navItems = [
@@ -29,6 +31,9 @@ function App() {
   const location = useLocation()
   const navigate = useNavigate()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+
+  // 初始化 session cookie（用 API key 换一次 cookie，避免 key 暴露在 bundle 中）
+  useEffect(() => { initSession() }, [])
 
   const isActive = (path: string) => {
     if (path === '/') {
@@ -100,19 +105,21 @@ function App() {
 
       {/* Main Content */}
       <main className="app-content">
-        <Routes>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/stocks" element={<StockList />} />
-          <Route path="/stocks/:code" element={<StockChart />} />
-          <Route path="/watchlist" element={<Watchlist />} />
-          <Route path="/screener" element={<Screener />} />
-          <Route path="/strategies" element={<Strategies />} />
-          <Route path="/dl-prediction" element={<DLPrediction />} />
-          <Route path="/backtest" element={<Backtest />} />
-          <Route path="/history" element={<BacktestHistory />} />
-          <Route path="/agent" element={<AgentAnalysis />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
+        <ErrorBoundary name="App">
+          <Routes>
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/stocks" element={<StockList />} />
+            <Route path="/stocks/:code" element={<StockChart />} />
+            <Route path="/watchlist" element={<Watchlist />} />
+            <Route path="/screener" element={<Screener />} />
+            <Route path="/strategies" element={<Strategies />} />
+            <Route path="/dl-prediction" element={<DLPrediction />} />
+            <Route path="/backtest" element={<Backtest />} />
+            <Route path="/history" element={<BacktestHistory />} />
+            <Route path="/agent" element={<AgentAnalysis />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </ErrorBoundary>
       </main>
     </div>
   )

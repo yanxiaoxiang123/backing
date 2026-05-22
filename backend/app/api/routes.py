@@ -151,18 +151,30 @@ def get_stocks(
     db: Session = Depends(get_db),
     _: str = Depends(get_current_api_key),
     market: str = Query(None, description="Filter by market (sh/sz)"),
+    search: str = Query(None, description="Search by code or name (case-insensitive)"),
     cursor: int = Query(0, description="Cursor: last stock id (exclusive)"),
     limit: int = Query(100, ge=1, le=500),
 ):
-    """Get stock list with cursor-based pagination"""
+    """Get stock list with cursor-based pagination and optional search"""
     query = db.query(Stock)
     if market:
         query = query.filter(Stock.market == market)
-    # Cursor-based: fetch stocks with id > cursor
-    query = query.filter(Stock.id > cursor)
-    query = query.order_by(Stock.id.asc())
-    response.headers["X-Total-Count"] = str(query.count())
-    stocks = query.limit(limit).all()
+    if search:
+        q = f"%{search}%"
+        query = query.filter(
+            (Stock.code.ilike(q)) | (Stock.name.ilike(q))
+        )
+        # When searching, use offset pagination (search makes cursor meaningless)
+        total = query.count()
+        response.headers["X-Total-Count"] = str(total)
+        offset = cursor  # reuse cursor param as offset when searching
+        stocks = query.order_by(Stock.id.asc()).offset(offset).limit(limit).all()
+    else:
+        # Cursor-based: fetch stocks with id > cursor
+        query = query.filter(Stock.id > cursor)
+        query = query.order_by(Stock.id.asc())
+        response.headers["X-Total-Count"] = str(query.count())
+        stocks = query.limit(limit).all()
     return stocks
 
 
@@ -269,7 +281,7 @@ def sync_stocks(
         return SyncResponse(success=True, message=message, stocks_synced=count)
     except Exception:
         logger.error("Stock sync failed", exc_info=True)
-        return SyncResponse(success=False, message="Stock sync failed")
+        raise HTTPException(status_code=502, detail="Stock sync failed")
 
 
 @router.post("/stocks/sync/submit", response_model=JobResponse)
@@ -307,7 +319,7 @@ def sync_kline(
         return SyncResponse(success=True, message=message, klines_synced=count)
     except Exception:
         logger.error("Kline sync failed", exc_info=True)
-        return SyncResponse(success=False, message="Kline sync failed")
+        raise HTTPException(status_code=502, detail="Kline sync failed")
 
 
 @router.post("/stocks/sync-kline/submit", response_model=JobResponse)
@@ -363,7 +375,7 @@ def sync_indices(
         return SyncResponse(success=True, message=message, klines_synced=count)
     except Exception:
         logger.error("Index sync failed", exc_info=True)
-        return SyncResponse(success=False, message="Index sync failed")
+        raise HTTPException(status_code=502, detail="Index sync failed")
 
 
 @router.post("/indices/sync/submit", response_model=JobResponse)
