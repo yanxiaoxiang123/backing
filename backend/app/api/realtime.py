@@ -1,13 +1,12 @@
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query, Depends
-from pydantic import BaseModel
-from typing import List
 import asyncio
 import logging
-import time
 from collections import defaultdict
 
+from fastapi import APIRouter, Depends, Query, WebSocket, WebSocketDisconnect
+from pydantic import BaseModel
+
+from app.auth import AuthError, get_current_api_key, validate_api_key
 from app.services.realtime_service import realtime_service
-from app.auth import get_current_api_key, validate_api_key, AuthError
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -30,7 +29,7 @@ class RealtimeBar(BaseModel):
 class RealtimeBarsResponse(BaseModel):
     success: bool
     code: str
-    data: List[RealtimeBar]
+    data: list[RealtimeBar]
 
 
 class RealtimeQuote(BaseModel):
@@ -57,12 +56,12 @@ class RealtimeIndex(BaseModel):
 
 class RealtimeQuotesResponse(BaseModel):
     success: bool
-    data: List[RealtimeQuote]
+    data: list[RealtimeQuote]
 
 
 class RealtimeIndicesResponse(BaseModel):
     success: bool
-    data: List[RealtimeIndex]
+    data: list[RealtimeIndex]
 
 
 @router.get('/realtime/quotes', response_model=RealtimeQuotesResponse)
@@ -92,7 +91,10 @@ def get_realtime_bars(
     period: str = Query('daily', description="daily|weekly|monthly"),
     _: str = Depends(get_current_api_key),
 ):
-    """获取股票实时K线数据（日/周/月）"""
+    """获取股票实时K线数据（日/周/月）
+
+    mootdx 初始化失败时返回空 data 而不是 500, 避免前端展示 "Internal server error"。
+    """
     # 去掉市场前缀 (sh.600036 -> 600036)
     symbol = code.split('.')[-1] if '.' in code else code
 
@@ -104,7 +106,15 @@ def get_realtime_bars(
     offset_map = {'daily': 750, 'weekly': 104, 'monthly': 36}
     offset = offset_map.get(period, 750)
 
-    data = realtime_service.normalise_bars(symbol=symbol, frequency=frequency, offset=offset)
+    try:
+        data = realtime_service.normalise_bars(
+            symbol=symbol, frequency=frequency, offset=offset,
+        )
+    except Exception:
+        logger.exception(
+            "realtime bars fetch failed for %s (period=%s)", code, period,
+        )
+        data = []
 
     return RealtimeBarsResponse(
         success=True,
@@ -127,14 +137,16 @@ async def ws_realtime_bars(
     查询参数: ``period`` (daily|weekly|monthly, 默认 daily)
                ``api_key`` (必填，与 X-API-Key 相同)
     """
-    # ── 认证 ──
-    api_key = websocket.query_params.get('api_key', '')
-    try:
-        validate_api_key(api_key)
-    except AuthError:
-        logger.warning("ws_realtime_bars auth rejected: %s", code)
-        await websocket.close(code=4008)
-        return
+    # ── 认证：浏览器复用已签名 session，外部客户端仍可使用 api_key ──
+    session = websocket.scope.get("session", {})
+    if not session.get("authenticated"):
+        api_key = websocket.query_params.get('api_key', '')
+        try:
+            validate_api_key(api_key)
+        except AuthError:
+            logger.warning("ws_realtime_bars auth rejected: %s", code)
+            await websocket.close(code=4008)
+            return
 
     # ── 简单的每 IP 连接频率限制 ──
     client_host = websocket.client.host if websocket.client else 'unknown'
@@ -173,11 +185,11 @@ async def ws_realtime_bars(
     except WebSocketDisconnect:
         logger.info("ws_realtime_bars disconnected: %s", code)
     except Exception:
-        logger.error("ws_realtime_bars error: %s", code, exc_info=True)
+        logger.exception("ws_realtime_bars error: %s", code)
         try:
             await websocket.close(code=1011)
         except Exception:
-            pass
+            logger.debug("Failed to close websocket after provider error", exc_info=True)
     finally:
         # 清理连接计数
         cnt = _ws_conn_tracker.get(client_host, 0)
