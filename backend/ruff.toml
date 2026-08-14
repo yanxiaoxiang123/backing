@@ -1,0 +1,4 @@
+# Vendored third-party code (vendor/mootdx — patched copy of PyPI mootdx) is
+# intentionally not linted; it must stay byte-identical to upstream except for
+# the metadata patch. Everything else uses ruff's default rule set.
+extend-exclude = ["vendor"]

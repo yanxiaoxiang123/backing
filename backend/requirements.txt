@@ -1,22 +1,36 @@
-fastapi>=0.115.0
-uvicorn[standard]>=0.32.0
-sqlalchemy>=2.0.36
-pymysql>=1.1.1
-cryptography>=44.0.0
-baostock>=0.8.9
-akshare>=1.14.0
-pydantic>=2.10.0
-pydantic-settings>=2.7.0
-python-dotenv>=1.0.1
-pandas>=2.2.0
-numpy>=2.2.0
-requests>=2.32.0
-scipy>=1.15.0
-scikit-learn>=1.6.0
-torch>=2.5.0
-alembic>=1.14.0
-pytest>=8.3.0
-httpx>=0.28.0
-slowapi>=0.1.9
-langchain-core>=0.3.0
-mootdx>=0.11.7
+# Backend dependencies.
+#
+# Pinned to the exact versions verified in the `backing` conda environment
+# (Python 3.11+, verified on 3.12) so fresh installs reproduce the working set.
+# For a fully reproducible environment (transitive closure included) install
+# requirements.lock instead:
+#   pip install -r requirements.lock
+#
+# mootdx is installed from the vendored copy in ./vendor/mootdx because the
+# PyPI release pins httpx<0.26, which conflicts with the app's httpx 0.28.x;
+# the vendored package relaxes that bound (metadata-only patch, see
+# vendor/mootdx/README.md).
+
+fastapi==0.141.1
+uvicorn[standard]==0.52.3
+sqlalchemy==2.0.52
+pymysql==1.2.0
+cryptography==50.0.0
+baostock==0.9.3
+akshare==1.18.91
+pydantic==2.13.4
+pydantic-settings==2.15.0
+python-dotenv==1.2.2
+pandas==3.0.5
+numpy==2.5.2
+requests==2.34.2
+scipy==1.18.0
+scikit-learn==1.9.0
+torch==2.13.0
+alembic==1.19.1
+pytest==9.1.1
+httpx==0.28.1
+slowapi==0.1.10
+itsdangerous==2.2.0
+langchain-core==1.5.4
+./vendor/mootdx

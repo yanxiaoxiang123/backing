@@ -97,6 +97,8 @@ backend/
 
 ### 1. 后端
 
+需要 Python **3.11+**（已在 3.12 验证）。依赖已按验证过的版本固定，`mootdx` 使用仓库内 `backend/vendor/mootdx` 的本地补丁版（放宽了与 `httpx>=0.28` 冲突的过期约束，详见该目录 README）：
+
 ```bash
 cd backend
 python -m venv .venv
@@ -105,6 +107,12 @@ pip install -r requirements.txt
 copy .env.example .env
 alembic upgrade head
 python main.py
+```
+
+需要完全可复现的环境（含全部传递依赖）时，用锁文件安装：
+
+```bash
+pip install -r requirements.lock
 ```
 
 默认后端地址：`http://localhost:8808`
