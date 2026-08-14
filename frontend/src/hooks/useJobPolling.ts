@@ -44,7 +44,9 @@ function jobError(
  * - **State**: `isPolling` and `lastStatus` are exposed so pages can render
  *   progress and re-enable actions.
  */
-export function useJobPolling<T = Record<string, unknown>>(options: JobPollingOptions = {}) {
+export function useJobPolling<T = Record<string, unknown>>(
+  options: JobPollingOptions = {},
+) {
   const { intervalMs = 1500, timeoutMs = 600000, maxIntervalMs = 15000 } = options
 
   const controllerRef = useRef<AbortController | null>(null)
@@ -80,7 +82,10 @@ export function useJobPolling<T = Record<string, unknown>>(options: JobPollingOp
   }, [stop])
 
   const waitForJob = useCallback(
-    async <TResult = T,>(jobId: string, waitOptions: WaitJobOptions<TResult> = {}): Promise<TResult> => {
+    async <TResult = T>(
+      jobId: string,
+      waitOptions: WaitJobOptions<TResult> = {},
+    ): Promise<TResult> => {
       stop() // never run two polls at once
 
       const controller = new AbortController()
@@ -93,7 +98,7 @@ export function useJobPolling<T = Record<string, unknown>>(options: JobPollingOp
 
       // Resolves on timeout *or* abort, so the loop can re-check both.
       const sleep = (ms: number) =>
-        new Promise<void>(resolve => {
+        new Promise<void>((resolve) => {
           const onAbort = () => {
             if (timerRef.current === timer) {
               clearTimer()
@@ -130,7 +135,8 @@ export function useJobPolling<T = Record<string, unknown>>(options: JobPollingOp
             }
             // Fail fast on client errors (e.g. 404: job gone); transient
             // network / server errors back off and retry.
-            const status = (error as { response?: { status?: number } } | undefined)?.response?.status
+            const status = (error as { response?: { status?: number } } | undefined)
+              ?.response?.status
             if (status !== undefined && status < 500) {
               throw error
             }

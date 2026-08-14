@@ -25,8 +25,14 @@ export default function StockSearch({
   const { loading, search, trackSelection } = useStockSearch()
   const [query, setQuery] = useState('')
 
-  const options = useMemo(() => search(query, watchlistCodes), [query, search, watchlistCodes])
-  const selectedLabel = useMemo(() => options.find(o => o.code === value)?.label, [value, options])
+  const options = useMemo(
+    () => search(query, watchlistCodes),
+    [query, search, watchlistCodes],
+  )
+  const selectedLabel = useMemo(
+    () => options.find((o) => o.code === value)?.label,
+    [value, options],
+  )
 
   const handleChange = useCallback(
     (_: string, option: any) => {
@@ -46,19 +52,22 @@ export default function StockSearch({
       onChange={handleChange}
       onSearch={setQuery}
       filterOption={false}
-      notFoundContent={loading ? <Spin size="small" /> : query ? '无匹配结果' : undefined}
+      notFoundContent={
+        loading ? <Spin size="small" /> : query ? '无匹配结果' : undefined
+      }
       loading={loading}
       disabled={disabled}
       autoFocus={autoFocus}
       labelRender={() => selectedLabel || value || ''}
-      options={options.map(o => ({
+      options={options.map((o) => ({
         value: o.code,
         label: o.label,
         __isRecent: false,
       }))}
       optionRender={(option) => {
         const isRecent = option?.data?.__isRecent
-        const isWatchlist = !isRecent && watchlistCodes?.includes(String(option?.value ?? ''))
+        const isWatchlist =
+          !isRecent && watchlistCodes?.includes(String(option?.value ?? ''))
         return (
           <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             {isRecent && <HistoryOutlined style={{ color: '#999', fontSize: 12 }} />}

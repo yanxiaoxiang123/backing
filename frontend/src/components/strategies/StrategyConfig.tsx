@@ -1,5 +1,10 @@
 import { Card, InputNumber, DatePicker, Button, Empty, Slider, Select } from 'antd'
-import { LoadingOutlined, PlayCircleOutlined, ThunderboltOutlined, BarChartOutlined } from '@ant-design/icons'
+import {
+  LoadingOutlined,
+  PlayCircleOutlined,
+  ThunderboltOutlined,
+  BarChartOutlined,
+} from '@ant-design/icons'
 import type { StrategyInfo } from '../../types'
 import StockSearch from '../StockSearch'
 import dayjs from 'dayjs'
@@ -27,23 +32,31 @@ interface StrategyConfigProps {
 function renderParameterInputs(
   strategy: StrategyInfo,
   parameters: Record<string, number | string>,
-  onChange: (params: Record<string, number | string>) => void
+  onChange: (params: Record<string, number | string>) => void,
 ) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
       {Object.entries(strategy.parameters).map(([key, config]) => (
         <div key={key}>
-          <label style={{
-            display: 'block',
-            fontSize: 'var(--font-size-sm)',
-            color: 'var(--color-text-secondary)',
-            marginBottom: 'var(--space-xs)'
-          }}>
+          <label
+            style={{
+              display: 'block',
+              fontSize: 'var(--font-size-sm)',
+              color: 'var(--color-text-secondary)',
+              marginBottom: 'var(--space-xs)',
+            }}
+          >
             {key}
-            {config.description && <span style={{ marginLeft: 8, fontWeight: 400 }}>({config.description})</span>}
+            {config.description && (
+              <span style={{ marginLeft: 8, fontWeight: 400 }}>
+                ({config.description})
+              </span>
+            )}
           </label>
           {config.type === 'slider' && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-md)' }}>
+            <div
+              style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-md)' }}
+            >
               <Slider
                 min={config.min}
                 max={config.max}
@@ -57,7 +70,9 @@ function renderParameterInputs(
                 max={config.max}
                 step={config.step}
                 value={Number(parameters[key] ?? config.default)}
-                onChange={(value) => onChange({ ...parameters, [key]: Number(value ?? 0) })}
+                onChange={(value) =>
+                  onChange({ ...parameters, [key]: Number(value ?? 0) })
+                }
                 style={{ width: 80 }}
               />
             </div>
@@ -68,7 +83,9 @@ function renderParameterInputs(
               max={config.max}
               step={config.step}
               value={Number(parameters[key] ?? config.default)}
-              onChange={(value) => onChange({ ...parameters, [key]: Number(value ?? 0) })}
+              onChange={(value) =>
+                onChange({ ...parameters, [key]: Number(value ?? 0) })
+              }
               style={{ width: '100%' }}
             />
           )}
@@ -77,9 +94,9 @@ function renderParameterInputs(
               value={parameters[key] ?? config.default}
               onChange={(value) => onChange({ ...parameters, [key]: value })}
               style={{ width: '100%' }}
-              options={config.options.map(opt => ({
+              options={config.options.map((opt) => ({
                 value: opt.value,
-                label: opt.label
+                label: opt.label,
               }))}
             />
           )}
@@ -104,17 +121,14 @@ export function StrategyConfig({
   onGenerateSignals,
   onRunBacktest,
   onOptimize,
-  onCompare
+  onCompare,
 }: StrategyConfigProps) {
-  const selectedStrategyInfo = strategies.find(s => s.name === selectedStrategy)
+  const selectedStrategyInfo = strategies.find((s) => s.name === selectedStrategy)
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-lg)' }}>
       {/* Strategy Parameters */}
-      <Card
-        title="策略参数"
-        style={{ opacity: selectedStrategy ? 1 : 0.6 }}
-      >
+      <Card title="策略参数" style={{ opacity: selectedStrategy ? 1 : 0.6 }}>
         {selectedStrategyInfo ? (
           renderParameterInputs(selectedStrategyInfo, parameters, onParameterChange)
         ) : (
@@ -124,36 +138,42 @@ export function StrategyConfig({
 
       {/* Backtest Configuration */}
       <Card title="回测配置">
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
+        <div
+          style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}
+        >
           <div>
-            <label style={{
-              display: 'block',
-              fontSize: 'var(--font-size-sm)',
-              color: 'var(--color-text-secondary)',
-              marginBottom: 'var(--space-xs)'
-            }}>
+            <label
+              style={{
+                display: 'block',
+                fontSize: 'var(--font-size-sm)',
+                color: 'var(--color-text-secondary)',
+                marginBottom: 'var(--space-xs)',
+              }}
+            >
               股票代码
             </label>
-            <StockSearch
-              value={stockCode ?? undefined}
-              onChange={onStockCodeChange}
-            />
+            <StockSearch value={stockCode ?? undefined} onChange={onStockCodeChange} />
           </div>
 
           <div>
-            <label style={{
-              display: 'block',
-              fontSize: 'var(--font-size-sm)',
-              color: 'var(--color-text-secondary)',
-              marginBottom: 'var(--space-xs)'
-            }}>
+            <label
+              style={{
+                display: 'block',
+                fontSize: 'var(--font-size-sm)',
+                color: 'var(--color-text-secondary)',
+                marginBottom: 'var(--space-xs)',
+              }}
+            >
               回测区间
             </label>
             <RangePicker
               value={[dayjs(dateRange[0]), dayjs(dateRange[1])]}
               onChange={(dates) => {
                 if (dates) {
-                  onDateRangeChange([dates[0]!.format('YYYY-MM-DD'), dates[1]!.format('YYYY-MM-DD')])
+                  onDateRangeChange([
+                    dates[0]!.format('YYYY-MM-DD'),
+                    dates[1]!.format('YYYY-MM-DD'),
+                  ])
                 }
               }}
               style={{ width: '100%' }}
@@ -161,12 +181,14 @@ export function StrategyConfig({
           </div>
 
           <div>
-            <label style={{
-              display: 'block',
-              fontSize: 'var(--font-size-sm)',
-              color: 'var(--color-text-secondary)',
-              marginBottom: 'var(--space-xs)'
-            }}>
+            <label
+              style={{
+                display: 'block',
+                fontSize: 'var(--font-size-sm)',
+                color: 'var(--color-text-secondary)',
+                marginBottom: 'var(--space-xs)',
+              }}
+            >
               初始资金
             </label>
             <InputNumber
@@ -180,7 +202,13 @@ export function StrategyConfig({
             />
           </div>
 
-          <div style={{ display: 'flex', gap: 'var(--space-sm)', marginTop: 'var(--space-md)' }}>
+          <div
+            style={{
+              display: 'flex',
+              gap: 'var(--space-sm)',
+              marginTop: 'var(--space-md)',
+            }}
+          >
             <Button
               type="primary"
               icon={<LoadingOutlined spin={loading.signals} />}

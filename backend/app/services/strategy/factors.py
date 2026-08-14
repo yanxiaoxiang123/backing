@@ -8,9 +8,10 @@ Provides implementations of various technical analysis indicators including:
 - Volume indicators (OBV, VWAP, VolumeMA, VolumeRatio)
 """
 
+from typing import Dict
+
 import numpy as np
 import pandas as pd
-from typing import Dict
 
 
 class TechnicalFactors:

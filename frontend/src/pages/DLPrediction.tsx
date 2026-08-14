@@ -9,9 +9,13 @@ import {
   message,
   Descriptions,
   Table,
-  Tag
+  Tag,
 } from 'antd'
-import { LoadingOutlined, LineChartOutlined, PlayCircleOutlined } from '@ant-design/icons'
+import {
+  LoadingOutlined,
+  LineChartOutlined,
+  PlayCircleOutlined,
+} from '@ant-design/icons'
 import ReactECharts from 'echarts-for-react'
 import type { EChartsOption } from 'echarts'
 import { dlPredict, dlBacktest } from '../services/api'
@@ -68,16 +72,24 @@ function DLPrediction() {
   const [loadingBacktest, setLoadingBacktest] = useState(false)
 
   // Form state
-  const [stockCode, setStockCode] = usePersistedState<string | null>('dl_stockCode', null)
+  const [stockCode, setStockCode] = usePersistedState<string | null>(
+    'dl_stockCode',
+    null,
+  )
   const [klineDays, setKlineDays] = usePersistedState('dl_klineDays', 60)
-  const [dateRange, setDateRange] = usePersistedState<[string, string]>('dl_dateRange', [
-    dayjs().subtract(1, 'year').format('YYYY-MM-DD'),
-    dayjs().format('YYYY-MM-DD')
-  ])
-  const [initialCapital, setInitialCapital] = usePersistedState('dl_initialCapital', 100000)
+  const [dateRange, setDateRange] = usePersistedState<[string, string]>(
+    'dl_dateRange',
+    [dayjs().subtract(1, 'year').format('YYYY-MM-DD'), dayjs().format('YYYY-MM-DD')],
+  )
+  const [initialCapital, setInitialCapital] = usePersistedState(
+    'dl_initialCapital',
+    100000,
+  )
 
   // Results state
-  const [predictionResult, setPredictionResult] = useState<DLPredictionResult | null>(null)
+  const [predictionResult, setPredictionResult] = useState<DLPredictionResult | null>(
+    null,
+  )
   const [backtestResult, setBacktestResult] = useState<DLBacktestResult | null>(null)
 
   const handlePredict = async () => {
@@ -91,7 +103,7 @@ function DLPrediction() {
     try {
       const response = await dlPredict({
         stock_code: stockCode,
-        kline_days: klineDays
+        kline_days: klineDays,
       })
       if (!response.success || !response.data) {
         message.error(response.error || '预测失败')
@@ -120,7 +132,7 @@ function DLPrediction() {
         stock_code: stockCode,
         start_date: dateRange[0],
         end_date: dateRange[1],
-        initial_capital: initialCapital
+        initial_capital: initialCapital,
       })
       if (!response.success || !response.data) {
         message.error(response.error || '回测失败')
@@ -137,13 +149,17 @@ function DLPrediction() {
   }
 
   const getChartOption = (): EChartsOption => {
-    if (!predictionResult || !Array.isArray(predictionResult.kline_data) || predictionResult.kline_data.length === 0) {
+    if (
+      !predictionResult ||
+      !Array.isArray(predictionResult.kline_data) ||
+      predictionResult.kline_data.length === 0
+    ) {
       return {}
     }
 
     const klineData = predictionResult.kline_data
-    const dates = klineData.map(d => d.date)
-    const closePrices = klineData.map(d => d.close)
+    const dates = klineData.map((d) => d.date)
+    const closePrices = klineData.map((d) => d.close)
 
     // 预测数据
     const predictionDates = predictionResult.prediction_dates || []
@@ -162,36 +178,34 @@ function DLPrediction() {
         top: 10,
         left: 'center',
         textStyle: { color: 'var(--color-text-secondary)', fontSize: 11 },
-        data: ['历史价格', '预测价格']
+        data: ['历史价格', '预测价格'],
       },
       tooltip: {
         trigger: 'axis',
         axisPointer: { type: 'cross' },
         backgroundColor: '#fff',
         borderColor: 'var(--color-border)',
-        textStyle: { color: 'var(--color-text-primary)' }
+        textStyle: { color: 'var(--color-text-primary)' },
       },
-      grid: [
-        { left: '10%', right: '8%', height: '70%' }
-      ],
+      grid: [{ left: '10%', right: '8%', height: '70%' }],
       xAxis: {
         type: 'category',
         data: allDates,
         boundaryGap: false,
         axisLine: { onZero: false },
         axisLabel: { color: 'var(--color-text-tertiary)', fontSize: 10 },
-        splitLine: { show: false }
+        splitLine: { show: false },
       },
       yAxis: {
         scale: true,
         splitArea: { show: false },
-        axisLabel: { color: 'var(--color-text-tertiary)', fontSize: 10 }
+        axisLabel: { color: 'var(--color-text-tertiary)', fontSize: 10 },
       },
       dataZoom: [
         {
           type: 'inside',
           start: 50,
-          end: 100
+          end: 100,
         },
         {
           show: true,
@@ -203,8 +217,8 @@ function DLPrediction() {
           borderColor: 'var(--color-border)',
           backgroundColor: 'var(--color-bg-secondary)',
           fillerColor: 'rgba(0, 113, 227, 0.1)',
-          handleStyle: { color: 'var(--color-ink)' }
-        }
+          handleStyle: { color: 'var(--color-ink)' },
+        },
       ],
       series: [
         {
@@ -215,34 +229,41 @@ function DLPrediction() {
           symbol: 'none',
           lineStyle: {
             color: '#0071e3',
-            width: 2
+            width: 2,
           },
           areaStyle: {
             color: {
               type: 'linear',
-              x: 0, y: 0, x2: 0, y2: 1,
+              x: 0,
+              y: 0,
+              x2: 0,
+              y2: 1,
               colorStops: [
                 { offset: 0, color: 'rgba(0, 113, 227, 0.2)' },
-                { offset: 1, color: 'rgba(0, 113, 227, 0.02)' }
-              ]
-            }
-          }
+                { offset: 1, color: 'rgba(0, 113, 227, 0.02)' },
+              ],
+            },
+          },
         },
         {
           name: '预测价格',
           type: 'line',
-          data: [...Array(dates.length - 1).fill(null), closePrices[closePrices.length - 1], ...predictedPrices],
+          data: [
+            ...Array(dates.length - 1).fill(null),
+            closePrices[closePrices.length - 1],
+            ...predictedPrices,
+          ],
           smooth: true,
           symbol: 'circle',
           symbolSize: 6,
           lineStyle: {
             color: '#ff3b30',
             width: 2,
-            type: 'dashed'
+            type: 'dashed',
           },
           itemStyle: {
-            color: '#ff3b30'
-          }
+            color: '#ff3b30',
+          },
         },
         {
           name: '预测起点',
@@ -256,20 +277,20 @@ function DLPrediction() {
                 lineStyle: {
                   color: '#ff9500',
                   width: 2,
-                  type: 'solid'
+                  type: 'solid',
                 },
                 label: {
                   show: true,
                   position: 'start',
                   formatter: '预测起点',
                   color: '#ff9500',
-                  fontSize: 11
-                }
-              }
-            ]
-          }
-        }
-      ]
+                  fontSize: 11,
+                },
+              },
+            ],
+          },
+        },
+      ],
     }
   }
 
@@ -284,24 +305,34 @@ function DLPrediction() {
 
     // 提取买卖点
     const buyPoints: { date: string; price: number; profit?: number }[] = []
-    const sellPoints: { date: string; price: number; return?: number; profit?: number }[] = []
+    const sellPoints: {
+      date: string
+      price: number
+      return?: number
+      profit?: number
+    }[] = []
 
-    trades.forEach(trade => {
+    trades.forEach((trade) => {
       if (trade.action === 'BUY') {
         buyPoints.push({ date: trade.date, price: trade.price })
       } else {
-        sellPoints.push({ date: trade.date, price: trade.price, return: trade.return, profit: trade.profit })
+        sellPoints.push({
+          date: trade.date,
+          price: trade.price,
+          return: trade.return,
+          profit: trade.profit,
+        })
       }
     })
 
     // 买卖点对应的索引
-    const buyData = buyPoints.map(p => ({
+    const buyData = buyPoints.map((p) => ({
       value: [p.date, p.price],
-      itemStyle: { color: '#34c759', borderColor: '#fff', borderWidth: 1 }
+      itemStyle: { color: '#34c759', borderColor: '#fff', borderWidth: 1 },
     }))
-    const sellData = sellPoints.map(p => ({
+    const sellData = sellPoints.map((p) => ({
       value: [p.date, p.price, p.profit],
-      itemStyle: { color: '#ff3b30', borderColor: '#fff', borderWidth: 1 }
+      itemStyle: { color: '#ff3b30', borderColor: '#fff', borderWidth: 1 },
     }))
 
     return {
@@ -311,7 +342,7 @@ function DLPrediction() {
         top: 10,
         left: 'center',
         textStyle: { color: 'var(--color-text-secondary)', fontSize: 11 },
-        data: ['收盘价', '买入', '卖出']
+        data: ['收盘价', '买入', '卖出'],
       },
       tooltip: {
         trigger: 'axis',
@@ -326,8 +357,8 @@ function DLPrediction() {
           let html = `<div style="font-weight:500">${date}</div>`
           html += `<div>价格: <span style="color:#0071e3;font-weight:500">${price.toFixed(2)}</span></div>`
 
-          const buy = buyPoints.find(p => p.date === date)
-          const sell = sellPoints.find(p => p.date === date)
+          const buy = buyPoints.find((p) => p.date === date)
+          const sell = sellPoints.find((p) => p.date === date)
           if (buy) {
             html += `<div style="color:#34c759">买入: ${buy.price.toFixed(2)}</div>`
           }
@@ -338,29 +369,27 @@ function DLPrediction() {
             html += `<div style="color:${color}">收益: ${sign}${sell.profit?.toFixed(2)} (${sign}${sell.return?.toFixed(2)}%)</div>`
           }
           return html
-        }
+        },
       },
-      grid: [
-        { left: '10%', right: '8%', top: '15%', height: '70%' }
-      ],
+      grid: [{ left: '10%', right: '8%', top: '15%', height: '70%' }],
       xAxis: {
         type: 'category',
         data: dates,
         boundaryGap: false,
         axisLine: { onZero: false },
         axisLabel: { color: 'var(--color-text-tertiary)', fontSize: 10 },
-        splitLine: { show: false }
+        splitLine: { show: false },
       },
       yAxis: {
         scale: true,
         splitArea: { show: false },
-        axisLabel: { color: 'var(--color-text-tertiary)', fontSize: 10 }
+        axisLabel: { color: 'var(--color-text-tertiary)', fontSize: 10 },
       },
       dataZoom: [
         {
           type: 'inside',
           start: 0,
-          end: 100
+          end: 100,
         },
         {
           show: true,
@@ -372,8 +401,8 @@ function DLPrediction() {
           borderColor: 'var(--color-border)',
           backgroundColor: 'var(--color-bg-secondary)',
           fillerColor: 'rgba(0, 113, 227, 0.1)',
-          handleStyle: { color: 'var(--color-ink)' }
-        }
+          handleStyle: { color: 'var(--color-ink)' },
+        },
       ],
       series: [
         {
@@ -384,18 +413,21 @@ function DLPrediction() {
           symbol: 'none',
           lineStyle: {
             color: '#0071e3',
-            width: 2
+            width: 2,
           },
           areaStyle: {
             color: {
               type: 'linear',
-              x: 0, y: 0, x2: 0, y2: 1,
+              x: 0,
+              y: 0,
+              x2: 0,
+              y2: 1,
               colorStops: [
                 { offset: 0, color: 'rgba(0, 113, 227, 0.2)' },
-                { offset: 1, color: 'rgba(0, 113, 227, 0.02)' }
-              ]
-            }
-          }
+                { offset: 1, color: 'rgba(0, 113, 227, 0.02)' },
+              ],
+            },
+          },
         },
         {
           name: '买入',
@@ -403,7 +435,7 @@ function DLPrediction() {
           data: buyData,
           symbol: 'triangle',
           symbolSize: 10,
-          zlevel: 10
+          zlevel: 10,
         },
         {
           name: '卖出',
@@ -412,9 +444,9 @@ function DLPrediction() {
           symbol: 'triangle',
           symbolSize: 10,
           symbolRotate: 180,
-          zlevel: 10
-        }
-      ]
+          zlevel: 10,
+        },
+      ],
     }
   }
 
@@ -428,19 +460,25 @@ function DLPrediction() {
         <Tag color={action.toUpperCase() === 'BUY' ? 'green' : 'red'}>
           {action.toUpperCase() === 'BUY' ? '买入' : '卖出'}
         </Tag>
-      )
+      ),
     },
-    { title: '价格', dataIndex: 'price', key: 'price', render: (v: number) => v.toFixed(2) },
+    {
+      title: '价格',
+      dataIndex: 'price',
+      key: 'price',
+      render: (v: number) => v.toFixed(2),
+    },
     { title: '数量', dataIndex: 'quantity', key: 'quantity' },
     {
       title: '金额',
       key: 'amount',
       render: (_: number | undefined, record: DLBacktestResult['trades'][number]) => {
-        const amount = record.action === 'BUY'
-          ? (record.cost ?? record.price * record.quantity)
-          : (record.revenue ?? record.price * record.quantity)
+        const amount =
+          record.action === 'BUY'
+            ? (record.cost ?? record.price * record.quantity)
+            : (record.revenue ?? record.price * record.quantity)
         return amount.toFixed(2)
-      }
+      },
     },
     {
       title: '收益率',
@@ -449,8 +487,13 @@ function DLPrediction() {
         if (record.action === 'BUY' || record.return === undefined) return '-'
         const color = record.return >= 0 ? '#34c759' : '#ff3b30'
         const sign = record.return >= 0 ? '+' : ''
-        return <span style={{ color }}>{sign}{record.return.toFixed(2)}%</span>
-      }
+        return (
+          <span style={{ color }}>
+            {sign}
+            {record.return.toFixed(2)}%
+          </span>
+        )
+      },
     },
   ]
 
@@ -458,7 +501,10 @@ function DLPrediction() {
     <div className="fade-in">
       {/* Page Header */}
       <div className="page-header">
-        <div className="flex flex-between" style={{ flexWrap: 'wrap', gap: 'var(--space-md)' }}>
+        <div
+          className="flex flex-between"
+          style={{ flexWrap: 'wrap', gap: 'var(--space-md)' }}
+        >
           <div>
             <h1 className="page-title">DL 预测</h1>
             <p className="page-subtitle">深度学习模型预测未来5天股票价格</p>
@@ -466,13 +512,27 @@ function DLPrediction() {
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr 1fr', gap: 'var(--space-lg)', alignItems: 'start' }}>
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: '320px 1fr 1fr',
+          gap: 'var(--space-lg)',
+          alignItems: 'start',
+        }}
+      >
         {/* Left: Configuration */}
         <Card
-          title={<><LineChartOutlined style={{ marginRight: 8 }} />预测配置</>}
+          title={
+            <>
+              <LineChartOutlined style={{ marginRight: 8 }} />
+              预测配置
+            </>
+          }
           style={{ position: 'sticky', top: 80 }}
         >
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
+          <div
+            style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}
+          >
             {/* Stock Selection */}
             <div>
               <StockSearch
@@ -483,12 +543,14 @@ function DLPrediction() {
 
             {/* Kline Days */}
             <div>
-              <label style={{
-                display: 'block',
-                fontSize: 'var(--font-size-sm)',
-                color: 'var(--color-text-secondary)',
-                marginBottom: 'var(--space-xs)'
-              }}>
+              <label
+                style={{
+                  display: 'block',
+                  fontSize: 'var(--font-size-sm)',
+                  color: 'var(--color-text-secondary)',
+                  marginBottom: 'var(--space-xs)',
+                }}
+              >
                 历史K线天数
               </label>
               <InputNumber
@@ -502,7 +564,14 @@ function DLPrediction() {
             </div>
 
             {/* Buttons */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)', marginTop: 'var(--space-md)' }}>
+            <div
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 'var(--space-sm)',
+                marginTop: 'var(--space-md)',
+              }}
+            >
               <Button
                 type="primary"
                 icon={<LoadingOutlined spin={loadingPredict} />}
@@ -515,32 +584,45 @@ function DLPrediction() {
               </Button>
             </div>
 
-            <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: 'var(--space-md)', marginTop: 'var(--space-md)' }}>
-              <label style={{
-                display: 'block',
-                fontSize: 'var(--font-size-sm)',
-                color: 'var(--color-text-secondary)',
-                marginBottom: 'var(--space-xs)'
-              }}>
+            <div
+              style={{
+                borderTop: '1px solid var(--color-border)',
+                paddingTop: 'var(--space-md)',
+                marginTop: 'var(--space-md)',
+              }}
+            >
+              <label
+                style={{
+                  display: 'block',
+                  fontSize: 'var(--font-size-sm)',
+                  color: 'var(--color-text-secondary)',
+                  marginBottom: 'var(--space-xs)',
+                }}
+              >
                 回测区间
               </label>
               <RangePicker
                 value={[dayjs(dateRange[0]), dayjs(dateRange[1])]}
                 onChange={(dates) => {
                   if (dates) {
-                    setDateRange([dates[0]!.format('YYYY-MM-DD'), dates[1]!.format('YYYY-MM-DD')])
+                    setDateRange([
+                      dates[0]!.format('YYYY-MM-DD'),
+                      dates[1]!.format('YYYY-MM-DD'),
+                    ])
                   }
                 }}
                 style={{ width: '100%' }}
               />
 
-              <label style={{
-                display: 'block',
-                fontSize: 'var(--font-size-sm)',
-                color: 'var(--color-text-secondary)',
-                marginBottom: 'var(--space-xs)',
-                marginTop: 'var(--space-md)'
-              }}>
+              <label
+                style={{
+                  display: 'block',
+                  fontSize: 'var(--font-size-sm)',
+                  color: 'var(--color-text-secondary)',
+                  marginBottom: 'var(--space-xs)',
+                  marginTop: 'var(--space-md)',
+                }}
+              >
                 初始资金
               </label>
               <InputNumber
@@ -603,14 +685,22 @@ function DLPrediction() {
         </Card>
 
         {/* Right: Results */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-lg)' }}>
+        <div
+          style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-lg)' }}
+        >
           {/* Prediction Results */}
           {predictionResult && (
             <Card title="预测结果">
               <Descriptions column={1} size="small" bordered>
-                <Descriptions.Item label="股票代码">{predictionResult.stock_code}</Descriptions.Item>
-                <Descriptions.Item label="当前价格">{predictionResult.current_price.toFixed(2)}</Descriptions.Item>
-                <Descriptions.Item label="最后交易日">{predictionResult.last_date}</Descriptions.Item>
+                <Descriptions.Item label="股票代码">
+                  {predictionResult.stock_code}
+                </Descriptions.Item>
+                <Descriptions.Item label="当前价格">
+                  {predictionResult.current_price.toFixed(2)}
+                </Descriptions.Item>
+                <Descriptions.Item label="最后交易日">
+                  {predictionResult.last_date}
+                </Descriptions.Item>
               </Descriptions>
 
               <div style={{ marginTop: 'var(--space-md)' }}>
@@ -620,9 +710,20 @@ function DLPrediction() {
                     key: index,
                     date,
                     predicted_price: predictionResult.predicted_prices[index],
-                    change: index > 0
-                      ? ((predictionResult.predicted_prices[index] - predictionResult.predicted_prices[index - 1]) / predictionResult.predicted_prices[index - 1] * 100).toFixed(2)
-                      : ((predictionResult.predicted_prices[0] - predictionResult.current_price) / predictionResult.current_price * 100).toFixed(2)
+                    change:
+                      index > 0
+                        ? (
+                            ((predictionResult.predicted_prices[index] -
+                              predictionResult.predicted_prices[index - 1]) /
+                              predictionResult.predicted_prices[index - 1]) *
+                            100
+                          ).toFixed(2)
+                        : (
+                            ((predictionResult.predicted_prices[0] -
+                              predictionResult.current_price) /
+                              predictionResult.current_price) *
+                            100
+                          ).toFixed(2),
                   }))}
                   columns={[
                     { title: '日期', dataIndex: 'date', key: 'date' },
@@ -630,7 +731,7 @@ function DLPrediction() {
                       title: '预测价格',
                       dataIndex: 'predicted_price',
                       key: 'predicted_price',
-                      render: (v: number) => v.toFixed(2)
+                      render: (v: number) => v.toFixed(2),
                     },
                     {
                       title: '涨跌幅',
@@ -638,10 +739,11 @@ function DLPrediction() {
                       key: 'change',
                       render: (v: string) => (
                         <span style={{ color: Number(v) >= 0 ? '#34c759' : '#ff3b30' }}>
-                          {Number(v) >= 0 ? '+' : ''}{v}%
+                          {Number(v) >= 0 ? '+' : ''}
+                          {v}%
                         </span>
-                      )
-                    }
+                      ),
+                    },
                   ]}
                   pagination={false}
                   size="small"
@@ -655,21 +757,36 @@ function DLPrediction() {
             <Card title="回测结果">
               <Descriptions column={2} size="small" bordered>
                 <Descriptions.Item label="总收益率">
-                  <span style={{ color: backtestResult.total_return >= 0 ? '#34c759' : '#ff3b30' }}>
+                  <span
+                    style={{
+                      color: backtestResult.total_return >= 0 ? '#34c759' : '#ff3b30',
+                    }}
+                  >
                     {backtestResult.total_return.toFixed(2)}%
                   </span>
                 </Descriptions.Item>
                 <Descriptions.Item label="年化收益率">
-                  <span style={{ color: backtestResult.annualized_return >= 0 ? '#34c759' : '#ff3b30' }}>
+                  <span
+                    style={{
+                      color:
+                        backtestResult.annualized_return >= 0 ? '#34c759' : '#ff3b30',
+                    }}
+                  >
                     {backtestResult.annualized_return.toFixed(2)}%
                   </span>
                 </Descriptions.Item>
-                <Descriptions.Item label="夏普比率">{backtestResult.sharpe_ratio.toFixed(4)}</Descriptions.Item>
+                <Descriptions.Item label="夏普比率">
+                  {backtestResult.sharpe_ratio.toFixed(4)}
+                </Descriptions.Item>
                 <Descriptions.Item label="最大回撤">
                   {backtestResult.max_drawdown.toFixed(2)}%
                 </Descriptions.Item>
-                <Descriptions.Item label="胜率">{backtestResult.win_rate.toFixed(2)}%</Descriptions.Item>
-                <Descriptions.Item label="交易次数">{backtestResult.total_trades}</Descriptions.Item>
+                <Descriptions.Item label="胜率">
+                  {backtestResult.win_rate.toFixed(2)}%
+                </Descriptions.Item>
+                <Descriptions.Item label="交易次数">
+                  {backtestResult.total_trades}
+                </Descriptions.Item>
               </Descriptions>
 
               <div style={{ marginTop: 'var(--space-md)' }}>

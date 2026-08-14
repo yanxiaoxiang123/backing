@@ -245,7 +245,7 @@ def _execute_stage(
 
         result.duration_s = time.time() - start_time
 
-    except Exception as exc:  # noqa: BLE001 - deliberate per-stage isolation
+    except Exception as exc:
         result.status = StageStatus.FAILED
         result.error = str(exc)
         result.duration_s = time.time() - start_time

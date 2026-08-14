@@ -1,6 +1,6 @@
 import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import List, Dict, Any, Optional, Callable, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
 
 import pandas as pd
 
@@ -8,7 +8,6 @@ from app.services.realtime_service import realtime_service
 from app.services.strategy.factors import TechnicalFactors
 
 if TYPE_CHECKING:
-    from sqlalchemy.orm import Session
     from app.models.models import Stock
 
 logger = logging.getLogger(__name__)

@@ -3,7 +3,9 @@
 
 import logging
 from typing import Any, Dict, List, Optional
+
 import requests
+
 from app.agent.config import agent_settings
 
 logger = logging.getLogger(__name__)

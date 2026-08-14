@@ -16,17 +16,23 @@ const stageLabels: Record<string, string> = {
 
 function getSignalColor(signal: string) {
   switch (signal) {
-    case 'buy': return 'green'
-    case 'sell': return 'red'
-    default: return 'default'
+    case 'buy':
+      return 'green'
+    case 'sell':
+      return 'red'
+    default:
+      return 'default'
   }
 }
 
 function getSignalLabel(signal: string) {
   switch (signal) {
-    case 'buy': return '买入'
-    case 'sell': return '卖出'
-    default: return '持有'
+    case 'buy':
+      return '买入'
+    case 'sell':
+      return '卖出'
+    default:
+      return '持有'
   }
 }
 
@@ -38,28 +44,51 @@ export function StageCard({ stage }: StageCardProps) {
       size="small"
       title={<span style={{ fontWeight: 600, fontSize: 16 }}>{label}</span>}
       extra={
-        <Tag color={stage.status === 'completed' ? 'green' : stage.status === 'failed' ? 'red' : 'orange'}>
-          {stage.status === 'completed' ? '完成' : stage.status === 'failed' ? '失败' : '进行中'}
+        <Tag
+          color={
+            stage.status === 'completed'
+              ? 'green'
+              : stage.status === 'failed'
+                ? 'red'
+                : 'orange'
+          }
+        >
+          {stage.status === 'completed'
+            ? '完成'
+            : stage.status === 'failed'
+              ? '失败'
+              : '进行中'}
         </Tag>
       }
       style={{ marginBottom: 'var(--space-md)' }}
       styles={{
         header: { padding: 'var(--space-md) var(--space-lg)' },
-        body: { padding: 'var(--space-md) 32px' }
+        body: { padding: 'var(--space-md) 32px' },
       }}
     >
       {stage.opinion ? (
         <Row gutter={16} align="top">
           <Col span={4}>
-            <Tag color={getSignalColor(stage.opinion.signal)} style={{ fontSize: 12, padding: '2px 8px' }}>
+            <Tag
+              color={getSignalColor(stage.opinion.signal)}
+              style={{ fontSize: 12, padding: '2px 8px' }}
+            >
               {getSignalLabel(stage.opinion.signal)}
             </Tag>
-            <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginTop: 'var(--space-xs)' }}>
+            <div
+              style={{
+                fontSize: 12,
+                color: 'var(--color-text-secondary)',
+                marginTop: 'var(--space-xs)',
+              }}
+            >
               置信度: {Math.round(stage.opinion.confidence * 100)}%
             </div>
           </Col>
           <Col span={20}>
-            <div style={{ fontSize: 14, lineHeight: 1.6 }}>{stage.opinion.reason || '无'}</div>
+            <div style={{ fontSize: 14, lineHeight: 1.6 }}>
+              {stage.opinion.reason || '无'}
+            </div>
           </Col>
         </Row>
       ) : stage.error ? (

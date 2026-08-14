@@ -7,65 +7,94 @@ interface DecisionCardProps {
 
 function getSignalColor(signal: string) {
   switch (signal) {
-    case 'buy': return 'green'
-    case 'sell': return 'red'
-    default: return 'default'
+    case 'buy':
+      return 'green'
+    case 'sell':
+      return 'red'
+    default:
+      return 'default'
   }
 }
 
 function getSignalLabel(signal: string) {
   switch (signal) {
-    case 'buy': return '买入'
-    case 'sell': return '卖出'
-    default: return '持有'
+    case 'buy':
+      return '买入'
+    case 'sell':
+      return '卖出'
+    default:
+      return '持有'
   }
 }
 
 export function DecisionCard({ result }: DecisionCardProps) {
-  const signalColor = result.final_signal === 'buy' ? 'var(--color-success)' :
-                      result.final_signal === 'sell' ? 'var(--color-danger)' :
-                      'var(--color-text-secondary)'
+  const signalColor =
+    result.final_signal === 'buy'
+      ? 'var(--color-success)'
+      : result.final_signal === 'sell'
+        ? 'var(--color-danger)'
+        : 'var(--color-text-secondary)'
 
   return (
-    <Card style={{ marginBottom: 'var(--space-lg)' }}
+    <Card
+      style={{ marginBottom: 'var(--space-lg)' }}
       styles={{
-        body: { padding: 'var(--space-lg)' }
+        body: { padding: 'var(--space-lg)' },
       }}
     >
       <Row gutter={16} align="middle">
         <Col>
-          <div style={{
-            fontSize: 48,
-            fontWeight: 700,
-            color: signalColor,
-            lineHeight: 1,
-          }}>
-            {result.final_signal === 'buy' ? '↑' : result.final_signal === 'sell' ? '↓' : '→'}
+          <div
+            style={{
+              fontSize: 48,
+              fontWeight: 700,
+              color: signalColor,
+              lineHeight: 1,
+            }}
+          >
+            {result.final_signal === 'buy'
+              ? '↑'
+              : result.final_signal === 'sell'
+                ? '↓'
+                : '→'}
           </div>
         </Col>
         <Col flex="auto">
-          <div style={{ fontSize: 24, fontWeight: 600, marginBottom: 'var(--space-xs)' }}>
+          <div
+            style={{ fontSize: 24, fontWeight: 600, marginBottom: 'var(--space-xs)' }}
+          >
             {getSignalLabel(result.final_signal)}
           </div>
-          <div style={{ color: 'var(--color-text-secondary)', fontSize: 'var(--font-size-sm)' }}>
-            置信度: {Math.round(result.final_confidence * 100)}% | 耗时: {result.duration_s.toFixed(1)}s
+          <div
+            style={{
+              color: 'var(--color-text-secondary)',
+              fontSize: 'var(--font-size-sm)',
+            }}
+          >
+            置信度: {Math.round(result.final_confidence * 100)}% | 耗时:{' '}
+            {result.duration_s.toFixed(1)}s
           </div>
         </Col>
         <Col>
-          <Tag color={getSignalColor(result.final_signal)} style={{ fontSize: 'var(--font-size-sm)', padding: '4px 12px' }}>
+          <Tag
+            color={getSignalColor(result.final_signal)}
+            style={{ fontSize: 'var(--font-size-sm)', padding: '4px 12px' }}
+          >
             {result.mode}
           </Tag>
         </Col>
       </Row>
       {result.final_reason && (
-        <div style={{
-          marginTop: 'var(--space-lg)',
-          padding: 'var(--space-lg)',
-          background: 'var(--color-bg-secondary)',
-          borderRadius: 'var(--radius-btn)',
-          fontSize: 'var(--font-size-sm)',
-          lineHeight: 1.8,
-        }}>
+        <div
+          style={{
+            marginTop: 'var(--space-lg)',
+            padding: 'var(--space-lg)',
+            background: 'var(--color-bg-secondary)',
+            borderRadius: 'var(--radius-btn)',
+            fontSize: 'var(--font-size-sm)',
+            lineHeight: 1.8,
+          }}
+        >
           {result.final_reason}
         </div>
       )}

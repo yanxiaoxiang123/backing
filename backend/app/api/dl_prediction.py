@@ -2,15 +2,16 @@
 DL 预测 API 接口
 """
 
+import logging
+from typing import List, Optional
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from typing import List, Optional
-import logging
 
 from app.auth import get_current_api_key
 from app.services.baostock_service import BaostockService
-from app.services.dl_prediction.predictor import DLPredictor
 from app.services.dl_prediction.backtest import DLBacktester
+from app.services.dl_prediction.predictor import DLPredictor
 
 logger = logging.getLogger(__name__)
 

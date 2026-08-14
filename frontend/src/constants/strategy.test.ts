@@ -15,7 +15,7 @@ const BACKEND_STRATEGIES = [
   'donchian_channel',
   'aberration',
   'keltner_channel',
-  'macd_divergence'
+  'macd_divergence',
 ]
 
 describe('STRATEGY_METADATA', () => {
@@ -26,7 +26,7 @@ describe('STRATEGY_METADATA', () => {
   })
 
   it('名称与说明均为中文，且分类合法', () => {
-    const categories = STRATEGY_CATEGORIES.map(c => c.key)
+    const categories = STRATEGY_CATEGORIES.map((c) => c.key)
     for (const [key, meta] of Object.entries(STRATEGY_METADATA)) {
       expect(meta.name, `${key} 名称非中文`).toMatch(/[\u4e00-\u9fff]/)
       expect(meta.description, `${key} 说明非中文`).toMatch(/[\u4e00-\u9fff]/)
@@ -36,6 +36,11 @@ describe('STRATEGY_METADATA', () => {
   })
 
   it('分类标签包含 趋势/震荡/突破/AI', () => {
-    expect(STRATEGY_CATEGORIES.map(c => c.label)).toEqual(['趋势', '震荡', '突破', 'AI'])
+    expect(STRATEGY_CATEGORIES.map((c) => c.label)).toEqual([
+      '趋势',
+      '震荡',
+      '突破',
+      'AI',
+    ])
   })
 })

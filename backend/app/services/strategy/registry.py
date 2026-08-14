@@ -1,4 +1,5 @@
-from typing import Dict, Type, Optional, List
+from typing import Dict, List, Optional, Type
+
 from .base import Strategy
 
 
@@ -9,7 +10,8 @@ class StrategyRegistry:
     Provides functionality to register, retrieve, and list available strategies.
     """
 
-    _strategies: Dict[str, Type[Strategy]] = {}
+    # 类级注册表是有意共享的可变状态（注册/查询全局策略）
+    _strategies: Dict[str, Type[Strategy]] = {}  # noqa: RUF012
 
     @classmethod
     def register(cls, name: str, strategy_class: Type[Strategy]) -> None:

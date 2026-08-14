@@ -11,35 +11,52 @@ interface StrategyListProps {
   onSelect: (name: string) => void
 }
 
-export function StrategyList({ strategies, selectedStrategy, loading, onSelect }: StrategyListProps) {
+export function StrategyList({
+  strategies,
+  selectedStrategy,
+  loading,
+  onSelect,
+}: StrategyListProps) {
   const [query, setQuery] = useState('')
 
   const groups = useMemo(() => {
     const q = query.trim().toLowerCase()
-    const filtered = strategies.filter(s => {
+    const filtered = strategies.filter((s) => {
       if (!q) return true
       const meta = STRATEGY_METADATA[s.name]
-      const haystack = `${meta?.name ?? ''} ${meta?.description ?? ''} ${s.name} ${s.description}`.toLowerCase()
+      const haystack =
+        `${meta?.name ?? ''} ${meta?.description ?? ''} ${s.name} ${s.description}`.toLowerCase()
       return haystack.includes(q)
     })
-    return STRATEGY_CATEGORIES
-      .map(category => ({
-        ...category,
-        items: filtered.filter(s => (STRATEGY_METADATA[s.name]?.category ?? 'trend') === category.key)
-      }))
-      .filter(g => g.items.length > 0)
+    return STRATEGY_CATEGORIES.map((category) => ({
+      ...category,
+      items: filtered.filter(
+        (s) => (STRATEGY_METADATA[s.name]?.category ?? 'trend') === category.key,
+      ),
+    })).filter((g) => g.items.length > 0)
   }, [strategies, query])
 
   return (
     <Card
       className="strategy-list-panel"
-      title={<><LineChartOutlined style={{ marginRight: 8 }} />策略列表</>}
+      title={
+        <>
+          <LineChartOutlined style={{ marginRight: 8 }} />
+          策略列表
+        </>
+      }
       loading={loading}
-      styles={{ body: { padding: 'var(--space-sm)', maxHeight: 'calc(100vh - 240px)', overflowY: 'auto' } }}
+      styles={{
+        body: {
+          padding: 'var(--space-sm)',
+          maxHeight: 'calc(100vh - 240px)',
+          overflowY: 'auto',
+        },
+      }}
     >
       <Input
         value={query}
-        onChange={e => setQuery(e.target.value)}
+        onChange={(e) => setQuery(e.target.value)}
         placeholder="搜索策略（名称/说明）"
         allowClear
         prefix={<SearchOutlined style={{ color: 'var(--color-text-tertiary)' }} />}
@@ -49,8 +66,12 @@ export function StrategyList({ strategies, selectedStrategy, loading, onSelect }
       {groups.length === 0 && !loading ? (
         <Empty description="暂无策略" image={Empty.PRESENTED_IMAGE_SIMPLE} />
       ) : (
-        groups.map(group => (
-          <div key={group.key} className="strategy-group" style={{ marginBottom: 'var(--space-sm)' }}>
+        groups.map((group) => (
+          <div
+            key={group.key}
+            className="strategy-group"
+            style={{ marginBottom: 'var(--space-sm)' }}
+          >
             <div
               className="strategy-group-title"
               style={{
@@ -64,8 +85,13 @@ export function StrategyList({ strategies, selectedStrategy, loading, onSelect }
             >
               {group.label} · {group.items.length}
             </div>
-            {group.items.map(strategy => {
-              const meta = STRATEGY_METADATA[strategy.name] || { name: strategy.name, description: strategy.description, color: '#86868b', category: 'trend' as const }
+            {group.items.map((strategy) => {
+              const meta = STRATEGY_METADATA[strategy.name] || {
+                name: strategy.name,
+                description: strategy.description,
+                color: '#86868b',
+                category: 'trend' as const,
+              }
               const isSelected = selectedStrategy === strategy.name
 
               return (
@@ -85,23 +111,29 @@ export function StrategyList({ strategies, selectedStrategy, loading, onSelect }
                     borderRadius: 'var(--radius-md)',
                     cursor: 'pointer',
                     border: `2px solid ${isSelected ? meta.color : 'transparent'}`,
-                    background: isSelected ? `${meta.color}10` : 'var(--color-bg-secondary)',
-                    transition: 'all var(--transition-fast)'
+                    background: isSelected
+                      ? `${meta.color}10`
+                      : 'var(--color-bg-secondary)',
+                    transition: 'all var(--transition-fast)',
                   }}
                 >
-                  <div style={{
-                    fontWeight: 600,
-                    fontSize: 'var(--font-size-sm)',
-                    color: isSelected ? meta.color : 'var(--color-text-primary)',
-                    marginBottom: 'var(--space-xs)'
-                  }}>
+                  <div
+                    style={{
+                      fontWeight: 600,
+                      fontSize: 'var(--font-size-sm)',
+                      color: isSelected ? meta.color : 'var(--color-text-primary)',
+                      marginBottom: 'var(--space-xs)',
+                    }}
+                  >
                     {meta.name}
                   </div>
-                  <div style={{
-                    fontSize: 'var(--font-size-xs)',
-                    color: 'var(--color-text-secondary)',
-                    lineHeight: 1.4
-                  }}>
+                  <div
+                    style={{
+                      fontSize: 'var(--font-size-xs)',
+                      color: 'var(--color-text-secondary)',
+                      lineHeight: 1.4,
+                    }}
+                  >
                     {meta.description}
                   </div>
                 </button>

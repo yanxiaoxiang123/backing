@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Dict, Any, Union, List
+from typing import Any, Dict, List, Union
 
 
 class ParameterType(Enum):
@@ -43,10 +43,13 @@ class Parameter:
                 f"Parameter '{self.name}' of type 'choice' must have choices defined"
             )
 
-        if self.param_type in (ParameterType.INT, ParameterType.FLOAT):
-            if self.min_value is not None and self.max_value is not None:
-                if self.min_value > self.max_value:
-                    raise ValueError(
+        if (
+            self.param_type in (ParameterType.INT, ParameterType.FLOAT)
+            and self.min_value is not None
+            and self.max_value is not None
+            and self.min_value > self.max_value
+        ):
+            raise ValueError(
                         f"Parameter '{self.name}': min_value ({self.min_value}) "
                         f"must be <= max_value ({self.max_value})"
                     )
@@ -117,7 +120,6 @@ class Strategy(ABC):
         Returns:
             DataFrame with added signal columns (typically 'signal' column)
         """
-        pass
 
     @abstractmethod
     def get_parameters(self) -> Dict[str, Parameter]:
@@ -127,7 +129,6 @@ class Strategy(ABC):
         Returns:
             Dictionary mapping parameter names to Parameter objects
         """
-        pass
 
     @abstractmethod
     def get_name(self) -> str:
@@ -137,7 +138,6 @@ class Strategy(ABC):
         Returns:
             Unique strategy identifier
         """
-        pass
 
     @abstractmethod
     def get_description(self) -> str:
@@ -147,4 +147,3 @@ class Strategy(ABC):
         Returns:
             Human-readable description of the strategy
         """
-        pass

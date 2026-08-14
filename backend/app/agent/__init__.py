@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 """Agent 模块初始化"""
 
-from app.agent.orchestrator import AgentOrchestrator, OrchestratorResult
-from app.agent.runner import run_agent_loop, ToolExecutor
+from app.agent.config import AgentSettings, agent_settings
 from app.agent.memory import AgentMemory
+from app.agent.orchestrator import AgentOrchestrator, OrchestratorResult
 from app.agent.protocols import (
     AgentContext,
     AgentOpinion,
@@ -11,24 +11,24 @@ from app.agent.protocols import (
     StageStatus,
     normalize_decision_signal,
 )
-from app.agent.config import AgentSettings, agent_settings
+from app.agent.runner import ToolExecutor, run_agent_loop
 
 __all__ = [
-    # Orchestrator
-    "AgentOrchestrator",
-    "OrchestratorResult",
-    # Runner
-    "run_agent_loop",
-    "ToolExecutor",
-    # Memory
-    "AgentMemory",
     # Protocols
     "AgentContext",
+    # Memory
+    "AgentMemory",
     "AgentOpinion",
-    "StageResult",
-    "StageStatus",
-    "normalize_decision_signal",
+    # Orchestrator
+    "AgentOrchestrator",
     # Config
     "AgentSettings",
+    "OrchestratorResult",
+    "StageResult",
+    "StageStatus",
+    "ToolExecutor",
     "agent_settings",
+    "normalize_decision_signal",
+    # Runner
+    "run_agent_loop",
 ]

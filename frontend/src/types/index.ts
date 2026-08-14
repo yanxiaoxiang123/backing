@@ -468,4 +468,3 @@ export interface CompareResponse {
   total_strategies: number
   failed_count: number
 }
-

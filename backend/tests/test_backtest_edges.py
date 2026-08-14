@@ -3,6 +3,8 @@
 使用内存 SQLite（单线程测试，无需跨线程共享）。
 """
 
+from datetime import date, timedelta
+
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -11,7 +13,6 @@ import app.services.strategy  # noqa: F401  (register strategies)
 from app.config import Base
 from app.models.models import DailyKline, Stock
 from app.services.backtest_executor import BacktestExecutor
-from datetime import date, timedelta
 
 
 @pytest.fixture()

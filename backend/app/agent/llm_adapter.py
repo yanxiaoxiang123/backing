@@ -3,9 +3,11 @@
 
 import json
 import logging
-from typing import Any, Dict, List, Optional, AsyncGenerator
-import requests
+from typing import Any, AsyncGenerator, Dict, List, Optional
+
 import httpx
+import requests
+
 from app.agent.config import agent_settings
 
 logger = logging.getLogger(__name__)
@@ -109,8 +111,10 @@ class LLMToolAdapter:
         }
 
         try:
-            async with httpx.AsyncClient(timeout=120.0, proxy=self.proxies.get("https") if self.proxies else None) as client:
-                async with client.stream("POST", f"{self.base_url}/chat/completions", headers=headers, json=payload) as response:
+            async with (
+                httpx.AsyncClient(timeout=120.0, proxy=self.proxies.get("https") if self.proxies else None) as client,
+                client.stream("POST", f"{self.base_url}/chat/completions", headers=headers, json=payload) as response,
+            ):
                     response.raise_for_status()
                     async for line in response.aiter_lines():
                         if line.startswith("data: "):

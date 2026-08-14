@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 """Risk Agent - 风险评估 Agent"""
 
-import logging
 import json
+import logging
 from typing import Optional
 
 from app.agent.agents.base_agent import BaseAgent

@@ -15,7 +15,7 @@ let cachedStocks: StockOption[] | null = null
 let cachePromise: Promise<StockOption[]> | null = null
 
 function toOptions(stocks: Stock[]): StockOption[] {
-  return stocks.map(s => ({
+  return stocks.map((s) => ({
     code: s.code,
     name: s.name,
     label: `${s.code} - ${s.name}`,
@@ -34,7 +34,9 @@ function loadRecent(): StockOption[] {
 function saveRecent(options: StockOption[]) {
   try {
     localStorage.setItem(RECENT_KEY, JSON.stringify(options.slice(0, MAX_RECENT)))
-  } catch { /* quota exceeded – ignore */ }
+  } catch {
+    /* quota exceeded – ignore */
+  }
 }
 
 export function useStockSearch() {
@@ -64,7 +66,7 @@ export function useStockSearch() {
 
   const search = useCallback(
     (query: string, watchlistCodes?: string[]): StockOption[] => {
-      const source = allOptions.length ? allOptions : cachedStocks ?? []
+      const source = allOptions.length ? allOptions : (cachedStocks ?? [])
       if (!query) {
         // Show recent + watchlist (when no query)
         const seen = new Set<string>()
@@ -81,7 +83,7 @@ export function useStockSearch() {
         if (watchlistCodes) {
           for (const code of watchlistCodes) {
             if (!seen.has(code)) {
-              const match = source.find(o => o.code === code)
+              const match = source.find((o) => o.code === code)
               if (match) {
                 result.push(match)
                 seen.add(code)
@@ -94,17 +96,20 @@ export function useStockSearch() {
 
       const q = query.toLowerCase()
       return source.filter(
-        o => o.code.toLowerCase().includes(q) || o.name.toLowerCase().includes(q),
+        (o) => o.code.toLowerCase().includes(q) || o.name.toLowerCase().includes(q),
       )
     },
     [allOptions, recent],
   )
 
-  const trackSelection = useCallback((option: StockOption) => {
-    const next = [option, ...recent.filter(r => r.code !== option.code)]
-    setRecent(next)
-    saveRecent(next)
-  }, [recent])
+  const trackSelection = useCallback(
+    (option: StockOption) => {
+      const next = [option, ...recent.filter((r) => r.code !== option.code)]
+      setRecent(next)
+      saveRecent(next)
+    },
+    [recent],
+  )
 
   return { allOptions, recent, loading, search, trackSelection }
 }

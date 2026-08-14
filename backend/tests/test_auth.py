@@ -1,10 +1,11 @@
 # -*- coding: utf-8 -*-
 """API 认证测试"""
 
-import pytest
 from unittest.mock import patch
 
-from app.auth import validate_api_key, generate_api_key, AuthError
+import pytest
+
+from app.auth import AuthError, generate_api_key, validate_api_key
 
 
 class TestValidateApiKey:

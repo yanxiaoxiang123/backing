@@ -11,7 +11,7 @@ Supports multi-condition screening with AND/OR logic across:
 
 import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Optional, List, Dict
+from typing import Dict, List, Optional
 
 import pandas as pd
 from fastapi import APIRouter, Depends, Request, Response

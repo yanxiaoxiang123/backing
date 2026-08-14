@@ -29,7 +29,10 @@ class ErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, info: ErrorInfo): void {
     const tag = this.props.name || 'ErrorBoundary'
-    logger.error(`[${tag}] ${error.message}`, { stack: error.stack, componentStack: info.componentStack })
+    logger.error(`[${tag}] ${error.message}`, {
+      stack: error.stack,
+      componentStack: info.componentStack,
+    })
   }
 
   private handleRetry = (): void => {

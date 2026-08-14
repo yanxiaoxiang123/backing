@@ -5,12 +5,14 @@ import logging
 import time
 from datetime import datetime, timedelta
 from typing import Any, List, Optional
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, model_validator
 from sqlalchemy.orm import Session
 
-from app.config import SessionLocal, get_db
+from app.agent.orchestrator import AgentOrchestrator
 from app.auth import get_current_api_key
+from app.config import SessionLocal, get_db
 from app.exceptions import (
     ExternalServiceError,
     NotFoundError,
@@ -19,8 +21,7 @@ from app.exceptions import (
 )
 from app.models.analysis import AnalysisRecord
 from app.models.models import DailyKline, Stock
-from app.agent.orchestrator import AgentOrchestrator
-from app.services.baostock_service import baostock_service, MAJOR_INDICES
+from app.services.baostock_service import MAJOR_INDICES, baostock_service
 from app.services.job_store import job_store
 from app.services.tasks import (
     TaskCancelledError,
@@ -494,7 +495,7 @@ def analyze_market(
             duration_s=time.time() - start_time,
         )
 
-    except Exception as exc:
+    except Exception:
         logger.exception("Market analysis failed")
         return MarketAnalyzeResponse(
             success=False,

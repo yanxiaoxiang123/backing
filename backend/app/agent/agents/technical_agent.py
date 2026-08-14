@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 """Technical Agent - 技术分析 Agent"""
 
-import logging
 import json
+import logging
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 
@@ -91,7 +91,7 @@ class TechnicalAgent(BaseAgent):
             return json.dumps(data, ensure_ascii=False, indent=2, default=str)
 
         except Exception:
-            logger.error("Failed to fetch kline data for %s", stock_code, exc_info=True)
+            logger.exception("Failed to fetch kline data for %s", stock_code)
             return (
                 f"股票 {stock_code} 的 K 线数据暂时无法获取（数据库查询异常），"
                 "请稍后重试或检查数据同步状态。"

@@ -2,21 +2,20 @@
 
 import logging
 import threading
-import time
 from datetime import date
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel
 
+from app.agent.orchestrator import AgentOrchestrator
 from app.auth import get_current_api_key
+from app.config import SessionLocal
 from app.exceptions import NotFoundError
 from app.limiter import limiter
-from app.services.screener_service import screener_service
-from app.services.job_store import job_store
-from app.agent.orchestrator import AgentOrchestrator
-from app.config import SessionLocal
 from app.models.models import Stock
+from app.services.job_store import job_store
+from app.services.screener_service import screener_service
 from app.services.tasks import get_task_executor, register_runner
 
 logger = logging.getLogger(__name__)
@@ -68,11 +67,7 @@ def run_screener_job(job_id: str, payload: dict) -> None:
     def _check_cancelled():
         """检查 job 是否被用户取消 —— 避免与 cancel_job 端点的竞态条件。"""
         record = job_store.get(job_id)
-        if record and record.status in ("failed", "cancelled") and "cancelled" in (
-            record.error or ""
-        ):
-            return True
-        return False
+        return bool(record and record.status in ("failed", "cancelled") and "cancelled" in (record.error or ""))
 
     def _safe_update(**changes):
         """取消后不再写入更新，避免覆盖取消状态。"""
@@ -163,7 +158,7 @@ def run_screener_job(job_id: str, payload: dict) -> None:
                 )
                 stock["ai_signal"] = "hold"
                 stock["ai_confidence"] = 0.0
-                stock["ai_reason"] = f"AI 分析失败: {str(exc)}"
+                stock["ai_reason"] = f"AI 分析失败: {exc!s}"
 
         # 完成
         _safe_update(

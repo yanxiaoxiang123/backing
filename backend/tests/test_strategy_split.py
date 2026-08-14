@@ -3,7 +3,6 @@
 import app.services.strategy  # noqa: F401  (register all strategies)
 from app.services.strategy.registry import StrategyRegistry
 
-
 EXPECTED = {
     # trend
     "ma_cross",

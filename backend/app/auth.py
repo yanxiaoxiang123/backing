@@ -3,11 +3,11 @@
 
 import secrets
 from typing import Optional
-from fastapi import HTTPException, Security, status, Request
+
+from fastapi import HTTPException, Request, Security, status
 from fastapi.security import APIKeyHeader
 
 from app.config import settings
-
 
 # API Key header scheme
 api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)

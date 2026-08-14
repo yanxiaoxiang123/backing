@@ -3,28 +3,28 @@
    ============================================ */
 :root {
   /* Primary Surfaces */
-  --color-canvas: #F3F0EE;           /* Page background - warm putty cream */
-  --color-canvas-lifted: #FCFBFA;     /* Card backgrounds - elevated surfaces */
-  --color-white: #FFFFFF;             /* Navigation, modals, select backgrounds */
+  --color-canvas: #f3f0ee; /* Page background - warm putty cream */
+  --color-canvas-lifted: #fcfbfa; /* Card backgrounds - elevated surfaces */
+  --color-white: #ffffff; /* Navigation, modals, select backgrounds */
 
   /* Brand Colors */
-  --color-ink: #141413;               /* Primary text, primary CTAs, footer */
-  --color-charcoal: #262627;          /* Secondary text variant */
-  --color-accent: #CF4500;           /* Signal Orange - consent/legal ONLY */
-  --color-accent-light: #F37338;      /* Light Signal Orange - decorative arcs */
-  --color-clay: #9A3A0A;              /* Deep rust - secondary link buttons */
+  --color-ink: #141413; /* Primary text, primary CTAs, footer */
+  --color-charcoal: #262627; /* Secondary text variant */
+  --color-accent: #cf4500; /* Signal Orange - consent/legal ONLY */
+  --color-accent-light: #f37338; /* Light Signal Orange - decorative arcs */
+  --color-clay: #9a3a0a; /* Deep rust - secondary link buttons */
 
   /* Stock Semantic Colors */
-  --color-up: #FF3B30;               /* Stock price up (China standard) */
-  --color-down: #34C759;              /* Stock price down */
-  --color-flat: #86868B;              /* Unchanged price */
+  --color-up: #ff3b30; /* Stock price up (China standard) */
+  --color-down: #34c759; /* Stock price down */
+  --color-flat: #86868b; /* Unchanged price */
 
   /* Functional Colors */
-  --color-success: #34C759;
+  --color-success: #34c759;
   --color-success-light: rgba(52, 199, 89, 0.1);
-  --color-danger: #FF3B30;
+  --color-danger: #ff3b30;
   --color-danger-light: rgba(255, 59, 48, 0.1);
-  --color-warning: #F79E1B;
+  --color-warning: #f79e1b;
   --color-warning-light: rgba(247, 158, 27, 0.1);
 
   /* Background Colors */
@@ -32,9 +32,9 @@
 
   /* Text Colors */
   --color-text-primary: var(--color-ink);
-  --color-text-secondary: #696969;    /* Slate Gray */
-  --color-text-tertiary: #D1CDC7;     /* Dust Taupe - whisper text */
-  --color-text-disabled: #A8A5A0;     /* Disabled text (readable on light bg) */
+  --color-text-secondary: #696969; /* Slate Gray */
+  --color-text-tertiary: #d1cdc7; /* Dust Taupe - whisper text */
+  --color-text-disabled: #a8a5a0; /* Disabled text (readable on light bg) */
   --color-bg-disabled: rgba(20, 20, 19, 0.07);
   --color-border-disabled: rgba(20, 20, 19, 0.16);
 
@@ -66,7 +66,8 @@
   --space-3xl: 64px;
 
   /* Typography */
-  --font-family: 'Sofia Sans', -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
+  --font-family:
+    'Sofia Sans', -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
   --font-size-xs: 11px;
   --font-size-sm: 13px;
   --font-size-base: 14px;
@@ -81,4 +82,3 @@
   --transition-normal: 0.25s ease;
   --transition-slow: 0.4s ease;
 }
-

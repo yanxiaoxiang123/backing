@@ -53,21 +53,23 @@ def _clean_tracker():
 
 class TestWebSocketAuth:
     def test_missing_api_key_rejected_with_4008(self, client):
-        with patch("app.auth.settings") as mock_settings:
+        with patch("app.auth.settings") as mock_settings, pytest.raises(
+            WebSocketDisconnect
+        ) as exc_info:
             mock_settings.API_KEY = "test-secret"
-            with pytest.raises(WebSocketDisconnect) as exc_info:
-                with client.websocket_connect("/api/v1/ws/realtime/600036"):
-                    pass
+            with client.websocket_connect("/api/v1/ws/realtime/600036"):
+                pass
             assert exc_info.value.code == 4008
 
     def test_invalid_api_key_rejected_with_4008(self, client):
-        with patch("app.auth.settings") as mock_settings:
+        with patch("app.auth.settings") as mock_settings, pytest.raises(
+            WebSocketDisconnect
+        ) as exc_info:
             mock_settings.API_KEY = "test-secret"
-            with pytest.raises(WebSocketDisconnect) as exc_info:
-                with client.websocket_connect(
-                    "/api/v1/ws/realtime/600036?api_key=wrong"
-                ):
-                    pass
+            with client.websocket_connect(
+                "/api/v1/ws/realtime/600036?api_key=wrong"
+            ):
+                pass
             assert exc_info.value.code == 4008
 
     def test_valid_api_key_connects_and_receives_init(self, client):
@@ -110,9 +112,8 @@ class TestWebSocketRateLimit:
                 session.__enter__()
 
             try:
-                with pytest.raises(WebSocketDisconnect) as exc_info:
-                    with client.websocket_connect(url):
-                        pass
+                with pytest.raises(WebSocketDisconnect) as exc_info, client.websocket_connect(url):
+                    pass
                 assert exc_info.value.code == 4009
             finally:
                 for session in sessions:

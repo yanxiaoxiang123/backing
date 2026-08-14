@@ -575,9 +575,7 @@ class AberrationStrategy(Strategy):
             prev_close = float(close.iloc[i - 1])
             bb_upper = float(df["bb_upper"].iloc[i])
             bb_middle = float(df["bb_middle"].iloc[i])
-            bb_lower = float(df["bb_lower"].iloc[i])
             kc_upper = float(df["kc_upper"].iloc[i])
-            kc_lower = float(df["kc_lower"].iloc[i])
 
             # Buy: close above BOTH channels
             if prev_close <= min(bb_upper, kc_upper) and curr_close > max(

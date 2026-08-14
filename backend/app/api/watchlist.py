@@ -1,10 +1,11 @@
 from typing import List
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from app.config import get_db
 from app.auth import get_current_api_key
-from app.models.models import DEFAULT_USER_ID, WatchlistItem, Stock
+from app.config import get_db
+from app.models.models import DEFAULT_USER_ID, Stock, WatchlistItem
 from app.schemas.schemas import (
     WatchlistItemCreate,
     WatchlistItemResponse,

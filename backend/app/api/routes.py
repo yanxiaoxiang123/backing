@@ -1,15 +1,22 @@
+import logging
+import re
+from datetime import date
+from typing import List, Optional
+
 from fastapi import (
     APIRouter,
+    Body,
     Depends,
     HTTPException,
     Query,
-    Body,
-    Response,
     Request,
+    Response,
 )
-import logging
-import re
+from pydantic import BaseModel
+from sqlalchemy.orm import Session, joinedload
+
 from app.auth import get_current_api_key
+from app.config import SessionLocal, get_db
 from app.exceptions import (
     ConflictError,
     ExternalServiceError,
@@ -17,23 +24,17 @@ from app.exceptions import (
     ValidationError,
 )
 from app.limiter import limiter
-from sqlalchemy.orm import Session, joinedload
-from typing import List, Optional
-from datetime import date
-from pydantic import BaseModel
-
-from app.config import SessionLocal, get_db
-from app.models.models import Stock, DailyKline, BacktestResult
+from app.models.models import BacktestResult, DailyKline, Stock
 from app.schemas.schemas import (
-    StockResponse,
-    DailyKlineResponse,
+    BacktestListResponse,
     BacktestRequest,
     BacktestResultResponse,
-    BacktestListResponse,
+    DailyKlineResponse,
+    StockResponse,
     SyncResponse,
 )
-from app.services.baostock_service import baostock_service
 from app.services.backtest_engine import BacktestEngine
+from app.services.baostock_service import baostock_service
 from app.services.dashboard_service import DashboardService
 from app.services.indicator_service import indicator_service
 from app.services.job_store import job_store

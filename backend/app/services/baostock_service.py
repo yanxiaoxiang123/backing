@@ -1,11 +1,13 @@
+import logging
+import time
+from datetime import datetime, timedelta
+from typing import List, Optional, Tuple
+
 import baostock as bs
 import pandas as pd
-from datetime import datetime, timedelta
-from typing import Optional, List, Tuple
-import time
-import logging
 from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
+
 from app.config import settings
 
 try:
@@ -370,7 +372,7 @@ class BaostockService:
             end = datetime.strptime(end_date, "%Y-%m-%d")
             start_date = (end - timedelta(days=30)).strftime("%Y-%m-%d")
 
-        from app.models.models import Stock, DailyKline
+        from app.models.models import DailyKline, Stock
 
         start_date_obj = datetime.strptime(start_date, "%Y-%m-%d").date()
         end_date_obj = datetime.strptime(end_date, "%Y-%m-%d").date()
@@ -491,8 +493,8 @@ class BaostockService:
         total_klines += flush_pending_rows()
         return (
             total_klines,
-            f"Kline data synced for {processed_stocks} stocks, "
-            f"skipped up-to-date: {skipped_up_to_date}, failed: {failed_stocks}",
+            (f"Kline data synced for {processed_stocks} stocks, "
+            f"skipped up-to-date: {skipped_up_to_date}, failed: {failed_stocks}"),
         )
 
     def get_index_list(self) -> List[dict]:

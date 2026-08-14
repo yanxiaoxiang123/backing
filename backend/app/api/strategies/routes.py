@@ -201,7 +201,7 @@ def list_strategies(_: str = Depends(get_current_api_key)):
     strategies = StrategyRegistry.get_all()
 
     result = []
-    for name, strategy_class in strategies.items():
+    for strategy_class in strategies.values():
         strategy = strategy_class()
         params = strategy.get_parameters()
 

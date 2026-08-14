@@ -3,15 +3,17 @@
 与 data_preprocessing.py 中的特征保持一致
 """
 
+from typing import List
+
 import numpy as np
 import pandas as pd
-from typing import List
 
 
 class DLFeatures:
     """19个技术指标计算"""
 
-    FEATURE_NAMES: List[str] = [
+    # 常量特征列表（只读，不使用可变默认值语义）
+    FEATURE_NAMES: List[str] = [  # noqa: RUF012
         "open",
         "high",
         "low",

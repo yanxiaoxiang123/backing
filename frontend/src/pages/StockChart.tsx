@@ -40,7 +40,7 @@ function StockChart() {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
     const url = `${protocol}//${window.location.host}/api/v1/ws/realtime/${code}?period=${period}`
 
-    let cancelled = false
+    const cancelled = false
     const ws = new WebSocket(url)
     wsRef.current = ws
 
@@ -83,8 +83,13 @@ function StockChart() {
         } else if (msg.type === 'update') {
           // 增量更新: 合并最新 K 线
           const updates = (msg.data ?? []) as Array<{
-            date: string; open: number; high: number; low: number
-            close: number; volume: number; amount: number
+            date: string
+            open: number
+            high: number
+            low: number
+            close: number
+            volume: number
+            amount: number
           }>
           if (updates.length === 0) return
 
@@ -169,11 +174,20 @@ function StockChart() {
         close: bar.close,
         volume: bar.volume,
         amount: bar.amount,
-        ma5: undefined, ma10: undefined, ma20: undefined,
-        ma60: undefined, ma120: undefined,
-        dif: undefined, dea: undefined, macd: undefined,
-        kdj_k: undefined, kdj_d: undefined, kdj_j: undefined,
-        rsi6: undefined, rsi12: undefined, rsi24: undefined,
+        ma5: undefined,
+        ma10: undefined,
+        ma20: undefined,
+        ma60: undefined,
+        ma120: undefined,
+        dif: undefined,
+        dea: undefined,
+        macd: undefined,
+        kdj_k: undefined,
+        kdj_d: undefined,
+        kdj_j: undefined,
+        rsi6: undefined,
+        rsi12: undefined,
+        rsi24: undefined,
       }))
       setKlineData(transformed)
     } catch {
@@ -188,7 +202,9 @@ function StockChart() {
     if (!code) return
 
     // 加载股票名称（走 HTTP，只加载一次）
-    getStock(code).then((info) => setStockName(info.name)).catch(() => {})
+    getStock(code)
+      .then((info) => setStockName(info.name))
+      .catch(() => {})
 
     connectWs()
 
@@ -207,11 +223,11 @@ function StockChart() {
   const getChartOption = (): EChartsOption => {
     if (!klineData.length) return {}
 
-    const dates = klineData.map(d => d.date)
-    const ohlc = klineData.map(d => [d.open, d.close, d.low, d.high])
+    const dates = klineData.map((d) => d.date)
+    const ohlc = klineData.map((d) => [d.open, d.close, d.low, d.high])
     const volumes = klineData.map((d) => ({
       value: d.volume,
-      itemColor: d.close >= d.open ? '#EB001B' : '#52C41A'
+      itemColor: d.close >= d.open ? '#EB001B' : '#52C41A',
     }))
 
     return {
@@ -221,7 +237,7 @@ function StockChart() {
         top: 10,
         left: 'center',
         textStyle: { color: '#696969', fontSize: 11, fontWeight: 450 },
-        data: ['K线', '成交量']
+        data: ['K线', '成交量'],
       },
       tooltip: {
         trigger: 'axis',
@@ -241,22 +257,22 @@ function StockChart() {
             const color = c >= o ? '#EB001B' : '#52C41A'
             html += `<div style="font-size:14px;font-weight:450">开: <b>${o.toFixed(2)}</b> 收: <b style="color:${color}">${c.toFixed(2)}</b></div>`
             html += `<div style="font-size:14px;font-weight:450">高: <b>${h.toFixed(2)}</b> 低: <b>${l.toFixed(2)}</b></div>`
-            html += `<div style="font-size:14px;font-weight:450">涨跌: <b style="color:${color}">${((c - o) / o * 100).toFixed(2)}%</b></div>`
+            html += `<div style="font-size:14px;font-weight:450">涨跌: <b style="color:${color}">${(((c - o) / o) * 100).toFixed(2)}%</b></div>`
           }
           if (vol) {
             const v = vol.data as number
             html += `<div style="font-size:14px;font-weight:450">成交量: ${v.toLocaleString()}</div>`
           }
           return html
-        }
+        },
       },
       axisPointer: {
         link: [{ xAxisIndex: 'all' }],
-        label: { backgroundColor: '#696969' }
+        label: { backgroundColor: '#696969' },
       },
       grid: [
         { left: '10%', right: '8%', top: 50, height: '65%' },
-        { left: '10%', right: '8%', top: '70%', height: '15%' }
+        { left: '10%', right: '8%', top: '70%', height: '15%' },
       ],
       xAxis: [
         {
@@ -267,7 +283,7 @@ function StockChart() {
           axisLabel: { color: '#696969', fontSize: 10, fontWeight: 450 },
           splitLine: { show: false },
           min: 'dataMin',
-          max: 'dataMax'
+          max: 'dataMax',
         },
         {
           type: 'category',
@@ -277,8 +293,8 @@ function StockChart() {
           axisLine: { onZero: false, lineStyle: { color: '#D1CDC7' } },
           axisTick: { show: false },
           splitLine: { show: false },
-          axisLabel: { show: false }
-        }
+          axisLabel: { show: false },
+        },
       ],
       yAxis: [
         {
@@ -287,7 +303,7 @@ function StockChart() {
           axisLabel: { color: '#696969', fontSize: 10, fontWeight: 450 },
           min: 'dataMin',
           max: 'dataMax',
-          splitLine: { lineStyle: { color: '#F3F0EE' } }
+          splitLine: { lineStyle: { color: '#F3F0EE' } },
         },
         {
           scale: true,
@@ -296,15 +312,15 @@ function StockChart() {
           axisLabel: { show: true, color: '#696969', fontSize: 9, fontWeight: 450 },
           axisLine: { show: false },
           axisTick: { show: false },
-          splitLine: { show: false }
-        }
+          splitLine: { show: false },
+        },
       ],
       dataZoom: [
         {
           type: 'inside',
           xAxisIndex: [0, 1],
           start: 0,
-          end: 100
+          end: 100,
         },
         {
           show: true,
@@ -318,8 +334,8 @@ function StockChart() {
           backgroundColor: '#F3F0EE',
           fillerColor: 'rgba(207, 69, 0, 0.08)',
           handleStyle: { color: '#141413', borderColor: '#141413' },
-          textStyle: { color: '#696969', fontSize: 10, fontWeight: 450 }
-        }
+          textStyle: { color: '#696969', fontSize: 10, fontWeight: 450 },
+        },
       ],
       series: [
         {
@@ -330,17 +346,17 @@ function StockChart() {
             color: '#EB001B',
             color0: '#52C41A',
             borderColor: '#EB001B',
-            borderColor0: '#52C41A'
-          }
+            borderColor0: '#52C41A',
+          },
         },
         {
           name: '成交量',
           type: 'bar',
           xAxisIndex: 1,
           yAxisIndex: 1,
-          data: volumes
-        }
-      ]
+          data: volumes,
+        },
+      ],
     }
   }
 
@@ -369,7 +385,10 @@ function StockChart() {
       `}</style>
       {/* 页面标题 */}
       <div className="page-header">
-        <div className="flex flex-between" style={{ flexWrap: 'wrap', gap: 'var(--space-md)' }}>
+        <div
+          className="flex flex-between"
+          style={{ flexWrap: 'wrap', gap: 'var(--space-md)' }}
+        >
           <div className="flex gap-md" style={{ alignItems: 'center' }}>
             <button
               onClick={() => navigate('/stocks')}
@@ -385,13 +404,15 @@ function StockChart() {
                 fontSize: 14,
                 fontWeight: 450,
                 cursor: 'pointer',
-                letterSpacing: '-0.02em'
+                letterSpacing: '-0.02em',
               }}
             >
               <ArrowLeftOutlined style={{ fontSize: 14 }} />
               <span style={{ fontSize: 14, fontWeight: 500 }}>返回</span>
             </button>
-            <h1 className="page-title" style={{ margin: 0 }}>{stockName || code}</h1>
+            <h1 className="page-title" style={{ margin: 0 }}>
+              {stockName || code}
+            </h1>
           </div>
           <Select
             value={period}
@@ -401,20 +422,22 @@ function StockChart() {
             options={[
               { value: 'daily', label: '日K' },
               { value: 'weekly', label: '周K' },
-              { value: 'monthly', label: '月K' }
+              { value: 'monthly', label: '月K' },
             ]}
           />
         </div>
       </div>
 
       {/* K线图 - Mastercard Stadium Style */}
-      <div style={{
-        padding: 0,
-        overflow: 'hidden',
-        background: '#F3F0EE',
-        borderRadius: 40,
-        boxShadow: 'rgba(0, 0, 0, 0.08) 0px 24px 48px 0px'
-      }}>
+      <div
+        style={{
+          padding: 0,
+          overflow: 'hidden',
+          background: '#F3F0EE',
+          borderRadius: 40,
+          boxShadow: 'rgba(0, 0, 0, 0.08) 0px 24px 48px 0px',
+        }}
+      >
         <Spin spinning={loading}>
           {klineData.length > 0 ? (
             <ReactECharts
@@ -424,13 +447,15 @@ function StockChart() {
               opts={{ renderer: 'canvas' }}
             />
           ) : (
-            <div style={{
-              padding: '64px',
-              textAlign: 'center',
-              color: '#696969',
-              fontSize: 16,
-              fontWeight: 450
-            }}>
+            <div
+              style={{
+                padding: '64px',
+                textAlign: 'center',
+                color: '#696969',
+                fontSize: 16,
+                fontWeight: 450,
+              }}
+            >
               {loading ? '加载中...' : '暂无数据，请先同步K线数据'}
             </div>
           )}

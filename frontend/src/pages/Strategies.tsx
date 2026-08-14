@@ -33,25 +33,36 @@ function Strategies() {
 
   // State
   const [strategies, setStrategies] = useState<StrategyInfo[]>([])
-  const [selectedStrategy, setSelectedStrategy] = usePersistedState<string | null>('strategies_selectedStrategy', null)
+  const [selectedStrategy, setSelectedStrategy] = usePersistedState<string | null>(
+    'strategies_selectedStrategy',
+    null,
+  )
   const [loadingStrategies, setLoadingStrategies] = useState(true)
   const [loadingSignals, setLoadingSignals] = useState(false)
   const [loadingBacktest, setLoadingBacktest] = useState(false)
   const [loadingOptimize, setLoadingOptimize] = useState(false)
 
   // Form state
-  const [stockCode, setStockCode] = usePersistedState<string | null>('strategies_stockCode', null)
-  const [dateRange, setDateRange] = usePersistedState<[string, string]>('strategies_dateRange', [
-    dayjs().subtract(1, 'year').format('YYYY-MM-DD'),
-    dayjs().format('YYYY-MM-DD')
-  ])
-  const [initialCapital, setInitialCapital] = usePersistedState('strategies_initialCapital', 100000)
+  const [stockCode, setStockCode] = usePersistedState<string | null>(
+    'strategies_stockCode',
+    null,
+  )
+  const [dateRange, setDateRange] = usePersistedState<[string, string]>(
+    'strategies_dateRange',
+    [dayjs().subtract(1, 'year').format('YYYY-MM-DD'), dayjs().format('YYYY-MM-DD')],
+  )
+  const [initialCapital, setInitialCapital] = usePersistedState(
+    'strategies_initialCapital',
+    100000,
+  )
   const [parameters, setParameters] = useState<Record<string, number | string>>({})
 
   // Results state
   const [signals, setSignals] = useState<SignalDataPoint[]>([])
   const [signalStats, setSignalStats] = useState<SignalStats | null>(null)
-  const [backtestResult, setBacktestResult] = useState<StrategyBacktestResponse | null>(null)
+  const [backtestResult, setBacktestResult] = useState<StrategyBacktestResponse | null>(
+    null,
+  )
   const [optimizeResult, setOptimizeResult] = useState<OptimizeResponse | null>(null)
   const [klineData, setKlineData] = useState<KlineData[]>([])
 
@@ -70,7 +81,7 @@ function Strategies() {
   // Update parameters when strategy changes
   useEffect(() => {
     if (selectedStrategy && strategies.length > 0) {
-      const strategy = strategies.find(s => s.name === selectedStrategy)
+      const strategy = strategies.find((s) => s.name === selectedStrategy)
       if (strategy) {
         const defaultParams: Record<string, number | string> = {}
         Object.entries(strategy.parameters).forEach(([key, config]) => {
@@ -109,12 +120,17 @@ function Strategies() {
         stock_code: stockCode,
         start_date: dateRange[0],
         end_date: dateRange[1],
-        parameters
+        parameters,
       })
       setSignals(response.data)
       setSignalStats(response.stats ?? null)
 
-      const klineResponse = await getStockIndicators(stockCode, 'daily', dateRange[0], dateRange[1])
+      const klineResponse = await getStockIndicators(
+        stockCode,
+        'daily',
+        dateRange[0],
+        dateRange[1],
+      )
       if (klineResponse.data) {
         setKlineData(klineResponse.data)
       }
@@ -140,7 +156,7 @@ function Strategies() {
         start_date: dateRange[0],
         end_date: dateRange[1],
         initial_capital: initialCapital,
-        parameters
+        parameters,
       })
       setBacktestResult(response)
       setSignals([])
@@ -160,13 +176,20 @@ function Strategies() {
 
     setLoadingOptimize(true)
     try {
-      const strategy = strategies.find(s => s.name === selectedStrategy)
+      const strategy = strategies.find((s) => s.name === selectedStrategy)
       if (!strategy) return
 
       const paramGrid: Record<string, number[]> = {}
       Object.entries(strategy.parameters).forEach(([key, config]) => {
-        if (config.type === 'slider' && config.min !== undefined && config.max !== undefined) {
-          if (selectedStrategy === 'lstm_5d' && !['buy_threshold', 'sell_threshold', 'min_confidence'].includes(key)) {
+        if (
+          config.type === 'slider' &&
+          config.min !== undefined &&
+          config.max !== undefined
+        ) {
+          if (
+            selectedStrategy === 'lstm_5d' &&
+            !['buy_threshold', 'sell_threshold', 'min_confidence'].includes(key)
+          ) {
             return
           }
           const step = config.step || 1
@@ -190,7 +213,7 @@ function Strategies() {
         end_date: dateRange[1],
         initial_capital: initialCapital,
         param_grid: paramGrid,
-        metric: 'sharpe_ratio'
+        metric: 'sharpe_ratio',
       })
       const response = await waitForJob(submission.job_id)
       setOptimizeResult(response)
@@ -228,12 +251,18 @@ function Strategies() {
     }
   }, [stockCode, dateRange, initialCapital])
 
-  const getCurrentChartOption = useMemo(() => getChartOption(klineData, signals, backtestResult), [klineData, signals, backtestResult])
+  const getCurrentChartOption = useMemo(
+    () => getChartOption(klineData, signals, backtestResult),
+    [klineData, signals, backtestResult],
+  )
 
   return (
     <div className="fade-in">
       <div className="page-header">
-        <div className="flex flex-between" style={{ flexWrap: 'wrap', gap: 'var(--space-md)' }}>
+        <div
+          className="flex flex-between"
+          style={{ flexWrap: 'wrap', gap: 'var(--space-md)' }}
+        >
           <div>
             <h1 className="page-title">策略研究</h1>
             <p className="page-subtitle">选择策略、配置参数、执行回测</p>
@@ -256,7 +285,12 @@ function Strategies() {
           dateRange={dateRange}
           initialCapital={initialCapital}
           parameters={parameters}
-          loading={{ signals: loadingSignals, backtest: loadingBacktest, optimize: loadingOptimize, compare: loadingCompare }}
+          loading={{
+            signals: loadingSignals,
+            backtest: loadingBacktest,
+            optimize: loadingOptimize,
+            compare: loadingCompare,
+          }}
           onStockCodeChange={setStockCode}
           onDateRangeChange={setDateRange}
           onCapitalChange={setInitialCapital}

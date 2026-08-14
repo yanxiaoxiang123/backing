@@ -2,15 +2,16 @@
 预测服务模块
 """
 
-import pandas as pd
-import numpy as np
-from typing import Dict, List, Any
-from datetime import timedelta
 import logging
+from datetime import timedelta
+from typing import Any, Dict, List
 
+import numpy as np
+import pandas as pd
+
+from app.config import settings
 from app.services.dl_prediction.features import DLFeatures
 from app.services.dl_prediction.model_loader import DLModelLoader
-from app.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -83,7 +84,7 @@ class TechnicalIndicatorPredictor:
             std = np.std(data[-period:])
             return sma, sma + 2 * std, sma - 2 * std
 
-        bb_middle, bb_upper, bb_lower = calc_bollinger_bands(close)
+        _bb_middle, bb_upper, bb_lower = calc_bollinger_bands(close)
 
         # 6. 支撑位和阻力位 (基于最近的高低点)
         _ = np.max(close[-10:]) if len(close) >= 10 else current_price

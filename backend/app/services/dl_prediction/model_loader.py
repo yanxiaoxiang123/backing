@@ -3,15 +3,16 @@ LSTM+FinanceLlama 模型加载器
 懒加载模式，避免启动时就加载torch
 """
 
-import os
-import sys
-import pickle
 import builtins as _builtins
-import numpy as np
-from typing import Any, Optional
-import logging
-from pathlib import Path
 import importlib.util
+import logging
+import os
+import pickle
+import sys
+from pathlib import Path
+from typing import Any, Optional
+
+import numpy as np
 
 from app.config import settings
 
@@ -58,7 +59,6 @@ _SAFE_BUILTINS = frozenset(
         "iter",
         "next",
         "len",
-        "range",
     }
 )
 
@@ -180,7 +180,7 @@ class StockLSTM_FinanceLlama:
 
         # 加载Finance-Llama模型
         llama_path = settings.DL_LLAMA_PATH
-        from transformers import AutoModel, AutoTokenizer, AutoConfig
+        from transformers import AutoConfig, AutoModel, AutoTokenizer
 
         revision = "main" if not os.path.isabs(llama_path) else None
         finance_llama_config = AutoConfig.from_pretrained(llama_path, revision=revision)
@@ -268,7 +268,7 @@ class StockLSTM_FinanceLlama:
         if self.finance_llama_is_dispatched:
             try:
                 return self.finance_llama.get_input_embeddings().weight.device
-            except Exception:
+            except Exception:  # noqa: S110 - 回退到下方实际设备
                 pass
         # 直接使用 finance_llama 的实际设备
         return self.finance_llama.device
@@ -354,7 +354,7 @@ class StockLSTM_FinanceLlama:
             return finance_llama_feature
 
     def forward(self, x, prompt):
-        torch, nn = _get_torch()
+        torch, _nn = _get_torch()
 
         batch_size = x.size(0)
         seq_length = x.size(1)
@@ -503,7 +503,7 @@ class DLModelLoader:
             return state_dict
         original_count = len(state_dict)
         removed_finance_llama = sum(
-            1 for k in state_dict.keys() if k.startswith("finance_llama.")
+            1 for k in state_dict if k.startswith("finance_llama.")
         )
         filtered = {
             k: v for k, v in state_dict.items() if k.split(".")[0] in runtime_prefixes
@@ -667,14 +667,14 @@ class DLModelLoader:
                     f"模型参数设备 {param_dev} 与目标设备 {self._device} 不一致，自动迁移"
                 )
                 self._model.to(self._device)
-        except Exception:
+        except Exception:  # noqa: S110 - 设备迁移为尽力而为
             pass
         if hasattr(self._model, "check_device_consistency"):
             try:
                 self._model.check_device_consistency(
                     input_tensor, prompt_name="pre_forward"
                 )
-            except Exception:
+            except Exception:  # noqa: S110 - 一致性检查为尽力而为
                 pass
         with torch.no_grad():
             pred_scaled = self._model(input_tensor, prompt)

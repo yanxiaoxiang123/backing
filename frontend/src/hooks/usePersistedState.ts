@@ -12,17 +12,22 @@ export function usePersistedState<T>(
     try {
       const raw = sessionStorage.getItem(storageKey)
       if (raw !== null) return JSON.parse(raw) as T
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
     return defaultValue
   })
 
   const setPersistedState = useCallback(
     (value: T | ((prev: T) => T)) => {
       setState((prev) => {
-        const next = typeof value === 'function' ? (value as (prev: T) => T)(prev) : value
+        const next =
+          typeof value === 'function' ? (value as (prev: T) => T)(prev) : value
         try {
           sessionStorage.setItem(storageKey, JSON.stringify(next))
-        } catch { /* quota exceeded */ }
+        } catch {
+          /* quota exceeded */
+        }
         return next
       })
     },

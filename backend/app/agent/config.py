@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
 """Agent 配置模块"""
 
-from pydantic_settings import BaseSettings
 from typing import Optional
+
+from pydantic_settings import BaseSettings
 
 
 class AgentSettings(BaseSettings):

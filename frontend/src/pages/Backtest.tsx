@@ -6,7 +6,11 @@ import dayjs from 'dayjs'
 import { getStrategies, runStrategyBacktest } from '../services/api'
 import StockSearch from '../components/StockSearch'
 import { logger } from '../utils/logger'
-import type { StrategyInfo, StrategyBacktestResponse, StrategyParamConfig } from '../types'
+import type {
+  StrategyInfo,
+  StrategyBacktestResponse,
+  StrategyParamConfig,
+} from '../types'
 
 const { RangePicker } = DatePicker
 
@@ -93,7 +97,9 @@ function Backtest() {
 
     switch (config.type) {
       case 'slider': {
-        const isFloat = (config.step || 1) < 1 || typeof config.default === 'number' && !Number.isInteger(config.default)
+        const isFloat =
+          (config.step || 1) < 1 ||
+          (typeof config.default === 'number' && !Number.isInteger(config.default))
         return (
           <Form.Item key={name} name={name} label={name} initialValue={config.default}>
             <InputNumber
@@ -132,8 +138,8 @@ function Backtest() {
 
     // Use portfolio_values if available (correct total value including positions)
     if (result.portfolio_values && result.portfolio_values.length > 0) {
-      const dates = result.portfolio_values.map(pv => pv.date)
-      const values = result.portfolio_values.map(pv => pv.total_value)
+      const dates = result.portfolio_values.map((pv) => pv.date)
+      const values = result.portfolio_values.map((pv) => pv.total_value)
 
       return {
         tooltip: {
@@ -145,38 +151,45 @@ function Backtest() {
             const idx = params[0].dataIndex
             const pv = result.portfolio_values![idx]
             return `日期: ${pv.date}<br/>总价值: ${pv.total_value.toFixed(2)}元<br/>现金: ${pv.cash.toFixed(2)}元<br/>持仓: ${pv.position}股 (${pv.position_value.toFixed(2)}元)`
-          }
+          },
         },
         grid: { left: '10%', right: '5%', bottom: '10%', top: '15%' },
         xAxis: {
           type: 'category',
           data: dates,
           axisLine: { lineStyle: { color: 'var(--color-border)' } },
-          axisLabel: { color: 'var(--color-text-tertiary)', fontSize: 10 }
+          axisLabel: { color: 'var(--color-text-tertiary)', fontSize: 10 },
         },
         yAxis: {
           type: 'value',
           name: '资金(元)',
           axisLine: { show: false },
           axisLabel: { color: 'var(--color-text-tertiary)', fontSize: 10 },
-          splitLine: { lineStyle: { color: 'var(--color-border-light)', type: 'dashed' } }
+          splitLine: {
+            lineStyle: { color: 'var(--color-border-light)', type: 'dashed' },
+          },
         },
-        series: [{
-          data: values,
-          type: 'line',
-          smooth: true,
-          lineStyle: { color: '#0071e3', width: 2 },
-          areaStyle: {
-            color: {
-              type: 'linear',
-              x: 0, y: 0, x2: 0, y2: 1,
-              colorStops: [
-                { offset: 0, color: 'rgba(0, 113, 227, 0.15)' },
-                { offset: 1, color: 'rgba(0, 113, 227, 0)' }
-              ]
-            }
-          }
-        }]
+        series: [
+          {
+            data: values,
+            type: 'line',
+            smooth: true,
+            lineStyle: { color: '#0071e3', width: 2 },
+            areaStyle: {
+              color: {
+                type: 'linear',
+                x: 0,
+                y: 0,
+                x2: 0,
+                y2: 1,
+                colorStops: [
+                  { offset: 0, color: 'rgba(0, 113, 227, 0.15)' },
+                  { offset: 1, color: 'rgba(0, 113, 227, 0)' },
+                ],
+              },
+            },
+          },
+        ],
       }
     }
 
@@ -206,38 +219,45 @@ function Backtest() {
         trigger: 'axis',
         backgroundColor: '#fff',
         borderColor: 'var(--color-border)',
-        textStyle: { color: 'var(--color-text-primary)' }
+        textStyle: { color: 'var(--color-text-primary)' },
       },
       grid: { left: '10%', right: '5%', bottom: '10%', top: '15%' },
       xAxis: {
         type: 'category',
         data: dates,
         axisLine: { lineStyle: { color: 'var(--color-border)' } },
-        axisLabel: { color: 'var(--color-text-tertiary)', fontSize: 10 }
+        axisLabel: { color: 'var(--color-text-tertiary)', fontSize: 10 },
       },
       yAxis: {
         type: 'value',
         name: '资金(元)',
         axisLine: { show: false },
         axisLabel: { color: 'var(--color-text-tertiary)', fontSize: 10 },
-        splitLine: { lineStyle: { color: 'var(--color-border-light)', type: 'dashed' } }
+        splitLine: {
+          lineStyle: { color: 'var(--color-border-light)', type: 'dashed' },
+        },
       },
-      series: [{
-        data: capital,
-        type: 'line',
-        smooth: true,
-        lineStyle: { color: '#0071e3', width: 2 },
-        areaStyle: {
-          color: {
-            type: 'linear',
-            x: 0, y: 0, x2: 0, y2: 1,
-            colorStops: [
-              { offset: 0, color: 'rgba(0, 113, 227, 0.15)' },
-              { offset: 1, color: 'rgba(0, 113, 227, 0)' }
-            ]
-          }
-        }
-      }]
+      series: [
+        {
+          data: capital,
+          type: 'line',
+          smooth: true,
+          lineStyle: { color: '#0071e3', width: 2 },
+          areaStyle: {
+            color: {
+              type: 'linear',
+              x: 0,
+              y: 0,
+              x2: 0,
+              y2: 1,
+              colorStops: [
+                { offset: 0, color: 'rgba(0, 113, 227, 0.15)' },
+                { offset: 1, color: 'rgba(0, 113, 227, 0)' },
+              ],
+            },
+          },
+        },
+      ],
     }
   }
 
@@ -247,7 +267,8 @@ function Backtest() {
       dataIndex: 'trade_date',
       key: 'trade_date',
       width: 120,
-      render: (_: string, record: { trade_date?: string; date?: string }) => record.trade_date || record.date || '-'
+      render: (_: string, record: { trade_date?: string; date?: string }) =>
+        record.trade_date || record.date || '-',
     },
     {
       title: '操作',
@@ -255,31 +276,51 @@ function Backtest() {
       key: 'action',
       width: 80,
       render: (action: string) => (
-        <span style={{
-          color: action === 'buy' ? 'var(--color-danger)' : 'var(--color-success)',
-          fontWeight: 500
-        }}>
+        <span
+          style={{
+            color: action === 'buy' ? 'var(--color-danger)' : 'var(--color-success)',
+            fontWeight: 500,
+          }}
+        >
           {action === 'buy' ? '买入' : '卖出'}
         </span>
-      )
+      ),
     },
     { title: '价格', dataIndex: 'price', key: 'price', width: 100 },
     { title: '数量', dataIndex: 'quantity', key: 'quantity', width: 100 },
-    { title: '金额', dataIndex: 'amount', key: 'amount', width: 120 }
+    { title: '金额', dataIndex: 'amount', key: 'amount', width: 120 },
   ]
 
-  const StatBox = ({ label, value, suffix = '', color }: {
+  const StatBox = ({
+    label,
+    value,
+    suffix = '',
+    color,
+  }: {
     label: string
     value: number | string
     suffix?: string
     color?: string
   }) => (
     <div className="stat-card">
-      <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-secondary)', marginBottom: 4 }}>
+      <div
+        style={{
+          fontSize: 'var(--font-size-xs)',
+          color: 'var(--color-text-secondary)',
+          marginBottom: 4,
+        }}
+      >
         {label}
       </div>
-      <div className="stat-value" style={{ fontSize: 'var(--font-size-xl)', color: color || 'var(--color-text-primary)' }}>
-        {typeof value === 'number' ? value.toLocaleString() : value}{suffix}
+      <div
+        className="stat-value"
+        style={{
+          fontSize: 'var(--font-size-xl)',
+          color: color || 'var(--color-text-primary)',
+        }}
+      >
+        {typeof value === 'number' ? value.toLocaleString() : value}
+        {suffix}
       </div>
     </div>
   )
@@ -299,16 +340,29 @@ function Backtest() {
       <div className="page-header">
         <h1 className="page-title">策略回测</h1>
         <p className="page-subtitle">
-          {selectedStrategy
-            ? `${selectedStrategy.description}`
-            : '选择策略并运行回测'}
+          {selectedStrategy ? `${selectedStrategy.description}` : '选择策略并运行回测'}
         </p>
       </div>
 
-      <div className="grid" style={{ gridTemplateColumns: '340px 1fr', gap: 'var(--space-2xl)' }}>
+      <div
+        className="grid"
+        style={{ gridTemplateColumns: '340px 1fr', gap: 'var(--space-2xl)' }}
+      >
         {/* 参数配置 */}
-        <div style={{ background: 'var(--color-canvas-lifted)', borderRadius: '40px', padding: 'var(--space-xl)' }}>
-          <div style={{ fontSize: 'var(--font-size-md)', fontWeight: 600, marginBottom: 'var(--space-lg)' }}>
+        <div
+          style={{
+            background: 'var(--color-canvas-lifted)',
+            borderRadius: '40px',
+            padding: 'var(--space-xl)',
+          }}
+        >
+          <div
+            style={{
+              fontSize: 'var(--font-size-md)',
+              fontWeight: 600,
+              marginBottom: 'var(--space-lg)',
+            }}
+          >
             回测参数
           </div>
           <Form
@@ -345,9 +399,10 @@ function Backtest() {
             </Form.Item>
 
             {/* Dynamic strategy parameters */}
-            {selectedStrategy && Object.entries(selectedStrategy.parameters).map(([name, config]) =>
-              renderParamField(name, config)
-            )}
+            {selectedStrategy &&
+              Object.entries(selectedStrategy.parameters).map(([name, config]) =>
+                renderParamField(name, config),
+              )}
 
             <Form.Item>
               <Button
@@ -367,7 +422,16 @@ function Backtest() {
         {/* 结果展示 */}
         <div>
           {running && (
-            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 400, background: 'var(--color-canvas-lifted)', borderRadius: '40px' }}>
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                minHeight: 400,
+                background: 'var(--color-canvas-lifted)',
+                borderRadius: '40px',
+              }}
+            >
               <Spin size="large" tip="回测运行中..." />
             </div>
           )}
@@ -375,23 +439,30 @@ function Backtest() {
           {!running && result && (
             <div>
               {/* 统计指标 */}
-              <div className="grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)', marginBottom: 'var(--space-lg)' }}>
+              <div
+                className="grid"
+                style={{
+                  gridTemplateColumns: 'repeat(4, 1fr)',
+                  marginBottom: 'var(--space-lg)',
+                }}
+              >
                 <StatBox
                   label="总收益率"
                   value={totalReturn.toFixed(2)}
                   suffix="%"
-                  color={totalReturn > 0 ? 'var(--color-success)' : 'var(--color-danger)'}
+                  color={
+                    totalReturn > 0 ? 'var(--color-success)' : 'var(--color-danger)'
+                  }
                 />
                 <StatBox
                   label="年化收益率"
                   value={annualReturn.toFixed(2)}
                   suffix="%"
-                  color={annualReturn > 0 ? 'var(--color-success)' : 'var(--color-danger)'}
+                  color={
+                    annualReturn > 0 ? 'var(--color-success)' : 'var(--color-danger)'
+                  }
                 />
-                <StatBox
-                  label="夏普比率"
-                  value={sharpeRatio.toFixed(2)}
-                />
+                <StatBox label="夏普比率" value={sharpeRatio.toFixed(2)} />
                 <StatBox
                   label="最大回撤"
                   value={maxDrawdown.toFixed(2)}
@@ -400,24 +471,62 @@ function Backtest() {
                 />
               </div>
 
-              <div className="grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)', marginBottom: 'var(--space-2xl)' }}>
+              <div
+                className="grid"
+                style={{
+                  gridTemplateColumns: 'repeat(4, 1fr)',
+                  marginBottom: 'var(--space-2xl)',
+                }}
+              >
                 <StatBox label="胜率" value={winRate.toFixed(2)} suffix="%" />
                 <StatBox label="交易次数" value={totalTrades} />
                 <StatBox label="盈亏比" value={profitFactor.toFixed(2)} />
-                <StatBox label="最终资金" value={result.final_capital} suffix="元" color="var(--color-ink)" />
+                <StatBox
+                  label="最终资金"
+                  value={result.final_capital}
+                  suffix="元"
+                  color="var(--color-ink)"
+                />
               </div>
 
               {/* 资金曲线 */}
-              <div style={{ marginBottom: 'var(--space-2xl)', padding: 'var(--space-xl)', background: 'var(--color-canvas-lifted)', borderRadius: '40px' }}>
-                <div style={{ fontSize: 'var(--font-size-sm)', fontWeight: 600, marginBottom: 'var(--space-sm)', color: 'var(--color-text-secondary)' }}>
+              <div
+                style={{
+                  marginBottom: 'var(--space-2xl)',
+                  padding: 'var(--space-xl)',
+                  background: 'var(--color-canvas-lifted)',
+                  borderRadius: '40px',
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: 'var(--font-size-sm)',
+                    fontWeight: 600,
+                    marginBottom: 'var(--space-sm)',
+                    color: 'var(--color-text-secondary)',
+                  }}
+                >
                   资金曲线
                 </div>
                 <ReactECharts option={getChartOption()} style={{ height: 280 }} />
               </div>
 
               {/* 交易记录 */}
-              <div style={{ background: 'var(--color-canvas-lifted)', borderRadius: '40px', padding: 'var(--space-xl)', marginBottom: 'var(--space-2xl)' }}>
-                <div style={{ fontSize: 'var(--font-size-md)', fontWeight: 600, marginBottom: 'var(--space-md)' }}>
+              <div
+                style={{
+                  background: 'var(--color-canvas-lifted)',
+                  borderRadius: '40px',
+                  padding: 'var(--space-xl)',
+                  marginBottom: 'var(--space-2xl)',
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: 'var(--font-size-md)',
+                    fontWeight: 600,
+                    marginBottom: 'var(--space-md)',
+                  }}
+                >
                   交易记录
                 </div>
                 <Table
@@ -432,8 +541,19 @@ function Backtest() {
           )}
 
           {!running && !result && (
-            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 400, background: 'var(--color-canvas-lifted)', borderRadius: '40px' }}>
-              <div style={{ textAlign: 'center', color: 'var(--color-text-secondary)' }}>
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                minHeight: 400,
+                background: 'var(--color-canvas-lifted)',
+                borderRadius: '40px',
+              }}
+            >
+              <div
+                style={{ textAlign: 'center', color: 'var(--color-text-secondary)' }}
+              >
                 <div style={{ fontSize: 48, marginBottom: 'var(--space-md)' }}>📊</div>
                 <div>选择策略和参数，然后点击"运行回测"</div>
               </div>

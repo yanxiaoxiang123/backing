@@ -3,10 +3,11 @@
 基于预测结果进行回测
 """
 
-import pandas as pd
-import numpy as np
-from typing import Dict, Any, Tuple
 import logging
+from typing import Any, Dict, Tuple
+
+import numpy as np
+import pandas as pd
 
 from app.services.baostock_service import BaostockService
 from app.services.dl_prediction.features import DLFeatures
@@ -60,8 +61,7 @@ class TradingStrategy:
             return
 
         # 更新持仓期间最高价
-        if current_price > self.highest_price_since_entry:
-            self.highest_price_since_entry = current_price
+        self.highest_price_since_entry = max(self.highest_price_since_entry, current_price)
 
         # 计算跟踪止损：最高价回撤 trailing_stop_pct
         trailing_stop = self.highest_price_since_entry * (1 - self.trailing_stop_pct)
@@ -126,10 +126,7 @@ class TradingStrategy:
             return True
 
         # 5. 技术面卖出信号
-        if current_price < ma5 * 0.97 and rsi > 70:
-            return True
-
-        return False
+        return bool(current_price < ma5 * 0.97 and rsi > 70)
 
     def execute_trade(self, date, price, action, quantity=0) -> None:
         """执行交易"""
@@ -301,7 +298,7 @@ class DLBacktester:
                 # 交易决策
                 if strategy.position == 0:
                     # 没有持仓，检查是否买入
-                    should_buy, predicted_return = strategy.should_buy(
+                    should_buy, _predicted_return = strategy.should_buy(
                         current_price, predicted_price, ma5, ma20, rsi
                     )
                     if should_buy:

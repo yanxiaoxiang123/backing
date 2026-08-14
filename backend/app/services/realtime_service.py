@@ -91,7 +91,7 @@ class RealtimeService:
             for server in available:
                 try:
                     client = cls._connect(server)
-                except Exception as exc:  # noqa: BLE001 - isolate provider failures
+                except Exception as exc:
                     cls._unhealthy_until[server] = now + cls._unhealthy_ttl_s
                     logger.warning("mootdx server %s:%s unavailable: %s", *server, exc)
                     continue
@@ -130,7 +130,7 @@ class RealtimeService:
             try:
                 frame = getattr(client, method)(**kwargs)
                 return frame if frame is not None else pd.DataFrame()
-            except Exception as exc:  # noqa: BLE001 - isolate provider failures
+            except Exception as exc:
                 logger.warning(
                     "mootdx %s failed (attempt %s) for %s: %s",
                     method,

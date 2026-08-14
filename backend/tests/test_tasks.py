@@ -4,7 +4,6 @@
 开发数据库。
 """
 
-import threading
 import time
 from datetime import datetime, timedelta, timezone
 
@@ -113,7 +112,7 @@ class TestClaimAndLease:
         assert job_store.claim_due() is None
 
     def test_claim_is_exclusive(self, db):
-        job = job_store.create("sync_stocks")
+        job_store.create("sync_stocks")
         first = job_store.claim_due()
         second = job_store.claim_due()
         assert first is not None
@@ -131,7 +130,7 @@ class TestClaimAndLease:
         assert reclaimed.id == job.id
 
     def test_running_job_with_fresh_lease_not_reclaimed(self, db):
-        job = job_store.create("sync_stocks")
+        job_store.create("sync_stocks")
         job_store.claim_due()
         assert job_store.claim_due() is None
 

@@ -1,6 +1,10 @@
 import { useState } from 'react'
 import { Card, Button, Progress, Tag, message, Row, Col } from 'antd'
-import { PlayCircleOutlined, CheckCircleOutlined, ReloadOutlined } from '@ant-design/icons'
+import {
+  PlayCircleOutlined,
+  CheckCircleOutlined,
+  ReloadOutlined,
+} from '@ant-design/icons'
 import { submitScreener, getScreenerStatus, cancelJob } from '../services/api'
 
 interface StockResult {
@@ -61,7 +65,7 @@ function Screener() {
 
   const pollJob = async (jobId: string) => {
     const startTime = Date.now()
-    const MAX_POLL_MS = 10 * 60 * 1000  // 10 minutes
+    const MAX_POLL_MS = 10 * 60 * 1000 // 10 minutes
 
     while (true) {
       if (Date.now() - startTime > MAX_POLL_MS) {
@@ -101,8 +105,8 @@ function Screener() {
           setProgress(pct)
         }
 
-        await new Promise(r => setTimeout(r, 2000))
-      } catch (e) {
+        await new Promise((r) => setTimeout(r, 2000))
+      } catch {
         message.error('查询任务状态失败')
         setRunning(false)
         break
@@ -114,7 +118,7 @@ function Screener() {
     if (jobId) {
       try {
         await cancelJob(jobId)
-      } catch (e) {
+      } catch {
         // ignore cancel errors
       }
     }
@@ -123,17 +127,23 @@ function Screener() {
 
   const getSignalColor = (signal?: string) => {
     switch (signal) {
-      case 'buy': return 'green'
-      case 'sell': return 'red'
-      default: return 'default'
+      case 'buy':
+        return 'green'
+      case 'sell':
+        return 'red'
+      default:
+        return 'default'
     }
   }
 
   const getSignalLabel = (signal?: string) => {
     switch (signal) {
-      case 'buy': return '买入'
-      case 'sell': return '卖出'
-      default: return '持有'
+      case 'buy':
+        return '买入'
+      case 'sell':
+        return '卖出'
+      default:
+        return '持有'
     }
   }
 
@@ -147,23 +157,33 @@ function Screener() {
         style={{
           marginBottom: 12,
           borderLeft: `4px solid ${
-            stock.ai_signal === 'buy' ? '#52c41a' :
-            stock.ai_signal === 'sell' ? '#ff4d4f' : '#8c8c8c'
-          }`
+            stock.ai_signal === 'buy'
+              ? '#52c41a'
+              : stock.ai_signal === 'sell'
+                ? '#ff4d4f'
+                : '#8c8c8c'
+          }`,
         }}
       >
         <Row gutter={16} align="middle">
           <Col span={3}>
             <div style={{ fontSize: 18, fontWeight: 700 }}>{stock.stock_code}</div>
-            <div style={{ color: 'var(--color-text-secondary)', fontSize: 13 }}>{stock.stock_name}</div>
+            <div style={{ color: 'var(--color-text-secondary)', fontSize: 13 }}>
+              {stock.stock_name}
+            </div>
           </Col>
           <Col span={3}>
-            <div style={{ fontSize: 20, fontWeight: 700 }}>{stock.close.toFixed(2)}</div>
-            <div style={{
-              color: isUp ? '#EB001B' : '#52C41A',
-              fontSize: 13
-            }}>
-              {isUp ? '+' : ''}{stock.change_pct.toFixed(2)}%
+            <div style={{ fontSize: 20, fontWeight: 700 }}>
+              {stock.close.toFixed(2)}
+            </div>
+            <div
+              style={{
+                color: isUp ? '#EB001B' : '#52C41A',
+                fontSize: 13,
+              }}
+            >
+              {isUp ? '+' : ''}
+              {stock.change_pct.toFixed(2)}%
             </div>
           </Col>
           <Col span={3}>
@@ -171,20 +191,37 @@ function Screener() {
               {getSignalLabel(stock.ai_signal)}
             </Tag>
             {stock.ai_confidence != null && (
-              <div style={{ marginTop: 4, fontSize: 12, color: 'var(--color-text-secondary)' }}>
+              <div
+                style={{
+                  marginTop: 4,
+                  fontSize: 12,
+                  color: 'var(--color-text-secondary)',
+                }}
+              >
                 置信度 {Math.round(stock.ai_confidence * 100)}%
               </div>
             )}
           </Col>
           <Col span={10}>
-            <div style={{ fontSize: 13, color: 'var(--color-text-secondary)', lineHeight: 1.6 }}>
+            <div
+              style={{
+                fontSize: 13,
+                color: 'var(--color-text-secondary)',
+                lineHeight: 1.6,
+              }}
+            >
               {stock.ai_reason || 'AI 分析中...'}
             </div>
           </Col>
           <Col span={5}>
             <div style={{ fontSize: 12, color: 'var(--color-text-tertiary)' }}>
-              <div>MA5: {stock.ma5.toFixed(2)} MA10: {stock.ma10.toFixed(2)} MA20: {stock.ma20.toFixed(2)}</div>
-              <div>RSI: {stock.rsi.toFixed(1)} | 量比: {stock.volume_ratio.toFixed(2)}</div>
+              <div>
+                MA5: {stock.ma5.toFixed(2)} MA10: {stock.ma10.toFixed(2)} MA20:{' '}
+                {stock.ma20.toFixed(2)}
+              </div>
+              <div>
+                RSI: {stock.rsi.toFixed(1)} | 量比: {stock.volume_ratio.toFixed(2)}
+              </div>
               <div>综合评分: {stock.composite_score.toFixed(1)}</div>
             </div>
           </Col>
@@ -212,7 +249,13 @@ function Screener() {
           >
             开始 AI 选股
           </Button>
-          <div style={{ marginTop: 16, color: 'var(--color-text-secondary)', fontSize: 13 }}>
+          <div
+            style={{
+              marginTop: 16,
+              color: 'var(--color-text-secondary)',
+              fontSize: 13,
+            }}
+          >
             自动扫描全市场股票，综合评分排序后 AI 深度分析 TOP 5
           </div>
         </Card>
@@ -225,7 +268,13 @@ function Screener() {
             {STAGE_LABELS[stage] || '正在处理...'}
           </div>
           <Progress percent={progress} status="active" style={{ marginBottom: 8 }} />
-          <div style={{ color: 'var(--color-text-secondary)', fontSize: 13, marginBottom: 4 }}>
+          <div
+            style={{
+              color: 'var(--color-text-secondary)',
+              fontSize: 13,
+              marginBottom: 4,
+            }}
+          >
             {messageText}
           </div>
           {total > 0 && (
@@ -243,8 +292,12 @@ function Screener() {
       {results.length > 0 && (
         <div>
           <Card style={{ marginBottom: 16, background: 'var(--color-canvas-lifted)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-              <CheckCircleOutlined style={{ color: 'var(--color-success)', fontSize: 20 }} />
+            <div
+              style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}
+            >
+              <CheckCircleOutlined
+                style={{ color: 'var(--color-success)', fontSize: 20 }}
+              />
               <span style={{ fontSize: 16, fontWeight: 600 }}>AI 精选 TOP 5</span>
             </div>
             <div style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>
@@ -257,7 +310,10 @@ function Screener() {
           <Button
             type="default"
             icon={<ReloadOutlined />}
-            onClick={() => { setResults([]); setRunning(false) }}
+            onClick={() => {
+              setResults([])
+              setRunning(false)
+            }}
             style={{ marginTop: 16 }}
           >
             重新选股

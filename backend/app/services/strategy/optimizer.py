@@ -4,13 +4,14 @@ Strategy Parameter Optimizer
 Provides grid search and random search optimization for strategy parameters.
 """
 
+import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Dict, Any, List, Optional, Tuple
-import pandas as pd
-import numpy as np
 from itertools import product
-import logging
+from typing import Any, Dict, List, Optional, Tuple
+
+import numpy as np
+import pandas as pd
 
 from .base import Strategy
 from .registry import StrategyRegistry
@@ -299,7 +300,6 @@ class ParameterOptimizer(ABC):
         Returns:
             Optimization result object
         """
-        pass
 
     def _get_strategy(self, strategy_name: str) -> Strategy:
         """Get strategy instance by name."""
@@ -363,7 +363,7 @@ class GridSearchOptimizer(ParameterOptimizer):
         strategy_params = strategy.get_parameters()
 
         # Validate param_grid keys
-        for param_name in param_grid.keys():
+        for param_name in param_grid:
             if param_name not in strategy_params:
                 raise ValueError(
                     f"Parameter '{param_name}' not found in strategy '{strategy_name}'"
@@ -387,7 +387,7 @@ class GridSearchOptimizer(ParameterOptimizer):
             params = dict(zip(param_names, combo))
 
             try:
-                trades, final_capital, metrics = run_strategy_backtest(
+                _, _, metrics = run_strategy_backtest(
                     strategy, data, params, self.initial_capital
                 )
 
@@ -488,7 +488,7 @@ class RandomSearchOptimizer(ParameterOptimizer):
         strategy_params = strategy.get_parameters()
 
         # Validate param_distributions keys
-        for param_name in param_distributions.keys():
+        for param_name in param_distributions:
             if param_name not in strategy_params:
                 raise ValueError(
                     f"Parameter '{param_name}' not found in strategy '{strategy_name}'"
@@ -518,14 +518,14 @@ class RandomSearchOptimizer(ParameterOptimizer):
 
                 # Cast to appropriate type
                 if param_def.param_type.value == "int":
-                    value = int(round(value))
+                    value = round(value)
                 elif param_def.param_type.value == "float":
                     value = float(value)
 
                 params[param_name] = value
 
             try:
-                trades, final_capital, metrics = run_strategy_backtest(
+                _, _, metrics = run_strategy_backtest(
                     strategy, data, params, self.initial_capital
                 )
 

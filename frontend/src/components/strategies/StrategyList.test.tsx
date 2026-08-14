@@ -8,7 +8,7 @@ const strategies: StrategyInfo[] = [
   { name: 'ma_cross', description: 'MA strategy', parameters: {} },
   { name: 'mean_reversion', description: 'Reversion strategy', parameters: {} },
   { name: 'breakout', description: 'Breakout strategy', parameters: {} },
-  { name: 'bollinger_breakout', description: 'Bollinger strategy', parameters: {} }
+  { name: 'bollinger_breakout', description: 'Bollinger strategy', parameters: {} },
 ]
 
 function renderList(selectedStrategy: string | null = null) {
@@ -18,7 +18,7 @@ function renderList(selectedStrategy: string | null = null) {
       selectedStrategy={selectedStrategy}
       loading={false}
       onSelect={() => {}}
-    />
+    />,
   )
 }
 
@@ -52,7 +52,7 @@ describe('StrategyList', () => {
         selectedStrategy={null}
         loading={false}
         onSelect={onSelect}
-      />
+      />,
     )
     await user.click(screen.getByText('均线交叉'))
     expect(onSelect).toHaveBeenCalledWith('ma_cross')

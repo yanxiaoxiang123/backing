@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 """Intel Agent - 情报收集 Agent"""
 
-import logging
 import json
+import logging
 from typing import Optional
 
 from app.agent.agents.base_agent import BaseAgent

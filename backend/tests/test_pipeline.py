@@ -9,7 +9,7 @@ from unittest.mock import patch
 
 import pytest
 
-from app.agent.pipeline import MODE_PIPELINES, OrchestratorResult, run_pipeline
+from app.agent.pipeline import MODE_PIPELINES, run_pipeline
 from app.agent.protocols import AgentContext
 
 

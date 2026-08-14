@@ -1,12 +1,48 @@
 import { useState, useEffect } from 'react'
-import { Card, Select, Button, Table, Tag, message, Tabs, Progress, Row, Col, Modal } from 'antd'
-import { PlayCircleOutlined, PauseCircleOutlined, HistoryOutlined, TrophyOutlined, AlertOutlined, StockOutlined, ThunderboltOutlined, EyeOutlined, CopyOutlined, DownloadOutlined } from '@ant-design/icons'
+import {
+  Card,
+  Select,
+  Button,
+  Table,
+  Tag,
+  message,
+  Tabs,
+  Progress,
+  Row,
+  Col,
+  Modal,
+} from 'antd'
+import {
+  PlayCircleOutlined,
+  PauseCircleOutlined,
+  HistoryOutlined,
+  TrophyOutlined,
+  AlertOutlined,
+  StockOutlined,
+  ThunderboltOutlined,
+  EyeOutlined,
+  CopyOutlined,
+  DownloadOutlined,
+} from '@ant-design/icons'
 import ReactECharts from 'echarts-for-react'
 import type { EChartsOption } from 'echarts'
-import { submitAnalyzeStock, getAnalysisHistory, getAnalysisDetail, cancelJob, getStockIndicators, getApiErrorMessage } from '../services/api'
+import {
+  submitAnalyzeStock,
+  getAnalysisHistory,
+  getAnalysisDetail,
+  cancelJob,
+  getStockIndicators,
+  getApiErrorMessage,
+} from '../services/api'
 import StockSearch from '../components/StockSearch'
 import { useJobPolling } from '../hooks/useJobPolling'
-import type { AgentAnalyzeRequest, AnalysisRecord, AgentAnalyzeResponse, AgentStage, KlineIndicator } from '../types'
+import type {
+  AgentAnalyzeRequest,
+  AnalysisRecord,
+  AgentAnalyzeResponse,
+  AgentStage,
+  KlineIndicator,
+} from '../types'
 import { logger } from '../utils/logger'
 import { DecisionCard } from '../components/analysis/DecisionCard'
 import { StageCard } from '../components/analysis/StageCard'
@@ -32,7 +68,9 @@ export default function AgentAnalysis() {
   const [history, setHistory] = useState<AnalysisRecord[]>([])
   const [activeTab, setActiveTab] = useState('analyze')
   const [detailModalVisible, setDetailModalVisible] = useState(false)
-  const [selectedDetail, setSelectedDetail] = useState<AgentAnalyzeResponse | null>(null)
+  const [selectedDetail, setSelectedDetail] = useState<AgentAnalyzeResponse | null>(
+    null,
+  )
   const [detailLoading, setDetailLoading] = useState(false)
   const [jobProgress, setJobProgress] = useState(0)
   const [jobStages, setJobStages] = useState<AgentStage[]>([])
@@ -68,23 +106,20 @@ export default function AgentAnalysis() {
       const request: AgentAnalyzeRequest = {
         stock_code: selectedStock,
         stock_name: stockName || selectedStock,
-        mode
+        mode,
       }
 
       const submission = await submitAnalyzeStock(request)
       setCurrentJobId(submission.job_id)
-      const data = await waitForJob(
-        submission.job_id,
-        {
-          onStatus: (job) => {
-            setJobProgress(Math.round((job.progress || 0) * 100))
-            const stages = (job.payload as { stages?: AgentStage[] })?.stages
-            if (stages) {
-              setJobStages(stages)
-            }
-          },
+      const data = await waitForJob(submission.job_id, {
+        onStatus: (job) => {
+          setJobProgress(Math.round((job.progress || 0) * 100))
+          const stages = (job.payload as { stages?: AgentStage[] })?.stages
+          if (stages) {
+            setJobStages(stages)
+          }
         },
-      )
+      })
       setResult(data)
 
       if (data.success) {
@@ -92,8 +127,15 @@ export default function AgentAnalysis() {
         // 获取 K 线数据用于图表
         try {
           const endDate = new Date().toISOString().split('T')[0]
-          const startDate = new Date(Date.now() - 180 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
-          const indicatorsRes = await getStockIndicators(selectedStock, 'daily', startDate, endDate)
+          const startDate = new Date(Date.now() - 180 * 24 * 60 * 60 * 1000)
+            .toISOString()
+            .split('T')[0]
+          const indicatorsRes = await getStockIndicators(
+            selectedStock,
+            'daily',
+            startDate,
+            endDate,
+          )
           setStockIndicators(indicatorsRes.data)
         } catch (err) {
           logger.error('Failed to load stock indicators for chart:', err)
@@ -105,7 +147,10 @@ export default function AgentAnalysis() {
       // 刷新历史记录
       loadHistory()
     } catch (error: unknown) {
-      const err = error as { response?: { data?: { detail?: string } }; message?: string }
+      const err = error as {
+        response?: { data?: { detail?: string } }
+        message?: string
+      }
       const errMsg = err.response?.data?.detail || err.message || ''
       if (errMsg === 'Cancelled' || errMsg === 'Job cancelled by user') {
         message.info('分析已暂停')
@@ -133,17 +178,23 @@ export default function AgentAnalysis() {
 
   const getSignalColor = (signal: string) => {
     switch (signal) {
-      case 'buy': return 'green'
-      case 'sell': return 'red'
-      default: return 'default'
+      case 'buy':
+        return 'green'
+      case 'sell':
+        return 'red'
+      default:
+        return 'default'
     }
   }
 
   const getSignalLabel = (signal: string) => {
     switch (signal) {
-      case 'buy': return '买入'
-      case 'sell': return '卖出'
-      default: return '持有'
+      case 'buy':
+        return '买入'
+      case 'sell':
+        return '卖出'
+      default:
+        return '持有'
     }
   }
 
@@ -159,11 +210,11 @@ export default function AgentAnalysis() {
   const getLightChartOption = (data: KlineIndicator[]): EChartsOption => {
     if (!data || data.length === 0) return {}
 
-    const dates = data.map(d => d.date)
-    const ohlc = data.map(d => [d.open, d.close, d.low, d.high])
-    const ma5 = data.map(d => d.ma5)
-    const ma10 = data.map(d => d.ma10)
-    const ma20 = data.map(d => d.ma20)
+    const dates = data.map((d) => d.date)
+    const ohlc = data.map((d) => [d.open, d.close, d.low, d.high])
+    const ma5 = data.map((d) => d.ma5)
+    const ma10 = data.map((d) => d.ma10)
+    const ma20 = data.map((d) => d.ma20)
 
     return {
       backgroundColor: 'transparent',
@@ -172,7 +223,7 @@ export default function AgentAnalysis() {
         top: 10,
         left: 'center',
         textStyle: { color: 'var(--color-text-secondary)', fontSize: 11 },
-        data: ['K线', 'MA5', 'MA10', 'MA20']
+        data: ['K线', 'MA5', 'MA10', 'MA20'],
       },
       tooltip: {
         trigger: 'axis',
@@ -190,23 +241,27 @@ export default function AgentAnalysis() {
           return `<div style="font-weight:600;margin-bottom:4px">${date}</div>
             <div>开: <b>${o.toFixed(2)}</b> 收: <b style="color:${color}">${c.toFixed(2)}</b></div>
             <div>高: <b>${h.toFixed(2)}</b> 低: <b>${l.toFixed(2)}</b></div>`
-        }
+        },
       },
       grid: { left: '10%', right: '8%', top: 50, bottom: 60 },
-      xAxis: [{
-        type: 'category',
-        data: dates,
-        boundaryGap: false,
-        axisLine: { onZero: false },
-        axisLabel: { color: 'var(--color-text-tertiary)', fontSize: 10 },
-      }],
-      yAxis: [{
-        scale: true,
-        axisLabel: { color: 'var(--color-text-tertiary)', fontSize: 10 },
-      }],
+      xAxis: [
+        {
+          type: 'category',
+          data: dates,
+          boundaryGap: false,
+          axisLine: { onZero: false },
+          axisLabel: { color: 'var(--color-text-tertiary)', fontSize: 10 },
+        },
+      ],
+      yAxis: [
+        {
+          scale: true,
+          axisLabel: { color: 'var(--color-text-tertiary)', fontSize: 10 },
+        },
+      ],
       dataZoom: [
         { type: 'inside', start: 70, end: 100 },
-        { show: true, type: 'slider', bottom: 10, start: 70, end: 100, height: 20 }
+        { show: true, type: 'slider', bottom: 10, start: 70, end: 100, height: 20 },
       ],
       series: [
         {
@@ -217,13 +272,31 @@ export default function AgentAnalysis() {
             color: '#ff3b30',
             color0: '#34c759',
             borderColor: '#ff3b30',
-            borderColor0: '#34c759'
-          }
+            borderColor0: '#34c759',
+          },
         },
-        { name: 'MA5', type: 'line', data: ma5, smooth: true, lineStyle: { opacity: 0.5 } },
-        { name: 'MA10', type: 'line', data: ma10, smooth: true, lineStyle: { opacity: 0.5 } },
-        { name: 'MA20', type: 'line', data: ma20, smooth: true, lineStyle: { opacity: 0.5 } },
-      ]
+        {
+          name: 'MA5',
+          type: 'line',
+          data: ma5,
+          smooth: true,
+          lineStyle: { opacity: 0.5 },
+        },
+        {
+          name: 'MA10',
+          type: 'line',
+          data: ma10,
+          smooth: true,
+          lineStyle: { opacity: 0.5 },
+        },
+        {
+          name: 'MA20',
+          type: 'line',
+          data: ma20,
+          smooth: true,
+          lineStyle: { opacity: 0.5 },
+        },
+      ],
     }
   }
 
@@ -236,31 +309,44 @@ export default function AgentAnalysis() {
       decision: '决策',
     }
     const signalLabel = getSignalLabel(r.final_signal)
-    const signalColor = r.final_signal === 'buy' ? '#52c41a' : r.final_signal === 'sell' ? '#ff4d4f' : '#8c8c8c'
-    const signalArrow = r.final_signal === 'buy' ? '↑' : r.final_signal === 'sell' ? '↓' : '→'
+    const signalColor =
+      r.final_signal === 'buy'
+        ? '#52c41a'
+        : r.final_signal === 'sell'
+          ? '#ff4d4f'
+          : '#8c8c8c'
+    const signalArrow =
+      r.final_signal === 'buy' ? '↑' : r.final_signal === 'sell' ? '↓' : '→'
 
-    const stageRows = r.stages.map((s) => {
-      const name = stageLabels[s.stage_name] || s.stage_name
-      if (s.opinion) {
-        const sc = s.opinion.signal === 'buy' ? '#52c41a' : s.opinion.signal === 'sell' ? '#ff4d4f' : '#8c8c8c'
-        const sl = getSignalLabel(s.opinion.signal)
-        return `<tr>
+    const stageRows = r.stages
+      .map((s) => {
+        const name = stageLabels[s.stage_name] || s.stage_name
+        if (s.opinion) {
+          const sc =
+            s.opinion.signal === 'buy'
+              ? '#52c41a'
+              : s.opinion.signal === 'sell'
+                ? '#ff4d4f'
+                : '#8c8c8c'
+          const sl = getSignalLabel(s.opinion.signal)
+          return `<tr>
           <td style="padding:8px 12px;border:1px solid #e8e8e8;font-weight:600">${name}</td>
           <td style="padding:8px 12px;border:1px solid #e8e8e8"><span style="color:${sc};font-weight:600">${sl}</span></td>
           <td style="padding:8px 12px;border:1px solid #e8e8e8">${Math.round(s.opinion.confidence * 100)}%</td>
           <td style="padding:8px 12px;border:1px solid #e8e8e8">${s.opinion.reason || '—'}</td>
         </tr>`
-      }
-      return `<tr>
+        }
+        return `<tr>
         <td style="padding:8px 12px;border:1px solid #e8e8e8;font-weight:600">${name}</td>
         <td colspan="3" style="padding:8px 12px;border:1px solid #e8e8e8;color:#999">${s.error || '无结果'}</td>
       </tr>`
-    }).join('')
+      })
+      .join('')
 
     const newsSection = r.news_items?.length
       ? `<h2 style="font-size:16px;margin:24px 0 12px">相关新闻</h2>
          <ul style="padding-left:20px">
-           ${r.news_items.map(n => `<li style="margin-bottom:8px"><a href="${n.url}" style="color:#1677ff">${n.title || '新闻'}</a><br/><span style="font-size:13px;color:#666">${n.content ? n.content.slice(0, 200) : ''}</span></li>`).join('')}
+           ${r.news_items.map((n) => `<li style="margin-bottom:8px"><a href="${n.url}" style="color:#1677ff">${n.title || '新闻'}</a><br/><span style="font-size:13px;color:#666">${n.content ? n.content.slice(0, 200) : ''}</span></li>`).join('')}
          </ul>`
       : ''
 
@@ -329,7 +415,7 @@ export default function AgentAnalysis() {
       const data = await getAnalysisDetail(record.id)
       setSelectedDetail(data)
       setDetailModalVisible(true)
-    } catch (error) {
+    } catch {
       message.error('获取详情失败')
     } finally {
       setDetailLoading(false)
@@ -349,7 +435,9 @@ export default function AgentAnalysis() {
       key: 'stock_code',
       width: 100,
       render: (code: string, record: AnalysisRecord) => (
-        <span>{code} {record.stock_name && `(${record.stock_name})`}</span>
+        <span>
+          {code} {record.stock_name && `(${record.stock_name})`}
+        </span>
       ),
     },
     {
@@ -357,9 +445,7 @@ export default function AgentAnalysis() {
       dataIndex: 'mode',
       key: 'mode',
       width: 100,
-      render: (mode: string) => (
-        <Tag color="blue">{mode}</Tag>
-      ),
+      render: (mode: string) => <Tag color="blue">{mode}</Tag>,
     },
     {
       title: '信号',
@@ -376,7 +462,11 @@ export default function AgentAnalysis() {
       key: 'confidence',
       width: 100,
       render: (confidence: number) => (
-        <Progress percent={Math.round(confidence * 100)} size="small" strokeColor="var(--color-ink)" />
+        <Progress
+          percent={Math.round(confidence * 100)}
+          size="small"
+          strokeColor="var(--color-ink)"
+        />
       ),
     },
     {
@@ -418,12 +508,8 @@ export default function AgentAnalysis() {
             />
           </Col>
           <Col>
-            <Select
-              value={mode}
-              onChange={setMode}
-              style={{ width: 160 }}
-            >
-              {modeOptions.map(opt => (
+            <Select value={mode} onChange={setMode} style={{ width: 160 }}>
+              {modeOptions.map((opt) => (
                 <Option key={opt.value} value={opt.value}>
                   {opt.label}
                 </Option>
@@ -432,11 +518,7 @@ export default function AgentAnalysis() {
           </Col>
           <Col>
             {analyzing ? (
-              <Button
-                danger
-                icon={<PauseCircleOutlined />}
-                onClick={handleCancel}
-              >
+              <Button danger icon={<PauseCircleOutlined />} onClick={handleCancel}>
                 暂停分析
               </Button>
             ) : (
@@ -451,8 +533,10 @@ export default function AgentAnalysis() {
             )}
           </Col>
         </Row>
-        <div style={{ marginTop: 12, color: 'var(--color-text-secondary)', fontSize: 13 }}>
-          {modeOptions.find(m => m.value === mode)?.desc}
+        <div
+          style={{ marginTop: 12, color: 'var(--color-text-secondary)', fontSize: 13 }}
+        >
+          {modeOptions.find((m) => m.value === mode)?.desc}
         </div>
       </Card>
 
@@ -490,7 +574,14 @@ export default function AgentAnalysis() {
           {/* 决策卡片 */}
           <DecisionCard result={result} />
           {/* 复制结论按钮组 */}
-          <div style={{ marginTop: 'var(--space-md)', display: 'flex', gap: 'var(--space-md)', justifyContent: 'flex-end' }}>
+          <div
+            style={{
+              marginTop: 'var(--space-md)',
+              display: 'flex',
+              gap: 'var(--space-md)',
+              justifyContent: 'flex-end',
+            }}
+          >
             <button
               onClick={() => copyToClipboard(result.final_reason || '')}
               style={{
@@ -557,11 +648,23 @@ export default function AgentAnalysis() {
       {analyzing && (
         <Card style={{ padding: 'var(--space-lg)' }}>
           <div style={{ textAlign: 'center', marginBottom: 'var(--space-lg)' }}>
-            <div style={{ fontSize: 'var(--font-size-md)', fontWeight: 600, marginBottom: 'var(--space-sm)' }}>
+            <div
+              style={{
+                fontSize: 'var(--font-size-md)',
+                fontWeight: 600,
+                marginBottom: 'var(--space-sm)',
+              }}
+            >
               AI Agent 正在分析股票 {selectedStock}...
             </div>
-            <div style={{ color: 'var(--color-text-secondary)', fontSize: 'var(--font-size-sm)', marginBottom: 'var(--space-md)' }}>
-              {modeOptions.find(m => m.value === mode)?.desc} | 模式: {mode}
+            <div
+              style={{
+                color: 'var(--color-text-secondary)',
+                fontSize: 'var(--font-size-sm)',
+                marginBottom: 'var(--space-md)',
+              }}
+            >
+              {modeOptions.find((m) => m.value === mode)?.desc} | 模式: {mode}
             </div>
           </div>
 
@@ -573,113 +676,153 @@ export default function AgentAnalysis() {
 
           {/* 阶段进度 */}
           <Row gutter={[0, 8]}>
-            {jobStages.length > 0 ? (
-              jobStages.map((stage, index) => {
-                const stageNames: Record<string, string> = {
-                  technical_analysis: '技术分析',
-                  intel: '情报分析',
-                  risk: '风险评估',
-                  strategy: '策略评估',
-                  decision: '决策',
-                }
-                const isRunning = stage.status === 'running'
-                const isCompleted = stage.status === 'completed'
-                const isFailed = stage.status === 'failed'
-                const stagePercent = isCompleted ? 100 : isRunning ? 50 : 0
+            {jobStages.length > 0
+              ? jobStages.map((stage, index) => {
+                  const stageNames: Record<string, string> = {
+                    technical_analysis: '技术分析',
+                    intel: '情报分析',
+                    risk: '风险评估',
+                    strategy: '策略评估',
+                    decision: '决策',
+                  }
+                  const isRunning = stage.status === 'running'
+                  const isCompleted = stage.status === 'completed'
+                  const isFailed = stage.status === 'failed'
+                  const stagePercent = isCompleted ? 100 : isRunning ? 50 : 0
 
-                return (
-                  <Col span={24} key={stage.stage_name}>
-                    <Card size="small" style={{ borderLeft: `3px solid ${
-                      isCompleted ? 'var(--color-success)' :
-                      isRunning ? 'var(--color-ink)' :
-                      isFailed ? 'var(--color-danger)' :
-                      'var(--color-border)'
-                    }`, marginBottom: 'var(--space-sm)', borderRadius: 'var(--radius-btn)' }}>
-                      <Row align="middle" gutter={12}>
-                        <Col style={{ lineHeight: 1 }}>
-                          {index === 0 && <StockOutlined />}
-                          {index === 1 && <ThunderboltOutlined />}
-                          {index === 2 && <AlertOutlined />}
-                          {index === 3 && <TrophyOutlined />}
-                        </Col>
-                        <Col flex="auto">
-                          <div style={{ fontWeight: 500 }}>
-                            {stageNames[stage.stage_name] || stage.stage_name}
-                          </div>
-                        </Col>
-                        <Col span={6}>
-                          <Progress
-                            percent={stagePercent}
-                            size="small"
-                            status={isFailed ? 'exception' : isRunning ? 'active' : isCompleted ? 'success' : undefined}
-                            strokeColor={isFailed ? '#ff4d4f' : undefined}
-                          />
-                        </Col>
-                        <Col>
-                          <Tag color={
-                            isCompleted ? 'green' :
-                            isFailed ? 'red' :
-                            isRunning ? 'processing' : 'default'
-                          }>
-                            {isCompleted ? '完成' :
-                             isFailed ? '失败' :
-                             isRunning ? '运行中' : '等待'}
-                          </Tag>
-                        </Col>
-                      </Row>
-                      {stage.thinking && stage.thinking.length > 0 && (
-                        <div style={{
-                          marginTop: 'var(--space-md)',
-                          padding: 'var(--space-sm) var(--space-md)',
-                          background: 'var(--color-bg-secondary)',
+                  return (
+                    <Col span={24} key={stage.stage_name}>
+                      <Card
+                        size="small"
+                        style={{
+                          borderLeft: `3px solid ${
+                            isCompleted
+                              ? 'var(--color-success)'
+                              : isRunning
+                                ? 'var(--color-ink)'
+                                : isFailed
+                                  ? 'var(--color-danger)'
+                                  : 'var(--color-border)'
+                          }`,
+                          marginBottom: 'var(--space-sm)',
                           borderRadius: 'var(--radius-btn)',
-                          fontSize: 'var(--font-size-sm)',
-                          lineHeight: 1.8
-                        }}>
-                          {stage.thinking.map((t, i) => (
-                            <div key={i} style={{ marginBottom: 'var(--space-xs)' }}>{t}</div>
-                          ))}
-                        </div>
-                      )}
-                    </Card>
-                  </Col>
-                )
-              })
-            ) : (
-              /* 阶段骨架占位 */
-              (() => {
-                const skeletonNames = mode === 'quick'
-                  ? ['技术分析', '决策']
-                  : mode === 'standard'
-                    ? ['技术分析', '情报分析', '决策']
-                    : ['技术分析', '情报分析', '风险评估', '决策']
-                return skeletonNames.map((name, i) => (
-                  <Col span={24} key={name}>
-                    <Card size="small">
-                      <Row align="middle" gutter={12}>
-                        <Col style={{ lineHeight: 1 }}>
-                          {i === 0 && <StockOutlined />}
-                          {i === 1 && <ThunderboltOutlined />}
-                          {i === 2 && <AlertOutlined />}
-                          {i === 3 && <TrophyOutlined />}
-                        </Col>
-                        <Col flex="auto">
-                          <div style={{ fontWeight: 500, color: 'var(--color-text-tertiary)' }}>
-                            {name}
+                        }}
+                      >
+                        <Row align="middle" gutter={12}>
+                          <Col style={{ lineHeight: 1 }}>
+                            {index === 0 && <StockOutlined />}
+                            {index === 1 && <ThunderboltOutlined />}
+                            {index === 2 && <AlertOutlined />}
+                            {index === 3 && <TrophyOutlined />}
+                          </Col>
+                          <Col flex="auto">
+                            <div style={{ fontWeight: 500 }}>
+                              {stageNames[stage.stage_name] || stage.stage_name}
+                            </div>
+                          </Col>
+                          <Col span={6}>
+                            <Progress
+                              percent={stagePercent}
+                              size="small"
+                              status={
+                                isFailed
+                                  ? 'exception'
+                                  : isRunning
+                                    ? 'active'
+                                    : isCompleted
+                                      ? 'success'
+                                      : undefined
+                              }
+                              strokeColor={isFailed ? '#ff4d4f' : undefined}
+                            />
+                          </Col>
+                          <Col>
+                            <Tag
+                              color={
+                                isCompleted
+                                  ? 'green'
+                                  : isFailed
+                                    ? 'red'
+                                    : isRunning
+                                      ? 'processing'
+                                      : 'default'
+                              }
+                            >
+                              {isCompleted
+                                ? '完成'
+                                : isFailed
+                                  ? '失败'
+                                  : isRunning
+                                    ? '运行中'
+                                    : '等待'}
+                            </Tag>
+                          </Col>
+                        </Row>
+                        {stage.thinking && stage.thinking.length > 0 && (
+                          <div
+                            style={{
+                              marginTop: 'var(--space-md)',
+                              padding: 'var(--space-sm) var(--space-md)',
+                              background: 'var(--color-bg-secondary)',
+                              borderRadius: 'var(--radius-btn)',
+                              fontSize: 'var(--font-size-sm)',
+                              lineHeight: 1.8,
+                            }}
+                          >
+                            {stage.thinking.map((t, i) => (
+                              <div key={i} style={{ marginBottom: 'var(--space-xs)' }}>
+                                {t}
+                              </div>
+                            ))}
                           </div>
-                        </Col>
-                        <Col span={6}>
-                          <Progress percent={i === 0 ? 10 : 0} size="small" showInfo={false} />
-                        </Col>
-                        <Col>
-                          <Tag color="default">等待</Tag>
-                        </Col>
-                      </Row>
-                    </Card>
-                  </Col>
-                ))
-              })()
-            )}
+                        )}
+                      </Card>
+                    </Col>
+                  )
+                })
+              : /* 阶段骨架占位 */
+                (() => {
+                  const skeletonNames =
+                    mode === 'quick'
+                      ? ['技术分析', '决策']
+                      : mode === 'standard'
+                        ? ['技术分析', '情报分析', '决策']
+                        : ['技术分析', '情报分析', '风险评估', '决策']
+                  return skeletonNames.map((name, i) => (
+                    <Col span={24} key={name}>
+                      <Card size="small">
+                        <Row align="middle" gutter={12}>
+                          <Col style={{ lineHeight: 1 }}>
+                            {i === 0 && <StockOutlined />}
+                            {i === 1 && <ThunderboltOutlined />}
+                            {i === 2 && <AlertOutlined />}
+                            {i === 3 && <TrophyOutlined />}
+                          </Col>
+                          <Col flex="auto">
+                            <div
+                              style={{
+                                fontWeight: 500,
+                                color: 'var(--color-text-tertiary)',
+                              }}
+                            >
+                              {name}
+                            </div>
+                          </Col>
+                          <Col span={6}>
+                            <Progress
+                              percent={i === 0 ? 10 : 0}
+                              size="small"
+                              showInfo={false}
+                            />
+                          </Col>
+                          <Col>
+                            <Tag color="default">等待</Tag>
+                          </Col>
+                        </Row>
+                      </Card>
+                    </Col>
+                  ))
+                })()}
           </Row>
         </Card>
       )}
@@ -742,14 +885,18 @@ export default function AgentAnalysis() {
           {
             key: 'analyze',
             label: (
-              <span><PlayCircleOutlined /> 开始分析</span>
+              <span>
+                <PlayCircleOutlined /> 开始分析
+              </span>
             ),
             children: renderAnalysisPanel(),
           },
           {
             key: 'history',
             label: (
-              <span><HistoryOutlined /> 分析历史</span>
+              <span>
+                <HistoryOutlined /> 分析历史
+              </span>
             ),
             children: renderHistoryPanel(),
           },

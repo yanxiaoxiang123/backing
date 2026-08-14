@@ -24,7 +24,7 @@ function BacktestHistory() {
     try {
       const data = await getBacktestResults(undefined, (page - 1) * pageSize, pageSize)
       setResults(data)
-    } catch (error) {
+    } catch {
       message.error('加载历史记录失败')
     } finally {
       setLoading(false)
@@ -41,7 +41,7 @@ function BacktestHistory() {
 
       const stock = await getStock(result.stock_code)
       setStockInfo(stock)
-    } catch (error) {
+    } catch {
       message.error('加载详情失败')
     } finally {
       setDetailLoading(false)
@@ -74,38 +74,45 @@ function BacktestHistory() {
         trigger: 'axis',
         backgroundColor: '#fff',
         borderColor: 'var(--color-border)',
-        textStyle: { color: 'var(--color-text-primary)' }
+        textStyle: { color: 'var(--color-text-primary)' },
       },
       grid: { left: '10%', right: '5%', bottom: '10%', top: '15%' },
       xAxis: {
         type: 'category',
         data: dates,
         axisLine: { lineStyle: { color: 'var(--color-border)' } },
-        axisLabel: { color: 'var(--color-text-tertiary)', fontSize: 10 }
+        axisLabel: { color: 'var(--color-text-tertiary)', fontSize: 10 },
       },
       yAxis: {
         type: 'value',
         name: '资金(元)',
         axisLine: { show: false },
         axisLabel: { color: 'var(--color-text-tertiary)', fontSize: 10 },
-        splitLine: { lineStyle: { color: 'var(--color-border-light)', type: 'dashed' } }
+        splitLine: {
+          lineStyle: { color: 'var(--color-border-light)', type: 'dashed' },
+        },
       },
-      series: [{
-        data: capital,
-        type: 'line',
-        smooth: true,
-        lineStyle: { color: '#0071e3', width: 2 },
-        areaStyle: {
-          color: {
-            type: 'linear',
-            x: 0, y: 0, x2: 0, y2: 1,
-            colorStops: [
-              { offset: 0, color: 'rgba(0, 113, 227, 0.15)' },
-              { offset: 1, color: 'rgba(0, 113, 227, 0)' }
-            ]
-          }
-        }
-      }]
+      series: [
+        {
+          data: capital,
+          type: 'line',
+          smooth: true,
+          lineStyle: { color: '#0071e3', width: 2 },
+          areaStyle: {
+            color: {
+              type: 'linear',
+              x: 0,
+              y: 0,
+              x2: 0,
+              y2: 1,
+              colorStops: [
+                { offset: 0, color: 'rgba(0, 113, 227, 0.15)' },
+                { offset: 1, color: 'rgba(0, 113, 227, 0)' },
+              ],
+            },
+          },
+        },
+      ],
     }
   }
 
@@ -114,26 +121,28 @@ function BacktestHistory() {
       title: 'ID',
       dataIndex: 'id',
       key: 'id',
-      width: 60
+      width: 60,
     },
     {
       title: '股票代码',
       dataIndex: 'stock_code',
       key: 'stock_code',
       width: 100,
-      render: (code: string) => <span style={{ color: 'var(--color-accent)', fontWeight: 500 }}>{code}</span>
+      render: (code: string) => (
+        <span style={{ color: 'var(--color-accent)', fontWeight: 500 }}>{code}</span>
+      ),
     },
     {
       title: '开始日期',
       dataIndex: 'start_date',
       key: 'start_date',
-      width: 100
+      width: 100,
     },
     {
       title: '结束日期',
       dataIndex: 'end_date',
       key: 'end_date',
-      width: 100
+      width: 100,
     },
     {
       title: '收益率',
@@ -144,23 +153,24 @@ function BacktestHistory() {
         const isUp = value > 0
         return (
           <span className={`price-badge ${isUp ? 'up' : 'down'}`}>
-            {isUp ? '+' : ''}{value?.toFixed(2)}%
+            {isUp ? '+' : ''}
+            {value?.toFixed(2)}%
           </span>
         )
-      }
+      },
     },
     {
       title: '交易次数',
       dataIndex: 'total_trades',
       key: 'total_trades',
-      width: 80
+      width: 80,
     },
     {
       title: '回测时间',
       dataIndex: 'created_at',
       key: 'created_at',
       width: 180,
-      render: (text: string) => new Date(text).toLocaleString()
+      render: (text: string) => new Date(text).toLocaleString(),
     },
     {
       title: '操作',
@@ -175,8 +185,8 @@ function BacktestHistory() {
         >
           查看
         </Button>
-      )
-    }
+      ),
+    },
   ]
 
   const tradeColumns = [
@@ -185,7 +195,8 @@ function BacktestHistory() {
       dataIndex: 'trade_date',
       key: 'trade_date',
       width: 120,
-      render: (_: string, record: { trade_date?: string; date?: string }) => record.trade_date || record.date || '-'
+      render: (_: string, record: { trade_date?: string; date?: string }) =>
+        record.trade_date || record.date || '-',
     },
     {
       title: '操作',
@@ -193,32 +204,52 @@ function BacktestHistory() {
       key: 'action',
       width: 80,
       render: (action: string) => (
-        <span style={{
-          color: action === 'buy' ? 'var(--color-danger)' : 'var(--color-success)',
-          fontWeight: 500
-        }}>
+        <span
+          style={{
+            color: action === 'buy' ? 'var(--color-danger)' : 'var(--color-success)',
+            fontWeight: 500,
+          }}
+        >
           {action === 'buy' ? '买入' : '卖出'}
         </span>
-      )
+      ),
     },
     { title: '价格', dataIndex: 'price', key: 'price', width: 100 },
     { title: '数量', dataIndex: 'quantity', key: 'quantity', width: 100 },
-    { title: '金额', dataIndex: 'amount', key: 'amount', width: 120 }
+    { title: '金额', dataIndex: 'amount', key: 'amount', width: 120 },
   ]
 
   // Stat display component
-  const StatBox = ({ label, value, suffix = '', color }: {
+  const StatBox = ({
+    label,
+    value,
+    suffix = '',
+    color,
+  }: {
     label: string
     value: number | string
     suffix?: string
     color?: string
   }) => (
     <div className="stat-card" style={{ padding: 'var(--space-md)' }}>
-      <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-secondary)', marginBottom: 4 }}>
+      <div
+        style={{
+          fontSize: 'var(--font-size-xs)',
+          color: 'var(--color-text-secondary)',
+          marginBottom: 4,
+        }}
+      >
         {label}
       </div>
-      <div className="stat-value" style={{ fontSize: 'var(--font-size-lg)', color: color || 'var(--color-text-primary)' }}>
-        {typeof value === 'number' ? value.toLocaleString() : value}{suffix}
+      <div
+        className="stat-value"
+        style={{
+          fontSize: 'var(--font-size-lg)',
+          color: color || 'var(--color-text-primary)',
+        }}
+      >
+        {typeof value === 'number' ? value.toLocaleString() : value}
+        {suffix}
       </div>
     </div>
   )
@@ -232,7 +263,12 @@ function BacktestHistory() {
       </div>
 
       {/* 历史记录列表 */}
-      <div style={{ background: 'var(--color-canvas-lifted)', borderRadius: 'var(--radius-card)' }}>
+      <div
+        style={{
+          background: 'var(--color-canvas-lifted)',
+          borderRadius: 'var(--radius-card)',
+        }}
+      >
         <Table
           columns={columns}
           dataSource={results}
@@ -246,7 +282,7 @@ function BacktestHistory() {
               setPageSize(ps)
             },
             showSizeChanger: true,
-            showTotal: (t) => `共 ${t} 条`
+            showTotal: (t) => `共 ${t} 条`,
           }}
         />
       </div>
@@ -255,7 +291,12 @@ function BacktestHistory() {
       <Modal
         title={
           <span style={{ fontWeight: 600 }}>
-            回测详情 {stockInfo && <span style={{ color: 'var(--color-text-secondary)', fontWeight: 400 }}>- {stockInfo.name}</span>}
+            回测详情{' '}
+            {stockInfo && (
+              <span style={{ color: 'var(--color-text-secondary)', fontWeight: 400 }}>
+                - {stockInfo.name}
+              </span>
+            )}
           </span>
         }
         open={detailVisible}
@@ -273,18 +314,32 @@ function BacktestHistory() {
         {currentResult && !detailLoading && (
           <>
             {/* 统计指标 */}
-            <div className="grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)', marginBottom: 'var(--space-md)' }}>
+            <div
+              className="grid"
+              style={{
+                gridTemplateColumns: 'repeat(4, 1fr)',
+                marginBottom: 'var(--space-md)',
+              }}
+            >
               <StatBox
                 label="总收益率"
                 value={currentResult.total_return.toFixed(2)}
                 suffix="%"
-                color={currentResult.total_return > 0 ? 'var(--color-success)' : 'var(--color-danger)'}
+                color={
+                  currentResult.total_return > 0
+                    ? 'var(--color-success)'
+                    : 'var(--color-danger)'
+                }
               />
               <StatBox
                 label="年化收益率"
                 value={currentResult.annual_return.toFixed(2)}
                 suffix="%"
-                color={currentResult.annual_return > 0 ? 'var(--color-success)' : 'var(--color-danger)'}
+                color={
+                  currentResult.annual_return > 0
+                    ? 'var(--color-success)'
+                    : 'var(--color-danger)'
+                }
               />
               <StatBox
                 label="夏普比率"
@@ -299,16 +354,41 @@ function BacktestHistory() {
             </div>
 
             {/* 资金曲线 */}
-            <div style={{ marginBottom: 'var(--space-md)', padding: 'var(--space-md)', background: 'var(--color-canvas-lifted)', borderRadius: 'var(--radius-card)' }}>
-              <div style={{ fontSize: 'var(--font-size-sm)', fontWeight: 600, marginBottom: 'var(--space-sm)', color: 'var(--color-text-secondary)' }}>
+            <div
+              style={{
+                marginBottom: 'var(--space-md)',
+                padding: 'var(--space-md)',
+                background: 'var(--color-canvas-lifted)',
+                borderRadius: 'var(--radius-card)',
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 'var(--font-size-sm)',
+                  fontWeight: 600,
+                  marginBottom: 'var(--space-sm)',
+                  color: 'var(--color-text-secondary)',
+                }}
+              >
                 资金曲线
               </div>
               <ReactECharts option={getChartOption()} style={{ height: 280 }} />
             </div>
 
             {/* 交易记录 */}
-            <div style={{ background: 'var(--color-canvas-lifted)', borderRadius: 'var(--radius-card)' }}>
-              <div style={{ fontSize: 'var(--font-size-md)', fontWeight: 600, marginBottom: 'var(--space-md)' }}>
+            <div
+              style={{
+                background: 'var(--color-canvas-lifted)',
+                borderRadius: 'var(--radius-card)',
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 'var(--font-size-md)',
+                  fontWeight: 600,
+                  marginBottom: 'var(--space-md)',
+                }}
+              >
                 交易记录
               </div>
               <Table

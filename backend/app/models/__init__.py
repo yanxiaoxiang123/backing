@@ -1,12 +1,12 @@
 # Models package
-from app.models.models import Stock, DailyKline, Strategy, BacktestResult, BacktestTrade
 from app.models.analysis import AnalysisRecord
+from app.models.models import BacktestResult, BacktestTrade, DailyKline, Stock, Strategy
 
 __all__ = [
-    "Stock",
-    "DailyKline",
-    "Strategy",
+    "AnalysisRecord",
     "BacktestResult",
     "BacktestTrade",
-    "AnalysisRecord",
+    "DailyKline",
+    "Stock",
+    "Strategy",
 ]

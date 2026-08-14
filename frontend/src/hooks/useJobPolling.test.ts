@@ -3,7 +3,7 @@ import { act, renderHook } from '@testing-library/react'
 import { useJobPolling } from './useJobPolling'
 
 vi.mock('../services/api', () => ({
-  getJobStatus: vi.fn()
+  getJobStatus: vi.fn(),
 }))
 
 import { getJobStatus } from '../services/api'
@@ -24,7 +24,9 @@ describe('useJobPolling', () => {
       .mockResolvedValueOnce(jobStatus({ status: 'running', progress: 0.5 }))
       .mockResolvedValueOnce(jobStatus({ status: 'completed', result: { ok: true } }))
 
-    const { result } = renderHook(() => useJobPolling<{ ok: boolean }>({ intervalMs: 5 }))
+    const { result } = renderHook(() =>
+      useJobPolling<{ ok: boolean }>({ intervalMs: 5 }),
+    )
     let promise: Promise<{ ok: boolean }>
     act(() => {
       promise = result.current.waitForJob('job-1')
@@ -35,7 +37,7 @@ describe('useJobPolling', () => {
 
   it('任务失败时抛出 failed 错误', async () => {
     mockedGetJobStatus.mockResolvedValueOnce(
-      jobStatus({ status: 'failed', error: '模型异常' })
+      jobStatus({ status: 'failed', error: '模型异常' }),
     )
 
     const { result } = renderHook(() => useJobPolling({ intervalMs: 5 }))
@@ -43,7 +45,10 @@ describe('useJobPolling', () => {
     act(() => {
       promise = result.current.waitForJob('job-2')
     })
-    await expect(promise!).rejects.toMatchObject({ message: '模型异常', code: 'failed' })
+    await expect(promise!).rejects.toMatchObject({
+      message: '模型异常',
+      code: 'failed',
+    })
   })
 
   it('超过 timeoutMs 后抛出 timeout 错误', async () => {
@@ -79,7 +84,9 @@ describe('useJobPolling', () => {
       .mockRejectedValueOnce(new Error('Network Error'))
       .mockResolvedValueOnce(jobStatus({ status: 'completed', result: 42 }))
 
-    const { result } = renderHook(() => useJobPolling<number>({ intervalMs: 5, maxIntervalMs: 10 }))
+    const { result } = renderHook(() =>
+      useJobPolling<number>({ intervalMs: 5, maxIntervalMs: 10 }),
+    )
     let promise: Promise<number>
     act(() => {
       promise = result.current.waitForJob('job-5')
@@ -94,12 +101,16 @@ describe('useJobPolling', () => {
     notFound.response = { status: 404 }
     mockedGetJobStatus.mockRejectedValue(notFound)
 
-    const { result } = renderHook(() => useJobPolling({ intervalMs: 5, timeoutMs: 2000 }))
+    const { result } = renderHook(() =>
+      useJobPolling({ intervalMs: 5, timeoutMs: 2000 }),
+    )
     let promise: Promise<never>
     act(() => {
       promise = result.current.waitForJob('job-6')
     })
-    await expect(promise!).rejects.toMatchObject({ message: 'Request failed with status code 404' })
+    await expect(promise!).rejects.toMatchObject({
+      message: 'Request failed with status code 404',
+    })
     // 只请求了一次，没有重试
     expect(mockedGetJobStatus).toHaveBeenCalledTimes(1)
   })

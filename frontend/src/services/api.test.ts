@@ -8,7 +8,7 @@ function makeAxiosError(response: unknown): AxiosError {
     'ERR_BAD_RESPONSE',
     undefined,
     undefined,
-    response as never
+    response as never,
   )
 }
 
@@ -16,7 +16,7 @@ describe('getApiErrorMessage', () => {
   it('优先返回后端统一错误体中的 message', () => {
     const err = makeAxiosError({
       status: 500,
-      data: { error: { code: 'DB_ERR', message: '数据库繁忙' } }
+      data: { error: { code: 'DB_ERR', message: '数据库繁忙' } },
     })
     expect(getApiErrorMessage(err)).toBe('数据库繁忙')
   })

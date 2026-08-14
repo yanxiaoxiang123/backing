@@ -276,17 +276,17 @@ def upgrade() -> None:
     # ------------------------------------------------------------------
     # 4. jobs / analysis_records 的状态与信号 CheckConstraint
     # ------------------------------------------------------------------
-    if "jobs" in _table_names(bind):
-        if "ck_jobs_status" not in _check_names(bind, "jobs"):
-            with op.batch_alter_table("jobs") as batch_op:
+    if "jobs" in _table_names(bind) and "ck_jobs_status" not in _check_names(bind, "jobs"):
+        with op.batch_alter_table("jobs") as batch_op:
                 batch_op.create_check_constraint(
                     "ck_jobs_status",
                     "status IN ('pending', 'running', 'completed', 'failed', 'cancelled')",
                 )
 
-    if "analysis_records" in _table_names(bind):
-        if "ck_analysis_final_signal" not in _check_names(bind, "analysis_records"):
-            with op.batch_alter_table("analysis_records") as batch_op:
+    if "analysis_records" in _table_names(bind) and "ck_analysis_final_signal" not in _check_names(
+        bind, "analysis_records"
+    ):
+        with op.batch_alter_table("analysis_records") as batch_op:
                 batch_op.create_check_constraint(
                     "ck_analysis_final_signal",
                     "final_signal IN ('buy', 'sell', 'hold')",

@@ -2,7 +2,12 @@ import { useState, useEffect } from 'react'
 import { Table, Button, message, Modal, Form, Input, Select } from 'antd'
 import { SyncOutlined, LineChartOutlined, SearchOutlined } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
-import { getStocks, submitSyncKline, submitSyncStocks, getApiErrorMessage } from '../services/api'
+import {
+  getStocks,
+  submitSyncKline,
+  submitSyncStocks,
+  getApiErrorMessage,
+} from '../services/api'
 import { useJobPolling } from '../hooks/useJobPolling'
 import type { Stock } from '../types'
 
@@ -28,7 +33,12 @@ function StockList() {
   const loadStocks = async () => {
     setLoading(true)
     try {
-      const data = await getStocks(undefined, (page - 1) * pageSize, pageSize, searchText || undefined)
+      const data = await getStocks(
+        undefined,
+        (page - 1) * pageSize,
+        pageSize,
+        searchText || undefined,
+      )
       setFilteredStocks(data.items)
       setTotal(data.total)
     } catch (error) {
@@ -45,7 +55,9 @@ function StockList() {
     setSyncing(true)
     try {
       const submission = await submitSyncStocks()
-      const result = await waitForJob<{ stocks_synced: number; message: string }>(submission.job_id)
+      const result = await waitForJob<{ stocks_synced: number; message: string }>(
+        submission.job_id,
+      )
       message.success(result.message || `同步完成: ${result.stocks_synced} 只股票`)
       loadStocks()
     } catch (error) {
@@ -59,12 +71,22 @@ function StockList() {
     setSyncModalVisible(true)
   }
 
-  const handleSyncKlineConfirm = async (values: { stockCodes: string; strategy: string }) => {
+  const handleSyncKlineConfirm = async (values: {
+    stockCodes: string
+    strategy: string
+  }) => {
     setSyncing(true)
     try {
-      const codes = values.stockCodes ? values.stockCodes.split(',').map(s => s.trim()) : undefined
-      const submission = await submitSyncKline(codes, values.strategy as 'incremental' | 'full')
-      const result = await waitForJob<{ klines_synced: number; message: string }>(submission.job_id)
+      const codes = values.stockCodes
+        ? values.stockCodes.split(',').map((s) => s.trim())
+        : undefined
+      const submission = await submitSyncKline(
+        codes,
+        values.strategy as 'incremental' | 'full',
+      )
+      const result = await waitForJob<{ klines_synced: number; message: string }>(
+        submission.job_id,
+      )
       message.success(result.message || `同步成功: ${result.klines_synced} 条K线数据`)
     } catch (error) {
       message.error(getApiErrorMessage(error))
@@ -84,27 +106,29 @@ function StockList() {
       dataIndex: 'code',
       key: 'code',
       width: 100,
-      render: (code: string) => <span style={{ color: 'var(--color-ink)', fontWeight: 500 }}>{code}</span>
+      render: (code: string) => (
+        <span style={{ color: 'var(--color-ink)', fontWeight: 500 }}>{code}</span>
+      ),
     },
     {
       title: '名称',
       dataIndex: 'name',
       key: 'name',
-      width: 120
+      width: 120,
     },
     {
       title: '市场',
       dataIndex: 'market',
       key: 'market',
       width: 80,
-      render: (market: string) => market === 'sh' ? '上海' : '深圳'
+      render: (market: string) => (market === 'sh' ? '上海' : '深圳'),
     },
     {
       title: '上市日期',
       dataIndex: 'list_date',
       key: 'list_date',
       width: 120,
-      render: (date: string) => date || '-'
+      render: (date: string) => date || '-',
     },
     {
       title: '操作',
@@ -122,8 +146,8 @@ function StockList() {
         >
           K线
         </Button>
-      )
-    }
+      ),
+    },
   ]
 
   return (
@@ -135,8 +159,23 @@ function StockList() {
       </div>
 
       {/* 操作栏 */}
-      <div style={{ background: 'var(--color-canvas-lifted)', borderRadius: 'var(--radius-card)', padding: 'var(--space-lg)', marginBottom: 'var(--space-md)' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 'var(--space-md)' }}>
+      <div
+        style={{
+          background: 'var(--color-canvas-lifted)',
+          borderRadius: 'var(--radius-card)',
+          padding: 'var(--space-lg)',
+          marginBottom: 'var(--space-md)',
+        }}
+      >
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: 'var(--space-md)',
+          }}
+        >
           <div style={{ display: 'flex', gap: 'var(--space-sm)' }}>
             <Button
               type="primary"
@@ -166,7 +205,13 @@ function StockList() {
       </div>
 
       {/* 股票列表 */}
-      <div style={{ background: 'var(--color-canvas-lifted)', borderRadius: 'var(--radius-card)', overflow: 'hidden' }}>
+      <div
+        style={{
+          background: 'var(--color-canvas-lifted)',
+          borderRadius: 'var(--radius-card)',
+          overflow: 'hidden',
+        }}
+      >
         <Table
           columns={columns}
           dataSource={filteredStocks}
@@ -174,7 +219,7 @@ function StockList() {
           loading={loading}
           onRow={(record) => ({
             onClick: () => handleViewChart(record),
-            style: { cursor: 'pointer' }
+            style: { cursor: 'pointer' },
           })}
           pagination={{
             current: page,
@@ -185,7 +230,7 @@ function StockList() {
               setPageSize(ps)
             },
             showSizeChanger: true,
-            showTotal: (t) => `共 ${t} 条`
+            showTotal: (t) => `共 ${t} 条`,
           }}
         />
       </div>
@@ -198,10 +243,7 @@ function StockList() {
         footer={null}
         centered
       >
-        <Form
-          layout="vertical"
-          onFinish={handleSyncKlineConfirm}
-        >
+        <Form layout="vertical" onFinish={handleSyncKlineConfirm}>
           <Form.Item
             name="stockCodes"
             label="股票代码（可选）"
@@ -211,8 +253,12 @@ function StockList() {
           </Form.Item>
           <Form.Item name="strategy" label="同步策略">
             <Select>
-              <Select.Option value="incremental">增量同步（有数据则从最新日期更新）</Select.Option>
-              <Select.Option value="full">全量同步（重新拉取2020年至今所有数据）</Select.Option>
+              <Select.Option value="incremental">
+                增量同步（有数据则从最新日期更新）
+              </Select.Option>
+              <Select.Option value="full">
+                全量同步（重新拉取2020年至今所有数据）
+              </Select.Option>
             </Select>
           </Form.Item>
           <Form.Item>
@@ -222,7 +268,6 @@ function StockList() {
           </Form.Item>
         </Form>
       </Modal>
-
     </div>
   )
 }

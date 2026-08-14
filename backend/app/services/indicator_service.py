@@ -3,9 +3,10 @@
 """
 
 import time
-import pandas as pd
-from typing import List, Dict, Any, Optional, Tuple
 from datetime import date
+from typing import Any, Dict, List, Optional, Tuple
+
+import pandas as pd
 from sqlalchemy.orm import Session
 
 

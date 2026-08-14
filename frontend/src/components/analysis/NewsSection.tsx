@@ -11,10 +11,19 @@ export function NewsSection({ newsItems }: NewsSectionProps) {
   }
 
   return (
-    <Card style={{ marginTop: 'var(--space-lg)' }}
+    <Card
+      style={{ marginTop: 'var(--space-lg)' }}
       styles={{ body: { padding: 'var(--space-lg)' } }}
     >
-      <div style={{ fontSize: 'var(--font-size-md)', fontWeight: 600, marginBottom: 'var(--space-lg)' }}>相关新闻</div>
+      <div
+        style={{
+          fontSize: 'var(--font-size-md)',
+          fontWeight: 600,
+          marginBottom: 'var(--space-lg)',
+        }}
+      >
+        相关新闻
+      </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-lg)' }}>
         {newsItems.map((item, index) => (
           <div
@@ -23,7 +32,7 @@ export function NewsSection({ newsItems }: NewsSectionProps) {
               padding: 'var(--space-lg)',
               borderRadius: 'var(--radius-btn)',
               background: 'var(--color-bg-secondary)',
-              border: '1px solid var(--color-border)'
+              border: '1px solid var(--color-border)',
             }}
           >
             <a
@@ -34,17 +43,31 @@ export function NewsSection({ newsItems }: NewsSectionProps) {
                 display: 'block',
                 fontWeight: 600,
                 color: 'var(--color-accent)',
-                marginBottom: 'var(--space-sm)'
+                marginBottom: 'var(--space-sm)',
               }}
             >
               {item.title || `新闻 ${index + 1}`}
             </a>
-            <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-text-secondary)', lineHeight: 1.8, marginBottom: 'var(--space-md)' }}>
+            <div
+              style={{
+                fontSize: 'var(--font-size-sm)',
+                color: 'var(--color-text-secondary)',
+                lineHeight: 1.8,
+                marginBottom: 'var(--space-md)',
+              }}
+            >
               {item.content || '暂无摘要'}
             </div>
-            <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-text-tertiary)' }}>
+            <div
+              style={{
+                fontSize: 'var(--font-size-sm)',
+                color: 'var(--color-text-tertiary)',
+              }}
+            >
               来源: {item.url}
-              {typeof item.score === 'number' ? ` | 相关度: ${item.score.toFixed(2)}` : ''}
+              {typeof item.score === 'number'
+                ? ` | 相关度: ${item.score.toFixed(2)}`
+                : ''}
             </div>
           </div>
         ))}

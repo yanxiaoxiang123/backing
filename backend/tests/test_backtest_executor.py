@@ -3,10 +3,10 @@ from datetime import date, timedelta
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
+import app.services.strategy  # noqa: F401
 from app.config import Base
 from app.models.models import DailyKline, Stock
 from app.services.backtest_executor import BacktestExecutor
-import app.services.strategy  # noqa: F401
 
 
 def build_session():
