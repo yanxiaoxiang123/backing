@@ -59,17 +59,13 @@
 
 **修复（2026-08）：** 冲突不可调和（`mootdx==0.11.7` 已是 PyPI 最新版，其 `httpx<0.26` 与 starlette 要求的 `httpx>=0.27` 无交集），而运行时已验证 mootdx 在 `httpx 0.28.1` 下正常。因此按当前 conda 环境版本修复：`mootdx` 改为仓库内 vendored 副本（[`backend/vendor/mootdx`](backend/vendor/mootdx)，MIT，纯 Python，仅放宽 `httpx>=0.25,<0.29` 这一处元数据约束，版本 `0.11.7.post1`，`requirements.txt` 以 `./vendor/mootdx` 引用）；`requirements.txt` 全部改为环境验证过的精确 pin；新增 [`requirements.lock`](backend/requirements.lock)（`pip freeze` 全量闭包，`mootdx` 用相对路径保证跨机可移植）；README/AGENTS 明确 Python `>=3.11`（3.12 验证）与锁文件用法。验证：干净 Python 3.12 venv 中 `pip install --dry-run -r requirements.txt` 解析通过（此前 `ResolutionImpossible`）；`pip check` 输出 `No broken requirements found`；`mootdx.quotes.Quotes` 导入正常；后端 23 个测试全过。
 
-### 5. API Key 实际被打包到浏览器
+### 5. API Key 实际被打包到浏览器 — ✅ 已修复
 
-[`frontend/src/services/api.ts:44`](frontend/src/services/api.ts#L44) 读取 `VITE_API_KEY` 再换 Session。所有 `VITE_*` 值都会进入浏览器 bundle，因此“API key 不暴露”的注释不成立。若未配置，前端又没有登录界面，所有页面直接 401。
+**修复（2026-08）：** 移除前端构建期密钥注入 — ① [`api.ts`](frontend/src/services/api.ts) 删除 `VITE_API_KEY` 读取（`vite-env.d.ts` 同步清理并加注释禁止再声明密钥变量），新增会话认证状态机：`bootstrapAuth`（`GET /auth/me` 探测）→ 未认证时路由门控跳转登录页；新增 [`Login.tsx`](frontend/src/pages/Login.tsx)（API key 仅本次 POST 提交，不落 localStorage、不进 bundle）；401 响应自动切回未认证。② 后端认证抽为 [`app/api/auth.py`](backend/app/api/auth.py)：`POST /auth/session` 登录（**登录限流 10/min**）签发**短期 HttpOnly session cookie**（`SESSION_MAX_AGE_S` 8h、`SameSite=Lax`、生产 `https_only=True`），同时下发 `csrf_token` cookie（double-submit）；`POST /auth/logout`、`GET /auth/me`。③ 新增 [`CsrfMiddleware`](backend/app/middleware.py)：session cookie 存在时的 POST/PUT/PATCH/DELETE 必须携带匹配的 `X-CSRF-Token`（前端拦截器自动附加），403 `csrf_failed`。④ 生产守卫 [`assert_safe_production_settings`](backend/app/config.py)：`APP_ENV=production` 下使用默认 Session secret 或未开 `SESSION_HTTPS_ONLY` 直接拒绝启动。验证：`test_auth_session.py` 16 用例（登录/限流/me/logout/CSRF 三种路径/生产守卫）；前端 `auth.test.ts` 5 用例；真实应用冒烟：401 → 登录 → me 200 → 无 CSRF 403 → 带 CSRF 200 → 登出后 401。**后续（建议另立任务）**：OIDC/用户名密码登录、`strict` SameSite 评估。
 
-**建议：** 不在前端构建期注入长期服务密钥。采用用户登录/OIDC，后端签发短期 HttpOnly Session；设置 `https_only=True`、明确 SameSite/过期时间、CSRF 防护和登录限流。服务启动时若使用默认 Session secret 应直接拒绝生产模式。
+### 6. 前端目前不能生产构建 — ✅ 已修复
 
-### 6. 前端目前不能生产构建
-
-`npm run build` 报错：[`ErrorBoundary.tsx:64`](frontend/src/components/ErrorBoundary.tsx#L64) 使用 Node 专属 `process.env`，应改为 `import.meta.env.DEV`；[`StockList.tsx:13`](frontend/src/pages/StockList.tsx#L13) 的 `stocks` 未被读取。
-
-**建议：** 修复后把 `npm ci && npm run build` 设为 PR 必过检查；增加 ESLint、Prettier 和 TypeScript `--noEmit` 独立任务。
+**修复（2026-08）：** 构建阻塞上轮已修（`process.env` → `import.meta.env.DEV`、未使用 state 清理），本轮补齐工程化护栏 — ① package.json 新增独立任务：`typecheck`（`tsc --noEmit`）、`lint`（ESLint 9 flat config + typescript-eslint + react-hooks + eslint-config-prettier）、`format`/`format:check`（Prettier 3，仓库风格 semi:false/singleQuote）；存量代码做了一次性 prettier 归一化提交，ESLint 存量 `no-explicit-any` 降为 warn 待逐步收紧，unused-vars/rules-of-hooks 等 error 全清（含本轮引入的 App.tsx 条件 hook 问题）。② 新增 [`ci.yml`](.github/workflows/ci.yml)：PR/push 双触发，backend job（`ruff` + `pytest`，Python 3.12）+ frontend job（`npm ci` → `typecheck` → `lint` → `format:check` → `build` → `test`），即为 PR 必过检查（分支保护在仓库设置里开启 required status check）。验证：`npm run typecheck/lint/build/test` 全部通过（lint 0 error），后端 152 测试全过。
 
 ### 7. 实时行情已恢复，但仍缺少可观测性和前端局部降级
 

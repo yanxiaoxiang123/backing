@@ -32,6 +32,15 @@ Pytest is the primary framework. Name files `test_*.py` and tests `test_<behavio
 
 History uses Conventional Commit-style subjects, such as `feat: add screener agent API` and `fix: add polling timeout`. Keep commits focused with imperative summaries. PRs should explain the change, list verification commands, link issues, call out migrations or configuration changes, and include screenshots for UI changes.
 
+## CI & Code Quality Gates
+
+`.github/workflows/ci.yml` runs on every push/PR: backend (`ruff check` + `pytest`) and frontend (`npm ci` → `npm run typecheck` → `npm run lint` → `npm run format:check` → `npm run build` → `npm test`). Treat these as PR-mandatory checks (enable the corresponding required status checks in branch protection). Run the same commands locally before pushing.
+
+## Security Notes
+
+- Never add `VITE_*` secret variables: they are statically inlined into the browser bundle. The frontend authenticates via the login page (one-time API key exchange for a short-lived HttpOnly session cookie + double-submit CSRF token).
+- In production (`APP_ENV=production`) the server refuses to start unless `SESSION_SECRET` is set and `SESSION_HTTPS_ONLY=true`.
+
 ## Security & Configuration
 
 Copy `backend/.env.example` to `.env`; never commit keys, credentials, databases, or logs. Document new variables in the example and README. Review authentication and rate limiting for new HTTP or WebSocket endpoints.

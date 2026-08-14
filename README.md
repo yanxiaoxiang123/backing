@@ -121,11 +121,35 @@ pip install -r requirements.lock
 
 ```bash
 cd frontend
-npm install
+npm ci            # 或首次开发用 npm install
 npm run dev
 ```
 
-默认前端地址：`http://localhost:5173`
+默认前端地址：`http://localhost:5173`（Vite 代理 `/api` 到 `:8808`）
+
+### 3. 认证与会话
+
+- **不要**在构建期注入密钥：`VITE_*` 变量会进入浏览器 bundle，前端已无 `VITE_API_KEY`。
+- 首次打开前端会跳转登录页，输入 `backend/.env` 中的 `API_KEY` 换取**短期 HttpOnly session cookie**（8 小时，SameSite=Lax，生产环境仅 HTTPS 发送）。
+- 状态变更请求自动携带 `csrf_token`（double-submit）；登录接口限流 10 次/分钟。
+- 生产部署：`APP_ENV=production` 时必须设置独立 `SESSION_SECRET` 且 `SESSION_HTTPS_ONLY=true`，否则服务拒绝启动。
+- 外部 API 客户端仍可用 `X-API-Key` 头直接调用。
+
+### 4. 代码质量与 CI
+
+```bash
+cd frontend
+npm run typecheck   # tsc --noEmit
+npm run lint        # ESLint
+npm run format:check # Prettier 格式检查
+npm run build       # 类型检查 + 产物构建
+npm test            # Vitest
+cd ../backend
+ruff check app/ main.py task_worker.py maintenance_cli.py migrations/ tests/
+pytest
+```
+
+PR 由 [`.github/workflows/ci.yml`](.github/workflows/ci.yml) 强制执行上述检查（后端 ruff+pytest、前端 typecheck+lint+format+build+test）；在仓库设置中把对应 status check 设为 required 即为 PR 必过。
 
 ## 主要接口
 
