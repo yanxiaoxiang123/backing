@@ -6,7 +6,7 @@ from sqlalchemy import case, func
 from sqlalchemy.orm import Session
 
 from app.config import settings
-from app.models.models import DailyKline, Stock, WatchlistItem
+from app.models.models import DEFAULT_USER_ID, DailyKline, Stock, WatchlistItem
 from app.services.baostock_service import MAJOR_INDICES
 
 
@@ -16,9 +16,11 @@ class DashboardService:
 
     def get_summary(self) -> Dict[str, Any]:
         """Get dashboard summary - optimized for watchlist only"""
-        # First try to get watchlist from database
+        # First try to get watchlist from database (scoped to the current
+        # single-user deployment; see DEFAULT_USER_ID)
         db_watchlist = (
             self.db.query(WatchlistItem.stock_code)
+            .filter(WatchlistItem.user_id == DEFAULT_USER_ID)
             .order_by(WatchlistItem.added_at.desc())
             .all()
         )

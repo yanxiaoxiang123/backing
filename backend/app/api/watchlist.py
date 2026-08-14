@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.config import get_db
 from app.auth import get_current_api_key
-from app.models.models import WatchlistItem, Stock
+from app.models.models import DEFAULT_USER_ID, WatchlistItem, Stock
 from app.schemas.schemas import (
     WatchlistItemCreate,
     WatchlistItemResponse,
@@ -14,12 +14,22 @@ from app.schemas.schemas import (
 router = APIRouter(prefix="/api/v1/watchlist", tags=["watchlist"])
 
 
+def _current_user_id() -> int:
+    """当前用户 id。
+
+    多用户就绪：目前前端无登录态，全部请求归属默认用户（DEFAULT_USER_ID）。
+    接入认证后改为从 request/session 解析用户。
+    """
+    return DEFAULT_USER_ID
+
+
 @router.get("", response_model=WatchlistListResponse)
 def get_watchlist(db: Session = Depends(get_db), _: str = Depends(get_current_api_key)):
     """Get all watchlist items with stock details"""
     items = (
         db.query(WatchlistItem)
         .join(Stock, WatchlistItem.stock_code == Stock.code)
+        .filter(WatchlistItem.user_id == _current_user_id())
         .order_by(WatchlistItem.added_at.desc())
         .all()
     )
@@ -44,7 +54,10 @@ def get_watchlist_codes(
 ):
     """Get just the stock codes from watchlist"""
     items = (
-        db.query(WatchlistItem.stock_code).order_by(WatchlistItem.added_at.desc()).all()
+        db.query(WatchlistItem.stock_code)
+        .filter(WatchlistItem.user_id == _current_user_id())
+        .order_by(WatchlistItem.added_at.desc())
+        .all()
     )
     codes = [item.stock_code for item in items]
 
@@ -69,7 +82,10 @@ def add_to_watchlist(
     # Check if already in watchlist
     existing = (
         db.query(WatchlistItem)
-        .filter(WatchlistItem.stock_code == item.stock_code)
+        .filter(
+            WatchlistItem.user_id == _current_user_id(),
+            WatchlistItem.stock_code == item.stock_code,
+        )
         .first()
     )
     if existing:
@@ -78,7 +94,9 @@ def add_to_watchlist(
         )
 
     # Add to watchlist
-    watchlist_item = WatchlistItem(stock_code=item.stock_code)
+    watchlist_item = WatchlistItem(
+        stock_code=item.stock_code, user_id=_current_user_id()
+    )
     db.add(watchlist_item)
     db.commit()
     db.refresh(watchlist_item)
@@ -99,7 +117,12 @@ def remove_from_watchlist(
 ):
     """Remove a stock from watchlist"""
     item = (
-        db.query(WatchlistItem).filter(WatchlistItem.stock_code == stock_code).first()
+        db.query(WatchlistItem)
+        .filter(
+            WatchlistItem.user_id == _current_user_id(),
+            WatchlistItem.stock_code == stock_code,
+        )
+        .first()
     )
     if not item:
         raise HTTPException(
