@@ -87,7 +87,7 @@ def init_db():
                     name="均线交叉策略",
                     description="短期均线上穿长期均线买入，下穿卖出",
                     strategy_type="ma_cross",
-                    parameters='{"short_period": 5, "long_period": 20}',
+                    parameters={"short_period": 5, "long_period": 20},
                 )
                 db.add(strategy)
                 db.commit()

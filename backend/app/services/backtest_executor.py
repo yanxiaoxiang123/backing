@@ -224,7 +224,7 @@ class BacktestExecutor:
             name=strategy_instance.get_name(),
             description=strategy_instance.get_description(),
             strategy_type=strategy_name,
-            parameters="{}",
+            parameters={},
         )
         self.db.add(strategy)
         self.db.commit()

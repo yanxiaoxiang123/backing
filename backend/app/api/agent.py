@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 """Agent 分析 API"""
 
-import json
 import logging
 import time
 from datetime import datetime, timedelta
@@ -178,12 +177,9 @@ def _persist_analysis(db: Session, request: AnalyzeRequest, result) -> AnalyzeRe
         final_signal=result.final_signal,
         final_confidence=result.final_confidence,
         final_reason=result.final_reason,
-        opinions_json=json.dumps(result.opinions, ensure_ascii=False)
-        if result.opinions
-        else None,
-        stages_json=json.dumps(result.stages, ensure_ascii=False)
-        if result.stages
-        else None,
+        # JSON 列直接存对象（读取端也直接取对象，无需 json.dumps/loads）
+        opinions_json=result.opinions if result.opinions else None,
+        stages_json=result.stages if result.stages else None,
         duration_s=result.duration_s,
         error=result.error,
     )
@@ -370,11 +366,10 @@ def get_analysis_detail(
         "final_signal": record.final_signal,
         "final_confidence": record.final_confidence,
         "final_reason": record.final_reason,
-        "opinions": json.loads(record.opinions_json) if record.opinions_json else [],
-        "stages": json.loads(record.stages_json) if record.stages_json else [],
-        "news_items": _extract_news_items(
-            json.loads(record.stages_json) if record.stages_json else []
-        ),
+        # JSON 列直接返回对象（兼容迁移前的纯文本行：SQLAlchemy JSON 读取时自动解析）
+        "opinions": record.opinions_json or [],
+        "stages": record.stages_json or [],
+        "news_items": _extract_news_items(record.stages_json or []),
         "duration_s": record.duration_s,
         "error": record.error,
         "created_at": str(record.created_at),

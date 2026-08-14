@@ -47,7 +47,7 @@ class StrategyBase(BaseModel):
     name: str
     description: Optional[str] = None
     strategy_type: str
-    parameters: Optional[str] = None
+    parameters: Optional[dict] = None  # JSON 对象（schema v1）
 
 
 class StrategyCreate(StrategyBase):
