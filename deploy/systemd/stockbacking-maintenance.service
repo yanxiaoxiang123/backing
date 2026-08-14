@@ -1,0 +1,11 @@
+[Unit]
+Description=Backing data lifecycle maintenance (cleanup/archive/backup)
+After=network.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/stockbacking/backend
+ExecStart=/opt/miniconda3/envs/stockbacking/bin/python maintenance_cli.py all --archive-klines-before 2015-01-01
+# 备份到独立磁盘（目录形式，自动命名 backing-YYYYMMDD.db）；恢复演练见 README「数据生命周期」
+ExecStartPost=/opt/miniconda3/envs/stockbacking/bin/python maintenance_cli.py backup --out /var/backups/stockbacking
+User=stockbacking
