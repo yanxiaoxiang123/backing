@@ -1,4 +1,25 @@
 # Vendored third-party code (vendor/mootdx — patched copy of PyPI mootdx) is
 # intentionally not linted; it must stay byte-identical to upstream except for
-# the metadata patch. Everything else uses ruff's default rule set.
+# the metadata patch.
 extend-exclude = ["vendor"]
+
+[lint]
+# 项目风格约定（存量代码广泛使用，规则与代码惯例冲突时以代码惯例为准）：
+# - UP006/UP007/UP035/UP045/UP009：沿用 typing.List/Dict/Optional 与现代
+#   "X | None" 混用的现有风格，不做强制现代化
+# - B008：FastAPI 的 Depends/Query/Body 默认值是框架惯例，不迁移
+# - BLE001：provider/阶段隔离的宽泛 except 是有意为之（带注释）
+# - DTZ005/DTZ007/DTZ011：数据库列使用 naive datetime，应用侧保持一致
+#   （维护脚本等新代码仍使用 UTC-aware 时间）
+ignore = [
+    "UP006",
+    "UP007",
+    "UP009",
+    "UP035",
+    "UP045",
+    "B008",
+    "BLE001",
+    "DTZ005",
+    "DTZ007",
+    "DTZ011",
+]
