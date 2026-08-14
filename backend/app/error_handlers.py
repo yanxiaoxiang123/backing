@@ -2,16 +2,19 @@
 
 Registers structured JSON error responses for all exception types so the
 frontend always receives ``{ "error": { "code": str, "message": str } }``.
+5xx tracebacks are logged exactly once here (the request middleware logs only
+a summary line), and external-dependency errors carry ``provider`` and
+``retryable`` fields.
 """
 
 import logging
-from typing import Union
 
-from fastapi import FastAPI, Request, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
-from app.exceptions import AppError
+from app.exceptions import AppError, ExternalServiceError
+from app.logging_config import request_id_var
 
 logger = logging.getLogger(__name__)
 
@@ -19,26 +22,63 @@ logger = logging.getLogger(__name__)
 def _build_error_body(
     code: str,
     message: str,
-    detail: Union[str, list, dict, None] = None,
+    detail: str | list | dict | None = None,
+    provider: str | None = None,
+    retryable: bool | None = None,
 ) -> dict:
     """Return a consistent ``{ "error": { "code", "message" } }`` body."""
     body: dict = {"error": {"code": code, "message": message}}
     if detail is not None:
         body["error"]["detail"] = detail
+    if provider is not None:
+        body["error"]["provider"] = provider
+    if retryable is not None:
+        body["error"]["retryable"] = retryable
     return body
 
 
-async def _log_warning(request: Request, status_code: int, message: str) -> None:
-    """Log a concise warning line for non‑5xx errors."""
+def _log_warning(
+    request: Request,
+    status_code: int,
+    message: str,
+    *,
+    code: str | None = None,
+    provider: str | None = None,
+) -> None:
+    """Log a concise structured warning line for non-5xx errors."""
     logger.warning(
-        "%s %s -> %d: %s", request.method, request.url.path, status_code, message
+        "http_error: %s", message,
+        extra={
+            "request_id": request_id_var.get(),
+            "method": request.method,
+            "path": request.url.path,
+            "status_code": status_code,
+            "error_code": code,
+            "provider": provider,
+        },
     )
 
 
-async def _log_error(request: Request, status_code: int, exc: Exception) -> None:
-    """Log a full traceback for 5xx errors."""
+def _log_error(
+    request: Request,
+    status_code: int,
+    exc: Exception,
+    *,
+    code: str | None = None,
+    provider: str | None = None,
+) -> None:
+    """Log a full traceback for 5xx errors (single place, no duplication)."""
     logger.error(
-        "%s %s -> %d", request.method, request.url.path, status_code, exc_info=exc
+        "http_error: %s", str(exc) or exc.__class__.__name__,
+        exc_info=exc,
+        extra={
+            "request_id": request_id_var.get(),
+            "method": request.method,
+            "path": request.url.path,
+            "status_code": status_code,
+            "error_code": code,
+            "provider": provider,
+        },
     )
 
 
@@ -49,12 +89,25 @@ async def _log_error(request: Request, status_code: int, exc: Exception) -> None
 
 async def app_error_handler(request: Request, exc: AppError) -> JSONResponse:
     """Handle custom AppError subclasses."""
-    await _log_warning(request, exc.status_code, exc.detail)
+    provider = getattr(exc, "provider", None)
+    retryable = exc.retryable
+    if exc.status_code >= 500:
+        _log_error(
+            request, exc.status_code, exc,
+            code=exc.error_code, provider=provider,
+        )
+    else:
+        _log_warning(
+            request, exc.status_code, exc.detail,
+            code=exc.error_code, provider=provider,
+        )
     return JSONResponse(
         status_code=exc.status_code,
         content=_build_error_body(
             code=exc.error_code,
             message=exc.detail,
+            provider=provider if isinstance(exc, ExternalServiceError) else None,
+            retryable=retryable if isinstance(exc, ExternalServiceError) else None,
         ),
     )
 
@@ -63,9 +116,9 @@ async def http_exception_handler(request: Request, exc: HTTPException) -> JSONRe
     """Handle vanilla HTTPException (including AuthError from auth.py)."""
     status_code = exc.status_code
     if status_code >= 500:
-        await _log_error(request, status_code, exc)
+        _log_error(request, status_code, exc)
     else:
-        await _log_warning(request, status_code, str(exc.detail))
+        _log_warning(request, status_code, str(exc.detail))
 
     # Map common status codes to short codes
     code_map = {
@@ -93,7 +146,7 @@ async def validation_error_handler(
     """Handle Pydantic request validation errors (422)."""
     errors = exc.errors()
     first_msg = errors[0]["msg"] if errors else "Request validation failed"
-    await _log_warning(request, 422, first_msg)
+    _log_warning(request, 422, first_msg, code="validation_error")
     return JSONResponse(
         status_code=422,
         content=_build_error_body(
@@ -107,8 +160,8 @@ async def validation_error_handler(
 async def unhandled_exception_handler(
     request: Request, exc: Exception
 ) -> JSONResponse:
-    """Last‑resort catch‑all for anything that escaped the handlers above."""
-    await _log_error(request, 500, exc)
+    """Last-resort catch-all for anything that escaped the handlers above."""
+    _log_error(request, 500, exc, code="internal_error")
     return JSONResponse(
         status_code=500,
         content=_build_error_body(

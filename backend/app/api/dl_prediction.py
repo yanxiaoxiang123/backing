@@ -92,8 +92,8 @@ async def predict(request: DLPredictRequest, _: str = Depends(get_current_api_ke
 
     except HTTPException:
         raise
-    except Exception as e:
-        logger.error(f"预测失败: {e}")
+    except Exception:
+        logger.exception("预测失败")
         return DLPredictResponse(success=False, error="Prediction failed")
 
 
@@ -113,8 +113,8 @@ async def backtest(request: DLBacktestRequest, _: str = Depends(get_current_api_
 
         return DLBacktestResponse(success=True, data=result)
 
-    except Exception as e:
-        logger.error(f"回测失败: {e}")
+    except Exception:
+        logger.exception("回测失败")
         return DLBacktestResponse(success=False, error="Backtest failed")
 
 
