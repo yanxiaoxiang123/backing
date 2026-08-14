@@ -136,6 +136,7 @@ class JobDbRecord(Base):
     """Persistent job record for async task tracking."""
 
     __tablename__ = "jobs"
+    __table_args__ = (Index("uq_jobs_job_key", "job_key", unique=True),)
 
     id = Column(String(36), primary_key=True)
     job_type = Column(String(50), nullable=False, index=True)
@@ -145,5 +146,16 @@ class JobDbRecord(Base):
     payload = Column(JSON, nullable=True)
     result = Column(JSON, nullable=True)
     error = Column(Text, nullable=True)
+    # Idempotency key: a client submitting the same logical work twice gets
+    # the same job back (unique, NULL allowed).
+    job_key = Column(String(100), nullable=True)
+    # Retry bookkeeping for transient (provider) failures.
+    retry_count = Column(Integer, nullable=False, default=0)
+    max_retries = Column(Integer, nullable=False, default=0)
+    # Lease: refreshed by the executing worker's heartbeat; an expired lease
+    # on a "running" job means the executor died and the job can be reclaimed.
+    lease_until = Column(DateTime, nullable=True)
+    # Retries: only jobs with next_retry_at <= now are claimable again.
+    next_retry_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())

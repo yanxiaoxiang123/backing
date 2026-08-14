@@ -1,0 +1,4 @@
+# Optional dependencies for the Arq (Redis) task backend.
+# Production multi-instance task execution: TASK_BACKEND=arq + REDIS_URL.
+arq>=0.26,<0.28
+redis>=5.0,<6.0

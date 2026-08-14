@@ -1,6 +1,5 @@
 from fastapi import (
     APIRouter,
-    BackgroundTasks,
     Depends,
     HTTPException,
     Query,
@@ -11,6 +10,12 @@ from fastapi import (
 import logging
 import re
 from app.auth import get_current_api_key
+from app.exceptions import (
+    ConflictError,
+    ExternalServiceError,
+    NotFoundError,
+    ValidationError,
+)
 from app.limiter import limiter
 from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional
@@ -32,6 +37,7 @@ from app.services.backtest_engine import BacktestEngine
 from app.services.dashboard_service import DashboardService
 from app.services.indicator_service import indicator_service
 from app.services.job_store import job_store
+from app.services.tasks import get_task_executor, register_runner, task_metrics
 
 router = APIRouter()
 
@@ -58,7 +64,9 @@ class JobResponse(BaseModel):
     message: str
 
 
-def _run_stock_sync_job(job_id: str) -> None:
+@register_runner("sync_stocks")
+def run_stock_sync_job(job_id: str, payload: dict) -> None:
+    """Sync the full stock list from baostock (runs inside the task executor)."""
     db = SessionLocal()
     try:
         job_store.update(job_id, status="running", message="Syncing stock list")
@@ -70,30 +78,29 @@ def _run_stock_sync_job(job_id: str) -> None:
             message=message,
             result={"stocks_synced": count, "message": message},
         )
-    except Exception as exc:
-        logger.error("Stock sync job failed", exc_info=True)
+    except Exception:
+        logger.exception("Stock sync job failed", extra={"job_id": job_id})
         job_store.update(
-            job_id, status="failed", error=str(exc), message="Stock sync failed"
+            job_id, status="failed", error="Stock sync failed", message="Stock sync failed"
         )
     finally:
         db.close()
 
 
-def _run_kline_sync_job(
-    job_id: str,
-    stock_codes: Optional[List[str]],
-    strategy: str,
-) -> None:
+@register_runner("sync_kline")
+def run_kline_sync_job(job_id: str, payload: dict) -> None:
+    """Sync kline data from baostock (runs inside the task executor)."""
     db = SessionLocal()
     try:
         job_store.update(job_id, status="running", message="Syncing kline data")
+        stock_codes = payload.get("stock_codes") or None
+        strategy = payload.get("strategy", "incremental")
         start_date = "2020-01-01" if strategy == "full" else None
-        end_date = None
         count, message = baostock_service.sync_kline_data(
             db,
             stock_codes=stock_codes,
             start_date=start_date,
-            end_date=end_date,
+            end_date=None,
         )
         job_store.update(
             job_id,
@@ -102,29 +109,26 @@ def _run_kline_sync_job(
             message=message,
             result={"klines_synced": count, "message": message},
         )
-    except Exception as exc:
-        logger.error("Kline sync job failed", exc_info=True)
+    except Exception:
+        logger.exception("Kline sync job failed", extra={"job_id": job_id})
         job_store.update(
-            job_id, status="failed", error=str(exc), message="Kline sync failed"
+            job_id, status="failed", error="Kline sync failed", message="Kline sync failed"
         )
     finally:
         db.close()
 
 
-def _run_index_sync_job(
-    job_id: str,
-    index_codes: Optional[List[str]],
-    start_date: str,
-    end_date: Optional[str],
-) -> None:
+@register_runner("sync_indices")
+def run_index_sync_job(job_id: str, payload: dict) -> None:
+    """Sync index kline data from baostock (runs inside the task executor)."""
     db = SessionLocal()
     try:
         job_store.update(job_id, status="running", message="Syncing index data")
         count, message = baostock_service.sync_index_kline_data(
             db,
-            index_codes=index_codes,
-            start_date=start_date,
-            end_date=end_date,
+            index_codes=payload.get("index_codes"),
+            start_date=payload.get("start_date"),
+            end_date=payload.get("end_date"),
         )
         job_store.update(
             job_id,
@@ -133,10 +137,10 @@ def _run_index_sync_job(
             message=message,
             result={"index_klines_synced": count, "message": message},
         )
-    except Exception as exc:
-        logger.error("Index sync job failed", exc_info=True)
+    except Exception:
+        logger.exception("Index sync job failed", extra={"job_id": job_id})
         job_store.update(
-            job_id, status="failed", error=str(exc), message="Index sync failed"
+            job_id, status="failed", error="Index sync failed", message="Index sync failed"
         )
     finally:
         db.close()
@@ -220,16 +224,15 @@ def get_stock_indicators(
             start_date=start_date,
             end_date=end_date,
         )
-        return {
-            "success": True,
-            "stock_code": code,
-            "stock_name": stock.name,
-            "period": period,
-            "data": data,
-        }
-    except Exception:
-        logger.error("Failed to get stock indicators", exc_info=True)
-        raise HTTPException(status_code=500, detail="Internal server error")
+    except ValueError as exc:
+        raise ValidationError(detail=str(exc)) from exc
+    return {
+        "success": True,
+        "stock_code": code,
+        "stock_name": stock.name,
+        "period": period,
+        "data": data,
+    }
 
 
 @router.get("/stocks/{code}/kline", response_model=List[DailyKlineResponse])
@@ -261,11 +264,7 @@ def get_dashboard_summary(
     _: str = Depends(get_current_api_key),
 ):
     """Get dashboard summary using real market and index data."""
-    try:
-        return DashboardService(db).get_summary()
-    except Exception:
-        logger.error("Failed to get dashboard summary", exc_info=True)
-        raise HTTPException(status_code=500, detail="Internal server error")
+    return DashboardService(db).get_summary()
 
 
 @router.post("/stocks/sync", response_model=SyncResponse)
@@ -278,21 +277,23 @@ def sync_stocks(
     """Sync stock list from baostock"""
     try:
         count, message = baostock_service.sync_stock_list(db)
-        return SyncResponse(success=True, message=message, stocks_synced=count)
-    except Exception:
-        logger.error("Stock sync failed", exc_info=True)
-        raise HTTPException(status_code=502, detail="Stock sync failed")
+    except Exception as exc:
+        raise ExternalServiceError(
+            detail="Stock sync failed", provider="baostock", retryable=True
+        ) from exc
+    return SyncResponse(success=True, message=message, stocks_synced=count)
 
 
 @router.post("/stocks/sync/submit", response_model=JobResponse)
 @limiter.limit("10/minute")
 def submit_sync_stocks(
     request: Request,
-    background_tasks: BackgroundTasks,
     _: str = Depends(get_current_api_key),
 ):
-    job = job_store.create(job_type="sync_stocks")
-    background_tasks.add_task(_run_stock_sync_job, job.id)
+    job = get_task_executor().submit(
+        job_type="sync_stocks",
+        job_key=f"sync_stocks:{date.today().isoformat()}",
+    )
     return JobResponse(
         job_id=job.id,
         status=job.status,
@@ -316,30 +317,31 @@ def sync_kline(
         count, message = baostock_service.sync_kline_data(
             db, stock_codes=stock_codes, start_date=start_date
         )
-        return SyncResponse(success=True, message=message, klines_synced=count)
-    except Exception:
-        logger.error("Kline sync failed", exc_info=True)
-        raise HTTPException(status_code=502, detail="Kline sync failed")
+    except Exception as exc:
+        raise ExternalServiceError(
+            detail="Kline sync failed", provider="baostock", retryable=True
+        ) from exc
+    return SyncResponse(success=True, message=message, klines_synced=count)
 
 
 @router.post("/stocks/sync-kline/submit", response_model=JobResponse)
 @limiter.limit("10/minute")
 def submit_sync_kline(
     request: Request,
-    background_tasks: BackgroundTasks,
     stock_codes: List[str] = Body(None),
     strategy: str = Query("incremental"),
     _: str = Depends(get_current_api_key),
 ):
-    job = job_store.create(
-        job_type="sync_kline",
-        payload={
-            "stock_codes": stock_codes or [],
-            "strategy": strategy,
-        },
+    payload = {
+        "stock_codes": stock_codes or [],
+        "strategy": strategy,
+    }
+    job_key = (
+        f"sync_kline:{strategy}:"
+        f"{','.join(sorted(stock_codes or [])) or 'ALL'}"
     )
-    background_tasks.add_task(
-        _run_kline_sync_job, job.id, stock_codes, strategy
+    job = get_task_executor().submit(
+        job_type="sync_kline", payload=payload, job_key=job_key
     )
     return JobResponse(
         job_id=job.id,
@@ -372,32 +374,33 @@ def sync_indices(
         count, message = baostock_service.sync_index_kline_data(
             db, index_codes=index_codes, start_date=start_date, end_date=end_date
         )
-        return SyncResponse(success=True, message=message, klines_synced=count)
-    except Exception:
-        logger.error("Index sync failed", exc_info=True)
-        raise HTTPException(status_code=502, detail="Index sync failed")
+    except Exception as exc:
+        raise ExternalServiceError(
+            detail="Index sync failed", provider="baostock", retryable=True
+        ) from exc
+    return SyncResponse(success=True, message=message, klines_synced=count)
 
 
 @router.post("/indices/sync/submit", response_model=JobResponse)
 @limiter.limit("5/minute")
 def submit_sync_indices(
     request: Request,
-    background_tasks: BackgroundTasks,
     index_codes: List[str] = Body(None),
     start_date: Optional[str] = Query(None),
     end_date: str = Query(None),
     _: str = Depends(get_current_api_key),
 ):
-    job = job_store.create(
-        job_type="sync_indices",
-        payload={
-            "index_codes": index_codes or [],
-            "start_date": start_date,
-            "end_date": end_date,
-        },
+    payload = {
+        "index_codes": index_codes or [],
+        "start_date": start_date,
+        "end_date": end_date,
+    }
+    job_key = (
+        f"sync_indices:{','.join(sorted(index_codes or [])) or 'MAJOR'}:"
+        f"{start_date or ''}:{end_date or ''}"
     )
-    background_tasks.add_task(
-        _run_index_sync_job, job.id, index_codes, start_date, end_date
+    job = get_task_executor().submit(
+        job_type="sync_indices", payload=payload, job_key=job_key
     )
     return JobResponse(
         job_id=job.id,
@@ -425,14 +428,12 @@ def run_backtest(
             initial_capital=request.initial_capital,
             parameters=request.parameters,
         )
+    except ValueError as exc:
+        raise ValidationError(detail=str(exc)) from exc
 
-        if not result:
-            raise HTTPException(status_code=400, detail="Backtest failed")
-
-        return result
-    except Exception:
-        logger.error("Backtest failed", exc_info=True)
-        raise HTTPException(status_code=400, detail="Backtest failed")
+    if not result:
+        raise ValidationError(detail="Backtest failed")
+    return result
 
 
 @router.get("/backtest/results", response_model=List[BacktestListResponse])
@@ -476,20 +477,39 @@ def health_check():
     return {"status": "ok"}
 
 
+# Job metrics (registered before /jobs/{job_id} so the literal path wins)
+@router.get("/jobs/metrics")
+def get_job_metrics(_: str = Depends(get_current_api_key)):
+    """In-process task metrics: counters and durations per job type."""
+    return task_metrics.snapshot()
+
+
 @router.get("/jobs/{job_id}")
 def get_job_status(job_id: str, _: str = Depends(get_current_api_key)):
     job = job_store.get(job_id)
     if not job:
-        raise HTTPException(status_code=404, detail="Job not found")
+        raise NotFoundError(detail="Job not found")
     return job
 
 
 @router.post("/jobs/{job_id}/cancel")
 def cancel_job(job_id: str, _: str = Depends(get_current_api_key)):
+    """Request cancellation of a pending/running job.
+
+    Cancellation is cooperative: the job runner checks for the cancelled
+    marker between work steps. Returns the current status.
+    """
     job = job_store.get(job_id)
     if not job:
-        raise HTTPException(status_code=404, detail="Job not found")
-    if job.status in ("completed", "failed"):
-        raise HTTPException(status_code=400, detail="Job already finished")
-    job_store.update(job_id, status="failed", error="Cancelled", message="Cancelled by user")
+        raise NotFoundError(detail="Job not found")
+    if job.status == "completed":
+        raise ConflictError(detail="Job already finished")
+    if job.status == "failed" and (job.error or "") == "Cancelled":
+        return {"status": "cancelled"}  # idempotent
+    job_store.update(
+        job_id,
+        status="failed",
+        error="Cancelled",
+        message="Cancelled by user",
+    )
     return {"status": "cancelled"}

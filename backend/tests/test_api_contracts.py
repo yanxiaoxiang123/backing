@@ -1,0 +1,122 @@
+"""API 合约测试：真实路由 + 依赖覆盖，验证错误形状、任务端点、取消语义。
+
+不触碰真实数据提供方：仅覆盖不依赖外部服务的端点。
+"""
+
+import pytest
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+
+import app.services.job_store as job_store_module
+from app.api.routes import router as api_router
+from app.api.strategies import router as strategies_router
+from app.auth import get_current_api_key
+from app.config import Base
+from app.error_handlers import register_error_handlers
+from app.services.job_store import job_store
+
+
+@pytest.fixture()
+def db_session(tmp_path):
+    """File-backed temp DB patched into job_store (worker-thread safe)."""
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'contracts_test.db'}",
+        connect_args={"timeout": 10},
+    )
+    Base.metadata.create_all(bind=engine)
+    original = job_store_module.SessionLocal
+    job_store_module.SessionLocal = sessionmaker(bind=engine)
+    yield
+    job_store_module.SessionLocal = original
+
+
+@pytest.fixture()
+def client(db_session):
+    app = FastAPI()
+    register_error_handlers(app)
+    app.include_router(api_router, prefix="/api/v1", tags=["api"])
+    app.include_router(strategies_router)
+    app.dependency_overrides[get_current_api_key] = lambda: "test-key"
+    return TestClient(app, raise_server_exceptions=False)
+
+
+class TestJobEndpoints:
+    def test_job_not_found_404_shape(self, client):
+        resp = client.get("/api/v1/jobs/does-not-exist")
+        assert resp.status_code == 404
+        body = resp.json()["error"]
+        assert body["code"] == "not_found"
+
+    def test_job_metrics_endpoint(self, client):
+        resp = client.get("/api/v1/jobs/metrics")
+        assert resp.status_code == 200
+        payload = resp.json()
+        assert set(payload.keys()) == {"started_at", "counters", "durations"}
+
+    def test_job_metrics_registered_before_job_id(self, client):
+        """/jobs/metrics 必须优先于 /jobs/{job_id} 匹配。"""
+        resp = client.get("/api/v1/jobs/metrics")
+        assert resp.status_code == 200
+
+    def test_cancel_pending_job(self, client, db_session):
+        job = job_store.create("sync_stocks")
+        resp = client.post(f"/api/v1/jobs/{job.id}/cancel")
+        assert resp.status_code == 200
+        assert resp.json() == {"status": "cancelled"}
+        record = job_store.get(job.id)
+        assert record.status == "failed"
+        assert record.error == "Cancelled"
+
+    def test_cancel_is_idempotent(self, client, db_session):
+        job = job_store.create("sync_stocks")
+        first = client.post(f"/api/v1/jobs/{job.id}/cancel")
+        second = client.post(f"/api/v1/jobs/{job.id}/cancel")
+        assert first.status_code == 200
+        assert second.status_code == 200
+        assert second.json() == {"status": "cancelled"}
+
+    def test_cancel_completed_job_conflict(self, client, db_session):
+        job = job_store.create("sync_stocks")
+        job_store.update(job.id, status="completed", progress=1.0)
+        resp = client.post(f"/api/v1/jobs/{job.id}/cancel")
+        assert resp.status_code == 409
+        assert resp.json()["error"]["code"] == "conflict"
+
+    def test_job_status_returns_record(self, client, db_session):
+        job = job_store.create("sync_stocks", job_key="k-status")
+        resp = client.get(f"/api/v1/jobs/{job.id}")
+        assert resp.status_code == 200
+        payload = resp.json()
+        assert payload["id"] == job.id
+        assert payload["job_key"] == "k-status"
+        assert payload["status"] == "pending"
+
+
+class TestStrategiesContract:
+    def test_list_strategies_returns_13(self, client):
+        resp = client.get("/api/v1/strategies")
+        assert resp.status_code == 200
+        payload = resp.json()
+        assert len(payload) == 13
+        names = {s["name"] for s in payload}
+        assert "ma_cross" in names
+        for item in payload:
+            assert set(item.keys()) == {"name", "description", "parameters"}
+
+    def test_unknown_strategy_404_shape(self, client):
+        resp = client.get("/api/v1/strategies/not-a-strategy")
+        assert resp.status_code == 404
+        assert resp.json()["error"]["code"] == "not_found"
+
+    def test_validation_error_422_shape(self, client):
+        """请求体校验失败 → 422 + validation_error。"""
+        resp = client.post(
+            "/api/v1/strategies/optimize",
+            json={"strategy_name": "ma_cross"},  # 缺必填字段
+        )
+        assert resp.status_code == 422
+        body = resp.json()["error"]
+        assert body["code"] == "validation_error"
+        assert "detail" in body

@@ -156,6 +156,11 @@ class JobRecordSchema(BaseModel):
     payload: dict = {}
     result: Optional[dict] = None
     error: Optional[str] = None
+    job_key: Optional[str] = None
+    retry_count: int = 0
+    max_retries: int = 0
+    lease_until: Optional[datetime] = None
+    next_retry_at: Optional[datetime] = None
     created_at: datetime
     updated_at: datetime
 

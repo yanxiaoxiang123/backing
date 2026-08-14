@@ -6,17 +6,28 @@ import logging
 import time
 from datetime import datetime, timedelta
 from typing import Any, List, Optional
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, model_validator
 from sqlalchemy.orm import Session
 
 from app.config import SessionLocal, get_db
 from app.auth import get_current_api_key
+from app.exceptions import (
+    ExternalServiceError,
+    NotFoundError,
+    ProviderUnavailableError,
+    ValidationError,
+)
 from app.models.analysis import AnalysisRecord
 from app.models.models import DailyKline, Stock
 from app.agent.orchestrator import AgentOrchestrator
 from app.services.baostock_service import baostock_service, MAJOR_INDICES
 from app.services.job_store import job_store
+from app.services.tasks import (
+    TaskCancelledError,
+    get_task_executor,
+    register_runner,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -114,7 +125,7 @@ class MarketAnalyzeResponse(BaseModel):
 def _ensure_stock_kline_data(db: Session, stock_code: str) -> None:
     stock = db.query(Stock).filter(Stock.code == stock_code).first()
     if not stock:
-        raise HTTPException(status_code=404, detail=f"Stock '{stock_code}' not found")
+        raise NotFoundError(detail=f"Stock '{stock_code}' not found")
 
     latest_kline = (
         db.query(DailyKline)
@@ -126,12 +137,21 @@ def _ensure_stock_kline_data(db: Session, stock_code: str) -> None:
         return
 
     logger.info("No kline data for %s, syncing before analysis", stock_code)
-    count, message = baostock_service.sync_kline_data(
-        db=db,
-        stock_codes=[stock_code],
-        start_date="2020-01-01",
-        end_date=datetime.now().strftime("%Y-%m-%d"),
-    )
+    try:
+        count, message = baostock_service.sync_kline_data(
+            db=db,
+            stock_codes=[stock_code],
+            start_date="2020-01-01",
+            end_date=datetime.now().strftime("%Y-%m-%d"),
+        )
+    except Exception as exc:
+        raise ExternalServiceError(
+            detail=(
+                f"Failed to sync kline data for {stock_code} before analysis"
+            ),
+            provider="baostock",
+            retryable=True,
+        ) from exc
     logger.info(
         "Pre-analysis kline sync result for %s: %s (%s)", stock_code, count, message
     )
@@ -143,7 +163,9 @@ def _ensure_stock_kline_data(db: Session, stock_code: str) -> None:
         .first()
     )
     if latest_kline is None:
-        raise RuntimeError(f"No kline data available for {stock_code} after sync")
+        raise ValidationError(
+            detail=f"No kline data available for {stock_code} after sync"
+        )
 
 
 def _persist_analysis(db: Session, request: AnalyzeRequest, result) -> AnalyzeResponse:
@@ -194,23 +216,26 @@ def _extract_news_items(stages: List[dict]) -> List[dict]:
     return []
 
 
-def _run_analysis_job(job_id: str, request_data: dict) -> None:
+@register_runner("agent_analysis")
+def run_analysis_job(job_id: str, payload: dict) -> None:
+    """Background runner for /agent/analyze/submit."""
     db = SessionLocal()
     try:
-        request = AnalyzeRequest(**request_data)
+        request = AnalyzeRequest(**payload)
         job_store.update(job_id, status="running", message="Running agent analysis")
         _ensure_stock_kline_data(db, request.stock_code)
         orchestrator = AgentOrchestrator(mode=request.mode)
         if not orchestrator.is_available:
-            raise RuntimeError(
-                "LLM service not available. Please check API key configuration."
+            raise ProviderUnavailableError(
+                detail="LLM service not available. Please check API key configuration.",
+                provider="deepseek",
             )
 
         def _on_progress(progress: float, stages: list):
-            # 检查是否被取消
+            # 检查是否被取消（协作式取消：orchestrator 放行该异常）
             current = job_store.get(job_id)
             if current and current.status == "failed" and current.error == "Cancelled":
-                raise RuntimeError("Job cancelled by user")
+                raise TaskCancelledError("Job cancelled by user")
             job_store.update(
                 job_id,
                 progress=progress / 100.0,
@@ -223,16 +248,16 @@ def _run_analysis_job(job_id: str, request_data: dict) -> None:
             stock_name=request.stock_name or request.stock_code,
             progress_callback=_on_progress,
         )
-        payload = _persist_analysis(db, request, result)
+        payload_response = _persist_analysis(db, request, result)
         job_store.update(
             job_id,
             status="completed",
             progress=1.0,
             message="Analysis completed",
-            result=payload.model_dump(),
+            result=payload_response.model_dump(),
         )
     except Exception as exc:
-        logger.error(f"Async analysis failed: {exc}", exc_info=True)
+        logger.exception("Async analysis failed", extra={"job_id": job_id})
         job_store.update(
             job_id, status="failed", error=str(exc), message="Analysis failed"
         )
@@ -248,39 +273,36 @@ def analyze_stock(
     _: str = Depends(get_current_api_key),
 ):
     """执行股票分析"""
-    try:
-        _ensure_stock_kline_data(db, request.stock_code)
-        # 初始化编排器
-        orchestrator = AgentOrchestrator(mode=request.mode)
+    _ensure_stock_kline_data(db, request.stock_code)
+    # 初始化编排器
+    orchestrator = AgentOrchestrator(mode=request.mode)
 
-        # 检查 LLM 是否可用
-        if not orchestrator.is_available:
-            raise HTTPException(
-                status_code=503,
-                detail="LLM service not available. Please check API key configuration.",
-            )
-
-        # 执行分析
-        result = orchestrator.run(
-            stock_code=request.stock_code,
-            stock_name=request.stock_name or request.stock_code,
+    # 检查 LLM 是否可用
+    if not orchestrator.is_available:
+        raise ProviderUnavailableError(
+            detail="LLM service not available. Please check API key configuration.",
+            provider="deepseek",
         )
 
-        return _persist_analysis(db, request, result)
+    # 执行分析
+    result = orchestrator.run(
+        stock_code=request.stock_code,
+        stock_name=request.stock_name or request.stock_code,
+    )
 
-    except Exception as e:
-        logger.error(f"Analysis failed: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+    return _persist_analysis(db, request, result)
 
 
 @router.post("/agent/analyze/submit", response_model=AnalyzeSubmitResponse)
 def submit_analysis(
     request: AnalyzeRequest,
-    background_tasks: BackgroundTasks,
     _: str = Depends(get_current_api_key),
 ):
-    job = job_store.create(job_type="agent_analysis", payload=request.model_dump())
-    background_tasks.add_task(_run_analysis_job, job.id, request.model_dump())
+    job = get_task_executor().submit(
+        job_type="agent_analysis",
+        payload=request.model_dump(),
+        job_key=f"analyze:{request.stock_code}:{request.mode}",
+    )
     return AnalyzeSubmitResponse(
         job_id=job.id, status=job.status, message="Analysis queued"
     )
@@ -398,9 +420,9 @@ def analyze_market(
 
         # 检查 LLM 是否可用
         if not orchestrator.is_available:
-            raise HTTPException(
-                status_code=503,
+            raise ProviderUnavailableError(
                 detail="LLM service not available. Please check API key configuration.",
+                provider="deepseek",
             )
 
         # 获取最近30天的数据日期范围
@@ -435,8 +457,8 @@ def analyze_market(
                         "error": result.error,
                     }
                 )
-            except Exception as e:
-                logger.error(f"Failed to analyze index {idx['code']}: {e}")
+            except Exception as exc:
+                logger.exception("Failed to analyze index %s", idx["code"])
                 index_results.append(
                     {
                         "code": idx["code"],
@@ -445,7 +467,7 @@ def analyze_market(
                         "signal": "hold",
                         "confidence": 0.0,
                         "reason": "",
-                        "error": str(e),
+                        "error": str(exc),
                     }
                 )
 
@@ -477,8 +499,8 @@ def analyze_market(
             duration_s=time.time() - start_time,
         )
 
-    except Exception as e:
-        logger.error(f"Market analysis failed: {e}", exc_info=True)
+    except Exception as exc:
+        logger.exception("Market analysis failed")
         return MarketAnalyzeResponse(
             success=False,
             indices=[],

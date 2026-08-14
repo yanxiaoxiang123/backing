@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, Query, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
 
 from app.auth import AuthError, get_current_api_key, validate_api_key
+from app.config import settings
 from app.services.realtime_service import realtime_service
 
 logger = logging.getLogger(__name__)
@@ -175,7 +176,7 @@ async def ws_realtime_bars(
 
         # ---- 增量推送 ----
         while True:
-            await asyncio.sleep(10)
+            await asyncio.sleep(settings.REALTIME_WS_POLL_S)
             tail = await asyncio.to_thread(
                 realtime_service.normalise_bars,
                 symbol=symbol, frequency=freq, offset=2,

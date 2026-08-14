@@ -22,11 +22,14 @@ from app.auth import validate_api_key
 from app.config import SessionLocal, engine, settings
 from app.error_handlers import register_error_handlers
 from app.limiter import limiter
+from app.logging_config import setup_logging
+from app.middleware import RequestLoggingMiddleware
 from app.models.models import Strategy
 from app.services.job_store import job_store
+from app.services.tasks import get_task_executor
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
+# Structured JSON logging (request/job correlation + redaction)
+setup_logging(level=getattr(logging, settings.LOG_LEVEL.upper(), logging.INFO))
 logger = logging.getLogger(__name__)
 
 
@@ -93,8 +96,8 @@ def init_db():
             db.close()
 
         logger.info("Database initialized successfully")
-    except Exception as e:
-        logger.error(f"Database initialization failed: {e}")
+    except Exception:
+        logger.exception("Database initialization failed")
         raise
 
 
@@ -104,8 +107,12 @@ async def lifespan(app: FastAPI):
     logger.info("Starting up...")
     init_db()
     job_store.reset_stale_jobs()
+    task_executor = get_task_executor()
+    app.state.task_executor = task_executor
+    task_executor.startup()
     yield
     # Shutdown
+    task_executor.shutdown()
     logger.info("Shutting down...")
 
 
@@ -119,6 +126,9 @@ app = FastAPI(
 
 # Register unified error handlers (covers all router + middleware errors)
 register_error_handlers(app)
+
+# Request correlation + duration logging (X-Request-Id header)
+app.add_middleware(RequestLoggingMiddleware)
 
 # Add rate limiter to app state and error handler
 app.state.limiter = limiter

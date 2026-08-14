@@ -6,9 +6,11 @@ from datetime import datetime, timezone, timedelta
 from typing import Any, Optional, Dict, List, Iterator
 from uuid import uuid4
 
+from sqlalchemy import and_, or_
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.config import SessionLocal
+from app.config import SessionLocal, settings
 from app.models.models import JobDbRecord
 from app.schemas.schemas import JobRecordSchema
 
@@ -121,14 +123,108 @@ class JobStore:
         job_id: Optional[str] = None,
         *,
         db: Optional[Session] = None,
+        job_key: Optional[str] = None,
     ) -> JobRecordSchema:
+        """Create a job record.
+
+        With *job_key*, creation is idempotent: an existing record with the
+        same key is returned instead of creating a duplicate (the unique
+        index ``uq_jobs_job_key`` makes this race-safe).
+        """
+        if job_key:
+            existing = self._find_by_key(job_key, db)
+            if existing is not None:
+                return existing
+
         with self._session(db) as (session, _owned):
             row = JobDbRecord(
                 id=job_id or str(uuid4()),
                 job_type=job_type,
                 payload=payload or {},
+                job_key=job_key,
+                max_retries=settings.TASK_MAX_RETRIES,
             )
             session.add(row)
+            try:
+                session.flush()
+            except IntegrityError:
+                # Concurrent duplicate job_key: return the winner's record.
+                session.rollback()
+                existing = self._find_by_key(job_key, db) if job_key else None
+                if existing is not None:
+                    return existing
+                raise
+            session.refresh(row)
+            return JobRecordSchema.model_validate(row)
+
+    def _find_by_key(
+        self, job_key: str, db: Optional[Session] = None
+    ) -> Optional[JobRecordSchema]:
+        with self._session(db) as (session, _owned):
+            row = (
+                session.query(JobDbRecord)
+                .filter(JobDbRecord.job_key == job_key)
+                .first()
+            )
+            if row is None:
+                return None
+            return JobRecordSchema.model_validate(row)
+
+    def claim_due(
+        self, *, db: Optional[Session] = None
+    ) -> Optional[JobRecordSchema]:
+        """Atomically claim the next runnable job, or None when idle.
+
+        Runnable = pending without a future retry time, OR a "running" job
+        whose lease has expired (its executor died). Claiming flips the row to
+        ``running`` with a fresh lease; the conditional UPDATE makes sure two
+        executors never claim the same job.
+        """
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        lease_until = now + timedelta(seconds=settings.TASK_LEASE_SECONDS)
+
+        with self._session(db) as (session, _owned):
+            row = (
+                session.query(JobDbRecord)
+                .filter(
+                    or_(
+                        and_(
+                            JobDbRecord.status == "pending",
+                            or_(
+                                JobDbRecord.next_retry_at.is_(None),
+                                JobDbRecord.next_retry_at <= now,
+                            ),
+                        ),
+                        and_(
+                            JobDbRecord.status == "running",
+                            JobDbRecord.lease_until.isnot(None),
+                            JobDbRecord.lease_until < now,
+                        ),
+                    )
+                )
+                .order_by(JobDbRecord.created_at.asc())
+                .first()
+            )
+            if row is None:
+                return None
+
+            expected = row.status  # "pending" or "running" (expired lease)
+            claimed = (
+                session.query(JobDbRecord)
+                .filter(
+                    JobDbRecord.id == row.id,
+                    JobDbRecord.status == expected,
+                )
+                .update(
+                    {
+                        JobDbRecord.status: "running",
+                        JobDbRecord.lease_until: lease_until,
+                    },
+                    synchronize_session=False,
+                )
+            )
+            if not claimed:
+                return None  # lost the claim race
             session.flush()
             session.refresh(row)
             return JobRecordSchema.model_validate(row)

@@ -23,6 +23,8 @@ class Settings(BaseSettings):
         "180.153.18.170:7709,180.153.18.171:7709,180.153.18.172:80"
     )
     MOOTDX_TIMEOUT_S: float = 3.0
+    # WebSocket 实时行情增量推送间隔（秒）
+    REALTIME_WS_POLL_S: float = 10.0
 
     # API 认证配置
     API_KEY: str | None = None  # 用于 API 认证的密钥，为 None 时表示禁用认证
@@ -47,6 +49,20 @@ class Settings(BaseSettings):
 
     # 长任务配置
     MAX_OPTIMIZE_COMBINATIONS: int = 200
+
+    # 日志配置
+    LOG_LEVEL: str = "INFO"
+
+    # 任务执行配置：threads = 进程内线程执行器（开发/单实例）；
+    # arq = 独立 worker + Redis（生产多实例），需设置 REDIS_URL 并安装
+    # requirements-arq.txt 中的依赖。
+    TASK_BACKEND: str = "threads"
+    REDIS_URL: str | None = None
+    TASK_MAX_RETRIES: int = 2  # 瞬时失败(provider 不可用等)的重试次数
+    TASK_RETRY_BACKOFF_S: float = 5.0  # 重试退避基数（秒）
+    TASK_LEASE_SECONDS: int = 120  # 租约时长，超时视为执行者失联
+    TASK_HEARTBEAT_INTERVAL_S: float = 15.0  # 心跳间隔
+    TASK_SWEEP_INTERVAL_S: float = 5.0  # 重试扫描间隔
 
     # DL 模型配置
     DL_MODEL_PATH: str = str(LLM_DIR / "mg/000001/mg")
