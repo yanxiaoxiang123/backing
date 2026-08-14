@@ -1,16 +1,14 @@
 import { useState, useEffect } from 'react'
-import axios from 'axios'
 import { Table, Button, message, Modal, Form, Input, Select } from 'antd'
 import { SyncOutlined, LineChartOutlined, SearchOutlined } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
-import { getJobStatus, getStocks, submitSyncKline, submitSyncStocks } from '../services/api'
+import { getStocks, submitSyncKline, submitSyncStocks, getApiErrorMessage } from '../services/api'
+import { useJobPolling } from '../hooks/useJobPolling'
 import type { Stock } from '../types'
-import { logger } from '../utils/logger'
 
 function StockList() {
   const navigate = useNavigate()
   const [loading, setLoading] = useState(false)
-  const [stocks, setStocks] = useState<Stock[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(20)
@@ -31,52 +29,17 @@ function StockList() {
     setLoading(true)
     try {
       const data = await getStocks(undefined, (page - 1) * pageSize, pageSize, searchText || undefined)
-      setStocks(data.items)
       setFilteredStocks(data.items)
       setTotal(data.total)
     } catch (error) {
-      message.error('加载股票列表失败')
+      message.error(getApiErrorMessage(error))
     } finally {
       setLoading(false)
     }
   }
 
-  const waitForJob = async <T,>(jobId: string, timeoutMs = 300000): Promise<T> => {
-    const startTime = Date.now()
-    let lastStatus = ''
-    while (true) {
-      if (Date.now() - startTime > timeoutMs) {
-        throw new Error('任务超时，请稍后重试')
-      }
-      try {
-        const job = await getJobStatus<T>(jobId)
-        // 调试日志
-        if (job.status !== lastStatus) {
-          logger.info('Job status:', job.status, job.message)
-          lastStatus = job.status
-        }
-        if (job.status === 'completed') {
-          return job.result as T
-        }
-        if (job.status === 'failed') {
-          throw new Error(job.error || job.message || '任务执行失败')
-        }
-        // 如果状态既不是 completed 也不是 failed，继续等待
-        // 但防止无限循环，检查状态是否有效
-        if (!['pending', 'running'].includes(job.status)) {
-          logger.error('Unknown job status:', job.status)
-          throw new Error(`未知任务状态: ${job.status}`)
-        }
-      } catch (error) {
-        // 如果是 404 或网络错误，直接抛出
-        if (axios.isAxiosError(error) && error.response?.status === 404) {
-          throw new Error('任务不存在，可能服务已重启')
-        }
-        throw error
-      }
-      await new Promise(resolve => setTimeout(resolve, 1500))
-    }
-  }
+  // 统一任务轮询（5 分钟超时；卸载自动取消）
+  const { waitForJob } = useJobPolling({ timeoutMs: 300000 })
 
   const handleSyncStocks = async () => {
     setSyncing(true)
@@ -86,7 +49,7 @@ function StockList() {
       message.success(result.message || `同步完成: ${result.stocks_synced} 只股票`)
       loadStocks()
     } catch (error) {
-      message.error((error as Error).message || '同步失败')
+      message.error(getApiErrorMessage(error))
     } finally {
       setSyncing(false)
     }
@@ -104,7 +67,7 @@ function StockList() {
       const result = await waitForJob<{ klines_synced: number; message: string }>(submission.job_id)
       message.success(result.message || `同步成功: ${result.klines_synced} 条K线数据`)
     } catch (error) {
-      message.error((error as Error).message || '同步失败')
+      message.error(getApiErrorMessage(error))
     } finally {
       setSyncing(false)
       setSyncModalVisible(false)

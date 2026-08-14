@@ -1,0 +1,560 @@
+/* ============================================
+   6. Cards
+   ============================================ */
+.mc-card {
+  background: var(--color-canvas-lifted);
+  border-radius: var(--radius-card);
+  padding: var(--space-lg);
+  box-shadow: var(--shadow-card);
+  transition: all var(--transition-normal);
+}
+
+.mc-card:hover {
+  box-shadow: var(--shadow-hover);
+}
+
+.mc-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-md);
+}
+
+.mc-card-title {
+  font-size: var(--font-size-md);
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.mc-card-sm {
+  padding: var(--space-md);
+  border-radius: var(--radius-btn);
+}
+
+/* ============================================
+   7. Stat Cards
+   ============================================ */
+.stat-card {
+  background: var(--color-canvas-lifted);
+  border-radius: var(--radius-btn);
+  padding: var(--space-lg);
+  text-align: center;
+}
+
+.stat-value {
+  font-size: var(--font-size-3xl);
+  font-weight: 700;
+  color: var(--color-text-primary);
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+}
+
+.stat-label {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  margin-top: var(--space-xs);
+}
+
+/* ============================================
+   8. Buttons
+   ============================================ */
+.mc-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-lg);
+  font-family: var(--font-family);
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  border-radius: var(--radius-btn);
+  border: 1.5px solid transparent;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  line-height: 1.5;
+}
+
+.mc-btn-primary {
+  background: var(--color-ink);
+  color: var(--color-canvas);
+  border-color: var(--color-ink);
+}
+
+.mc-btn-primary:hover {
+  opacity: 0.9;
+}
+
+.mc-btn-secondary {
+  background: var(--color-white);
+  color: var(--color-ink);
+  border-color: var(--color-ink);
+}
+
+.mc-btn-secondary:hover {
+  background: var(--color-canvas);
+}
+
+.mc-btn-ghost {
+  background: transparent;
+  color: var(--color-ink);
+  border-color: transparent;
+}
+
+.mc-btn-ghost:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.mc-btn-sm {
+  padding: var(--space-xs) var(--space-md);
+  font-size: var(--font-size-xs);
+}
+
+.mc-btn-lg {
+  padding: var(--space-md) var(--space-xl);
+  font-size: var(--font-size-base);
+  border-radius: var(--radius-lg);
+}
+
+/* ============================================
+   9. Tables
+   ============================================ */
+.mc-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--color-canvas-lifted);
+  border-radius: var(--radius-card);
+  overflow: hidden;
+}
+
+.mc-table th {
+  text-align: left;
+  padding: var(--space-md) var(--space-lg);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: var(--color-canvas);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.mc-table td {
+  padding: var(--space-md) var(--space-lg);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.mc-table tr:last-child td {
+  border-bottom: none;
+}
+
+.mc-table tbody tr {
+  transition: all var(--transition-fast);
+}
+
+.mc-table tbody tr:hover td {
+  background: var(--color-canvas);
+}
+
+/* ============================================
+   10. Price & Badge Styles
+   ============================================ */
+.price-up {
+  color: var(--color-up);
+}
+
+.price-down {
+  color: var(--color-down);
+}
+
+.price-flat {
+  color: var(--color-flat);
+}
+
+.mc-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px var(--space-sm);
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  border-radius: var(--radius-pill);
+}
+
+.mc-badge-up {
+  background: var(--color-danger-light);
+  color: var(--color-up);
+}
+
+.mc-badge-down {
+  background: var(--color-success-light);
+  color: var(--color-down);
+}
+
+.mc-badge-flat {
+  background: rgba(134, 134, 139, 0.1);
+  color: var(--color-flat);
+}
+
+/* ============================================
+   11. Grid System
+   ============================================ */
+.mc-grid {
+  display: grid;
+  gap: var(--space-lg);
+}
+
+.mc-grid-2 {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.mc-grid-3 {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.mc-grid-4 {
+  grid-template-columns: repeat(4, 1fr);
+}
+
+@media (max-width: 1023px) {
+  .mc-grid-3,
+  .mc-grid-4 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 767px) {
+  .mc-grid-2,
+  .mc-grid-3,
+  .mc-grid-4 {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ============================================
+   15. Ant Design Overrides
+   ============================================ */
+
+/* Cards */
+.ant-card {
+  border-radius: var(--radius-card) !important;
+  border: none !important;
+  background: var(--color-canvas-lifted) !important;
+  box-shadow: var(--shadow-card) !important;
+}
+
+.ant-card:hover {
+  box-shadow: var(--shadow-hover) !important;
+}
+
+.ant-card-head {
+  border-bottom: 1px solid var(--color-border) !important;
+}
+
+.ant-card-body {
+  padding: var(--space-lg) !important;
+}
+
+/* Buttons */
+.ant-btn-primary {
+  background: var(--color-ink) !important;
+  border-color: var(--color-ink) !important;
+  border-radius: var(--radius-btn) !important;
+  font-weight: 500 !important;
+  font-family: var(--font-family) !important;
+  letter-spacing: -0.02em !important;
+}
+
+.ant-btn-primary:hover {
+  opacity: 0.9 !important;
+}
+
+.ant-btn-default {
+  border-radius: var(--radius-btn) !important;
+  border-color: var(--color-ink) !important;
+  color: var(--color-ink) !important;
+  font-family: var(--font-family) !important;
+}
+
+.ant-btn-default:hover {
+  background: var(--color-canvas) !important;
+  border-color: var(--color-ink) !important;
+  color: var(--color-ink) !important;
+}
+
+.ant-btn {
+  border-radius: var(--radius-btn) !important;
+  font-family: var(--font-family) !important;
+}
+
+/* Disabled states — 可读对比度（修复暗色主按钮禁用后深字近不可读） */
+.ant-btn-primary:disabled,
+.ant-btn-primary[disabled] {
+  background: var(--color-bg-disabled) !important;
+  border-color: var(--color-border-disabled) !important;
+  color: var(--color-text-disabled) !important;
+  opacity: 1 !important;
+  cursor: not-allowed !important;
+}
+
+.ant-btn-default:disabled,
+.ant-btn-default[disabled] {
+  background: transparent !important;
+  border-color: var(--color-border-disabled) !important;
+  color: var(--color-text-disabled) !important;
+  opacity: 1 !important;
+  cursor: not-allowed !important;
+}
+
+/* Focus visibility — 键盘可达 */
+.ant-btn:focus-visible,
+.ant-input:focus-visible,
+.ant-input-affix-wrapper:focus-visible,
+.ant-select-focused .ant-select-selector,
+.nav-item:focus-visible,
+.nav-logo:focus-visible,
+.nav-search-btn:focus-visible,
+.nav-mobile-toggle:focus-visible,
+.nav-mobile-close:focus-visible,
+.strategy-item:focus-visible {
+  outline: 2px solid var(--color-focus-ring) !important;
+  outline-offset: 2px !important;
+}
+
+/* 输入错误状态 */
+.ant-input-status-error,
+.ant-input-affix-wrapper-status-error {
+  border-color: var(--color-danger) !important;
+}
+
+/* Inputs */
+.ant-input,
+.ant-input-affix-wrapper,
+.ant-select-selector {
+  border-radius: var(--radius-btn) !important;
+  border-color: rgba(20, 20, 19, 0.3) !important;
+  font-family: var(--font-family) !important;
+}
+
+.ant-input:hover,
+.ant-input-affix-wrapper:hover,
+.ant-select-selector:hover {
+  border-color: var(--color-ink) !important;
+}
+
+.ant-input:focus,
+.ant-input-affix-wrapper-focused {
+  border-color: var(--color-ink) !important;
+  box-shadow: 0 0 0 2px rgba(20, 20, 19, 0.1) !important;
+}
+
+.ant-select-focused .ant-select-selector {
+  border-color: var(--color-ink) !important;
+  box-shadow: 0 0 0 2px rgba(20, 20, 19, 0.1) !important;
+}
+
+/* Select Dropdown */
+.ant-select-dropdown {
+  border-radius: var(--radius-card) !important;
+  overflow: hidden;
+}
+
+.ant-select-item {
+  font-family: var(--font-family) !important;
+}
+
+/* Tables */
+.ant-table {
+  background: transparent !important;
+}
+
+.ant-table-container {
+  border-radius: var(--radius-card) !important;
+  overflow: hidden !important;
+}
+
+.ant-table-thead > tr > th {
+  background: var(--color-canvas) !important;
+  border-bottom: 1px solid var(--color-border) !important;
+  font-size: var(--font-size-xs) !important;
+  font-weight: 600 !important;
+  color: var(--color-text-secondary) !important;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-family: var(--font-family) !important;
+}
+
+.ant-table-tbody > tr > td {
+  border-bottom: 1px solid var(--color-border) !important;
+  font-family: var(--font-family) !important;
+}
+
+.ant-table-tbody > tr:hover > td {
+  background: var(--color-canvas) !important;
+}
+
+.ant-table-row:last-child > td {
+  border-bottom: none !important;
+}
+
+/* Modal */
+.ant-modal-content {
+  border-radius: var(--radius-card) !important;
+  background: var(--color-canvas-lifted) !important;
+  overflow: hidden;
+}
+
+.ant-modal-header {
+  border-radius: var(--radius-card) var(--radius-card) 0 0 !important;
+  background: var(--color-canvas-lifted) !important;
+}
+
+.ant-modal-footer {
+  border-top: 1px solid var(--color-border) !important;
+}
+
+/* Progress */
+.ant-progress-inner {
+  border-radius: var(--radius-pill) !important;
+  background: var(--color-canvas) !important;
+}
+
+.ant-progress-bg {
+  background: var(--color-ink) !important;
+}
+
+/* Tabs */
+.ant-tabs-nav {
+  font-family: var(--font-family) !important;
+}
+
+.ant-tabs-tab {
+  font-family: var(--font-family) !important;
+  font-weight: 500 !important;
+}
+
+.ant-tabs-tab-active .ant-tabs-tab-btn {
+  color: var(--color-ink) !important;
+}
+
+.ant-tabs-ink-bar {
+  background: var(--color-ink) !important;
+}
+
+/* Tag */
+.ant-tag {
+  border-radius: var(--radius-pill) !important;
+  font-family: var(--font-family) !important;
+  font-weight: 500 !important;
+}
+
+/* Pagination */
+.ant-pagination-item {
+  border-radius: var(--radius-pill) !important;
+  font-family: var(--font-family) !important;
+}
+
+.ant-pagination-item-active {
+  background: var(--color-ink) !important;
+  border-color: var(--color-ink) !important;
+}
+
+/* Spin */
+.ant-spin-dot-item {
+  background: var(--color-ink) !important;
+}
+
+/* Message */
+.ant-message-notice-content {
+  border-radius: var(--radius-btn) !important;
+  background: var(--color-ink) !important;
+  color: var(--color-canvas) !important;
+}
+
+/* Tooltip */
+.ant-tooltip-inner {
+  border-radius: var(--radius-btn) !important;
+  font-family: var(--font-family) !important;
+}
+
+/* Popover */
+.ant-popover-inner {
+  border-radius: var(--radius-btn) !important;
+}
+
+/* ============================================================
+   Error Boundary
+   ============================================================ */
+.error-boundary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40vh;
+  padding: var(--space-xl);
+}
+
+.error-boundary-content {
+  text-align: center;
+  max-width: 480px;
+}
+
+.error-boundary-icon {
+  font-size: 48px;
+  line-height: 1;
+  margin-bottom: var(--space-md);
+  color: var(--color-warning);
+}
+
+.error-boundary-content h2 {
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+  margin: 0 0 var(--space-sm);
+  color: var(--color-text-primary);
+}
+
+.error-boundary-message {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  margin: 0 0 var(--space-lg);
+}
+
+.error-boundary-actions {
+  display: flex;
+  gap: var(--space-sm);
+  justify-content: center;
+}
+
+.error-boundary-btn {
+  padding: var(--space-sm) var(--space-lg);
+  border: none;
+  border-radius: var(--radius-btn);
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  cursor: pointer;
+  background: var(--color-ink);
+  color: var(--color-canvas);
+  transition: opacity 0.15s;
+}
+
+.error-boundary-btn:hover {
+  opacity: 0.85;
+}
+
+.error-boundary-btn-secondary {
+  background: var(--color-canvas-lifted);
+  color: var(--color-text-primary);
+}
+
+.error-boundary-stack {
+  margin-top: var(--space-lg);
+  padding: var(--space-md);
+  background: var(--color-canvas);
+  border-radius: var(--radius-btn);
+  font-size: 11px;
+  text-align: left;
+  overflow-x: auto;
+  color: var(--color-text-secondary);
+  white-space: pre-wrap;
+  word-break: break-all;
+}

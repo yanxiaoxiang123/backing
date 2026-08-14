@@ -1,0 +1,212 @@
+/* ============================================
+   16. Page-Specific Styles
+   ============================================ */
+
+/* Dashboard */
+.dashboard-index-card {
+  background: var(--color-canvas-lifted);
+  border-radius: var(--radius-card);
+  padding: var(--space-lg);
+  cursor: pointer;
+  transition: all var(--transition-normal);
+}
+
+.dashboard-index-card:hover {
+  box-shadow: var(--shadow-hover);
+}
+
+.dashboard-chart-container {
+  background: var(--color-canvas-lifted);
+  border-radius: var(--radius-card);
+  padding: var(--space-lg);
+}
+
+.dashboard-watchlist-table {
+  background: var(--color-canvas-lifted);
+  border-radius: var(--radius-card);
+  overflow: hidden;
+}
+
+/* Agent Analysis */
+.agent-stage-card {
+  background: var(--color-canvas-lifted);
+  border-radius: var(--radius-btn);
+  padding: var(--space-md);
+  border-left: 3px solid var(--color-border);
+  transition: all var(--transition-fast);
+}
+
+.agent-stage-card.completed {
+  border-left-color: var(--color-success);
+}
+
+.agent-stage-card.running {
+  border-left-color: var(--color-ink);
+}
+
+.agent-stage-card.failed {
+  border-left-color: var(--color-danger);
+}
+
+.agent-decision-card {
+  background: var(--color-canvas-lifted);
+  border-radius: var(--radius-card);
+  padding: var(--space-xl);
+  text-align: center;
+}
+
+/* Stock Chart */
+.chart-container {
+  background: var(--color-canvas-lifted);
+  border-radius: var(--radius-card);
+  padding: var(--space-lg);
+}
+
+.chart-controls {
+  display: flex;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+}
+
+.chart-control-btn {
+  padding: var(--space-xs) var(--space-md);
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  border-radius: var(--radius-btn);
+  border: 1px solid var(--color-border-medium);
+  background: transparent;
+  color: var(--color-ink);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.chart-control-btn:hover {
+  background: var(--color-canvas);
+}
+
+.chart-control-btn.active {
+  background: var(--color-ink);
+  color: var(--color-canvas);
+  border-color: var(--color-ink);
+}
+
+/* Stock List / Screener */
+.filter-pill-group {
+  display: flex;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-md);
+}
+
+.filter-pill {
+  padding: var(--space-xs) var(--space-md);
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  border-radius: var(--radius-pill);
+  border: 1.5px solid var(--color-border-medium);
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.filter-pill:hover {
+  border-color: var(--color-ink);
+  color: var(--color-ink);
+}
+
+.filter-pill.active {
+  background: var(--color-ink);
+  color: var(--color-canvas);
+  border-color: var(--color-ink);
+}
+
+/* Backtest */
+.backtest-form-card {
+  background: var(--color-canvas-lifted);
+  border-radius: var(--radius-card);
+  padding: var(--space-xl);
+}
+
+.backtest-result-card {
+  background: var(--color-canvas-lifted);
+  border-radius: var(--radius-card);
+  padding: var(--space-lg);
+}
+
+/* Strategies */
+.strategy-card {
+  background: var(--color-canvas-lifted);
+  border-radius: var(--radius-card);
+  padding: var(--space-xl);
+  transition: all var(--transition-normal);
+}
+
+.strategy-card:hover {
+  box-shadow: var(--shadow-hover);
+}
+
+.strategy-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: var(--color-canvas);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: var(--space-md);
+}
+
+/* ============================================
+   Strategies 响应式布局
+   ============================================ */
+.strategies-layout {
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--space-lg);
+  align-items: start;
+}
+
+.strategies-layout > .strategy-list-panel {
+  position: sticky;
+  top: 80px;
+}
+
+/* 表格/图表局部滚动，避免撑破视口 */
+.strategy-results-panel .ant-table-wrapper {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+@media (max-width: 1023px) {
+  .strategies-layout {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .strategies-layout > .strategy-list-panel {
+    position: static;
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 767px) {
+  .strategies-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Responsive */
+@media (max-width: 767px) {
+  .app-content {
+    padding: var(--space-md);
+  }
+
+  .page-header {
+    padding-top: 72px;
+  }
+
+  .mc-card {
+    padding: var(--space-md);
+    border-radius: var(--radius-btn);
+  }
+}
+

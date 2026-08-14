@@ -3,9 +3,10 @@ import { Card, Select, Button, Table, Tag, message, Tabs, Progress, Row, Col, Mo
 import { PlayCircleOutlined, PauseCircleOutlined, HistoryOutlined, TrophyOutlined, AlertOutlined, StockOutlined, ThunderboltOutlined, EyeOutlined, CopyOutlined, DownloadOutlined } from '@ant-design/icons'
 import ReactECharts from 'echarts-for-react'
 import type { EChartsOption } from 'echarts'
-import { getJobStatus, submitAnalyzeStock, getAnalysisHistory, getAnalysisDetail, cancelJob, getStockIndicators } from '../services/api'
+import { submitAnalyzeStock, getAnalysisHistory, getAnalysisDetail, cancelJob, getStockIndicators, getApiErrorMessage } from '../services/api'
 import StockSearch from '../components/StockSearch'
-import type { AgentAnalyzeRequest, AnalysisRecord, AgentAnalyzeResponse, AgentStage, JobStatus, KlineIndicator } from '../types'
+import { useJobPolling } from '../hooks/useJobPolling'
+import type { AgentAnalyzeRequest, AnalysisRecord, AgentAnalyzeResponse, AgentStage, KlineIndicator } from '../types'
 import { logger } from '../utils/logger'
 import { DecisionCard } from '../components/analysis/DecisionCard'
 import { StageCard } from '../components/analysis/StageCard'
@@ -72,14 +73,16 @@ export default function AgentAnalysis() {
 
       const submission = await submitAnalyzeStock(request)
       setCurrentJobId(submission.job_id)
-      const data = await waitForJob<AgentAnalyzeResponse>(
+      const data = await waitForJob(
         submission.job_id,
-        (job) => {
-          setJobProgress(Math.round((job.progress || 0) * 100))
-          const stages = (job.payload as { stages?: AgentStage[] })?.stages
-          if (stages) {
-            setJobStages(stages)
-          }
+        {
+          onStatus: (job) => {
+            setJobProgress(Math.round((job.progress || 0) * 100))
+            const stages = (job.payload as { stages?: AgentStage[] })?.stages
+            if (stages) {
+              setJobStages(stages)
+            }
+          },
         },
       )
       setResult(data)
@@ -107,7 +110,7 @@ export default function AgentAnalysis() {
       if (errMsg === 'Cancelled' || errMsg === 'Job cancelled by user') {
         message.info('分析已暂停')
       } else {
-        message.error(errMsg || '分析失败，请检查API配置')
+        message.error(getApiErrorMessage(error))
       }
     } finally {
       setAnalyzing(false)
@@ -125,22 +128,8 @@ export default function AgentAnalysis() {
     }
   }
 
-  const waitForJob = async <T,>(
-    jobId: string,
-    onProgress?: (job: JobStatus<T>) => void,
-  ): Promise<T> => {
-    while (true) {
-      const job = await getJobStatus<T>(jobId)
-      if (job.status === 'completed') {
-        return job.result as T
-      }
-      if (job.status === 'failed') {
-        throw new Error(job.error || job.message || '任务执行失败')
-      }
-      onProgress?.(job)
-      await new Promise(resolve => setTimeout(resolve, 1500))
-    }
-  }
+  // 统一任务轮询（默认 10 分钟超时；卸载自动取消）
+  const { waitForJob } = useJobPolling<AgentAnalyzeResponse>({ timeoutMs: 600000 })
 
   const getSignalColor = (signal: string) => {
     switch (signal) {

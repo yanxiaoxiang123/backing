@@ -1,0 +1,84 @@
+/* ============================================
+   1. CSS Custom Properties (Design Tokens)
+   ============================================ */
+:root {
+  /* Primary Surfaces */
+  --color-canvas: #F3F0EE;           /* Page background - warm putty cream */
+  --color-canvas-lifted: #FCFBFA;     /* Card backgrounds - elevated surfaces */
+  --color-white: #FFFFFF;             /* Navigation, modals, select backgrounds */
+
+  /* Brand Colors */
+  --color-ink: #141413;               /* Primary text, primary CTAs, footer */
+  --color-charcoal: #262627;          /* Secondary text variant */
+  --color-accent: #CF4500;           /* Signal Orange - consent/legal ONLY */
+  --color-accent-light: #F37338;      /* Light Signal Orange - decorative arcs */
+  --color-clay: #9A3A0A;              /* Deep rust - secondary link buttons */
+
+  /* Stock Semantic Colors */
+  --color-up: #FF3B30;               /* Stock price up (China standard) */
+  --color-down: #34C759;              /* Stock price down */
+  --color-flat: #86868B;              /* Unchanged price */
+
+  /* Functional Colors */
+  --color-success: #34C759;
+  --color-success-light: rgba(52, 199, 89, 0.1);
+  --color-danger: #FF3B30;
+  --color-danger-light: rgba(255, 59, 48, 0.1);
+  --color-warning: #F79E1B;
+  --color-warning-light: rgba(247, 158, 27, 0.1);
+
+  /* Background Colors */
+  --color-bg-secondary: rgba(0, 0, 0, 0.04);
+
+  /* Text Colors */
+  --color-text-primary: var(--color-ink);
+  --color-text-secondary: #696969;    /* Slate Gray */
+  --color-text-tertiary: #D1CDC7;     /* Dust Taupe - whisper text */
+  --color-text-disabled: #A8A5A0;     /* Disabled text (readable on light bg) */
+  --color-bg-disabled: rgba(20, 20, 19, 0.07);
+  --color-border-disabled: rgba(20, 20, 19, 0.16);
+
+  /* Focus ring (WCAG visible focus) */
+  --color-focus-ring: var(--color-accent);
+
+  /* Borders */
+  --color-border: rgba(0, 0, 0, 0.06);
+  --color-border-medium: rgba(0, 0, 0, 0.12);
+
+  /* Shadows */
+  --shadow-nav: rgba(0, 0, 0, 0.04) 0px 4px 24px 0px;
+  --shadow-card: rgba(0, 0, 0, 0.08) 0px 24px 48px 0px;
+  --shadow-hover: rgba(0, 0, 0, 0.12) 0px 24px 48px 0px;
+
+  /* Border Radius Scale */
+  --radius-sm: 6px;
+  --radius-btn: 20px;
+  --radius-card: 40px;
+  --radius-pill: 999px;
+
+  /* Spacing Scale */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+  --space-2xl: 48px;
+  --space-3xl: 64px;
+
+  /* Typography */
+  --font-family: 'Sofia Sans', -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
+  --font-size-xs: 11px;
+  --font-size-sm: 13px;
+  --font-size-base: 14px;
+  --font-size-md: 17px;
+  --font-size-lg: 20px;
+  --font-size-xl: 24px;
+  --font-size-2xl: 28px;
+  --font-size-3xl: 34px;
+
+  /* Transitions */
+  --transition-fast: 0.15s ease;
+  --transition-normal: 0.25s ease;
+  --transition-slow: 0.4s ease;
+}
+

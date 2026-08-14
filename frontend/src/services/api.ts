@@ -55,34 +55,70 @@ export async function initSession(): Promise<void> {
   }
 }
 
-// 全局响应拦截器 — 统一错误提示
+// 提取后端统一错误体里的可读信息
+function extractUserMessage(error: unknown): string | undefined {
+  if (axios.isAxiosError(error)) {
+    const data = error.response?.data as { error?: { message?: string } } | undefined
+    if (data?.error?.message) return data.error.message
+  }
+  return undefined
+}
+
+export interface ApiError extends Error {
+  status?: number
+  /** 后端返回的可读错误信息（业务错误），由页面负责呈现。 */
+  userMessage?: string
+}
+
+/** 从任意异常中提取面向用户的错误文案（供页面 catch 后展示）。 */
+export function getApiErrorMessage(error: unknown): string {
+  if (axios.isAxiosError(error)) {
+    const backendMsg = extractUserMessage(error)
+    if (backendMsg) return backendMsg
+    if (error.code === 'ECONNABORTED') return '请求超时，请稍后重试'
+    if (error.response) {
+      const status = error.response.status
+      if (status >= 500) return '服务器开小差了，请稍后重试'
+    } else {
+      return '网络异常，请检查网络后重试'
+    }
+    if (error.message) return error.message
+  }
+  if (error instanceof Error && error.message) return error.message
+  return '请求失败，请稍后重试'
+}
+
+// 全局响应拦截器 — 错误归属：全局只处理认证/未知错误，业务错误由页面呈现。
+// 认证错误（401/403）静默，由页面/会话逻辑处理；业务错误（有响应体）把可读
+// 信息挂到 error.userMessage 上透传给页面，避免与页面自己的 toast 重复；
+// 仅网络层未知错误（超时/断网）在此做全局兜底提示。
 api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (!axios.isAxiosError(error)) {
-      // 非网络错误 —— 直接透传
+      // 非网络错误 —— 透传并全局兜底提示
+      message.error(getApiErrorMessage(error))
       return Promise.reject(error)
     }
 
     const status = error.response?.status
-    const data = error.response?.data as Record<string, unknown> | undefined
-
-    // 提取后端统一错误体 { error: { code, message } }
-    const backendMsg =
-      (data?.error as Record<string, unknown> | undefined)?.message as string | undefined
-
-    const userMessage = backendMsg || error.message || '请求失败'
 
     // 401/403 静默（由页面自行处理跳转登录）
     if (status === 401 || status === 403) {
-      console.warn(`[api] ${status} ${error.config?.url}: ${userMessage}`)
+      console.warn(`[api] ${status} ${error.config?.url}`)
       return Promise.reject(error)
     }
 
-    // 其它错误 —— toast 提示
-    if (status !== 422) {
-      // 422 通常是表单校验错误，由调用方按字段处理，不 toast
-      message.error(userMessage)
+    const userMessage = extractUserMessage(error) || error.message || '请求失败'
+
+    if (error.response) {
+      // 业务错误：挂到 error 上，由页面呈现（避免重复 toast）
+      const apiError = error as ApiError
+      apiError.status = status
+      apiError.userMessage = userMessage
+    } else {
+      // 网络层未知错误（无响应）：全局兜底提示
+      message.error(getApiErrorMessage(error))
     }
 
     return Promise.reject(error)
@@ -335,8 +371,8 @@ export async function getAnalysisDetail(recordId: number): Promise<AgentAnalyzeR
   return response.data
 }
 
-export async function getJobStatus<T = Record<string, unknown>>(jobId: string): Promise<JobStatus<T>> {
-  const response = await api.get<JobStatus<T>>(`/jobs/${jobId}`)
+export async function getJobStatus<T = Record<string, unknown>>(jobId: string, signal?: AbortSignal): Promise<JobStatus<T>> {
+  const response = await api.get<JobStatus<T>>(`/jobs/${jobId}`, { signal })
   return response.data
 }
 

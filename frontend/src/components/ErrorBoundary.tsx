@@ -61,7 +61,7 @@ class ErrorBoundary extends Component<Props, State> {
                 刷新页面
               </button>
             </div>
-            {process.env.NODE_ENV === 'development' && this.state.error?.stack && (
+            {import.meta.env.DEV && this.state.error?.stack && (
               <pre className="error-boundary-stack">{this.state.error.stack}</pre>
             )}
           </div>

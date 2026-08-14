@@ -1,0 +1,211 @@
+/* ============================================
+   3. Layout
+   ============================================ */
+.app-layout {
+  min-height: 100vh;
+  background: var(--color-canvas);
+}
+
+.app-content {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: var(--space-xl) var(--space-lg);
+}
+
+/* ============================================
+   4. Floating Pill Navigation
+   ============================================ */
+.nav-pill-container {
+  position: fixed;
+  top: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  width: calc(100% - 96px);
+  max-width: 1200px;
+}
+
+.nav-pill {
+  background: var(--color-white);
+  border-radius: var(--radius-pill);
+  box-shadow: var(--shadow-nav);
+  padding: var(--space-sm) var(--space-lg);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+}
+
+.nav-logo {
+  font-size: var(--font-size-md);
+  font-weight: 600;
+  color: var(--color-ink);
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.nav-logo:hover {
+  text-decoration: none;
+}
+
+.nav-links {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  flex: 1;
+  justify-content: center;
+}
+
+.nav-item {
+  padding: var(--space-sm) var(--space-md);
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  text-decoration: none;
+  border-radius: var(--radius-pill);
+  transition: all var(--transition-fast);
+  cursor: pointer;
+  position: relative;
+  white-space: nowrap;
+}
+
+.nav-item:hover {
+  color: var(--color-ink);
+  background: rgba(0, 0, 0, 0.04);
+  text-decoration: none;
+}
+
+.nav-item.active {
+  color: var(--color-ink);
+  font-weight: 500;
+}
+
+.nav-item.active::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 4px;
+  height: 4px;
+  background: var(--color-accent);
+  border-radius: 50%;
+}
+
+.nav-search-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: var(--color-ink);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-fast);
+}
+
+.nav-search-btn:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+/* Mobile Navigation */
+.nav-mobile-toggle {
+  display: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+}
+
+.nav-mobile-overlay {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(20, 20, 19, 0.95);
+  z-index: 999;
+  padding: var(--space-3xl) var(--space-lg);
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.nav-mobile-overlay.open {
+  display: flex;
+}
+
+.nav-mobile-overlay .nav-item {
+  font-size: var(--font-size-lg);
+  color: var(--color-white);
+  padding: var(--space-md);
+}
+
+.nav-mobile-overlay .nav-item.active {
+  color: var(--color-accent-light);
+}
+
+.nav-mobile-close {
+  position: absolute;
+  top: 24px;
+  right: 24px;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--color-white);
+  cursor: pointer;
+  font-size: 24px;
+}
+
+@media (max-width: 1023px) {
+  .nav-links {
+    display: none;
+  }
+  .nav-mobile-toggle {
+    display: flex;
+  }
+  .nav-pill-container {
+    width: calc(100% - 48px);
+  }
+}
+
+@media (max-width: 767px) {
+  .nav-pill-container {
+    top: 16px;
+    width: calc(100% - 32px);
+  }
+  .nav-pill {
+    padding: var(--space-sm) var(--space-md);
+  }
+}
+
+/* ============================================
+   5. Page Headers
+   ============================================ */
+.page-header {
+  margin-bottom: var(--space-xl);
+  padding-top: 80px; /* Account for fixed nav */
+}
+
+.page-title {
+  font-size: var(--font-size-2xl);
+  font-weight: 600;
+  color: var(--color-text-primary);
+  letter-spacing: -0.02em;
+  margin-bottom: var(--space-xs);
+}
+
+.page-subtitle {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+

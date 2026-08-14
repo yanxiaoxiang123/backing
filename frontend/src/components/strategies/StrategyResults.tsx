@@ -30,7 +30,10 @@ export function StrategyResults({
   const isLoading = loading.signals || loading.backtest
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-lg)' }}>
+    <div
+      className="strategy-results-panel"
+      style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-lg)', minWidth: 0 }}
+    >
       {/* Chart */}
       <Card
         title="信号预览"

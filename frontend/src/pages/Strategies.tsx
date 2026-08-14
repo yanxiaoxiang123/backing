@@ -6,12 +6,13 @@ import {
   generateSignals,
   runStrategyBacktest,
   submitOptimizeParameters,
-  getJobStatus,
   getStockIndicators,
   compareStrategies,
+  getApiErrorMessage,
 } from '../services/api'
 import { logger } from '../utils/logger'
 import { usePersistedState } from '../hooks/usePersistedState'
+import { useJobPolling } from '../hooks/useJobPolling'
 import { getChartOption, KlineData } from '../utils/chart'
 import dayjs from 'dayjs'
 import { StrategyList } from '../components/strategies/StrategyList'
@@ -57,6 +58,9 @@ function Strategies() {
   // Comparison state
   const [compareResult, setCompareResult] = useState<CompareResponse | null>(null)
   const [loadingCompare, setLoadingCompare] = useState(false)
+
+  // 统一的任务轮询（超时/取消/卸载清理/指数退避）
+  const { waitForJob } = useJobPolling<OptimizeResponse>({ timeoutMs: 600000 })
 
   // Load strategies on mount
   useEffect(() => {
@@ -188,17 +192,17 @@ function Strategies() {
         param_grid: paramGrid,
         metric: 'sharpe_ratio'
       })
-      const response = await waitForJob<OptimizeResponse>(submission.job_id)
+      const response = await waitForJob(submission.job_id)
       setOptimizeResult(response)
       setParameters(response.best_params)
       message.success(`优化完成，最佳夏普比率: ${response.best_score.toFixed(4)}`)
     } catch (error) {
-      message.error('参数优化失败')
+      message.error(getApiErrorMessage(error))
       logger.error(error)
     } finally {
       setLoadingOptimize(false)
     }
-  }, [selectedStrategy, stockCode, dateRange, initialCapital, strategies])
+  }, [selectedStrategy, stockCode, dateRange, initialCapital, strategies, waitForJob])
 
   const handleCompare = useCallback(async () => {
     if (!stockCode || !dateRange[0] || !dateRange[1]) {
@@ -217,25 +221,12 @@ function Strategies() {
       setCompareResult(response)
       message.success(`对比完成: ${response.total_strategies} 个策略`)
     } catch (error) {
-      message.error('策略对比失败')
+      message.error(getApiErrorMessage(error))
       logger.error(error)
     } finally {
       setLoadingCompare(false)
     }
   }, [stockCode, dateRange, initialCapital])
-
-  const waitForJob = async <T,>(jobId: string): Promise<T> => {
-    while (true) {
-      const job = await getJobStatus<T>(jobId)
-      if (job.status === 'completed') {
-        return job.result as T
-      }
-      if (job.status === 'failed') {
-        throw new Error(job.error || job.message || '任务执行失败')
-      }
-      await new Promise(resolve => setTimeout(resolve, 1500))
-    }
-  }
 
   const getCurrentChartOption = useMemo(() => getChartOption(klineData, signals, backtestResult), [klineData, signals, backtestResult])
 
@@ -250,7 +241,7 @@ function Strategies() {
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '280px 1fr 1fr', gap: 'var(--space-lg)', alignItems: 'start' }}>
+      <div className="strategies-layout">
         <StrategyList
           strategies={strategies}
           selectedStrategy={selectedStrategy}

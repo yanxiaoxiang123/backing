@@ -10,6 +10,7 @@ interface StockSearchProps {
   style?: React.CSSProperties
   watchlistCodes?: string[]
   disabled?: boolean
+  autoFocus?: boolean
 }
 
 export default function StockSearch({
@@ -19,6 +20,7 @@ export default function StockSearch({
   style,
   watchlistCodes,
   disabled,
+  autoFocus,
 }: StockSearchProps) {
   const { loading, search, trackSelection } = useStockSearch()
   const [query, setQuery] = useState('')
@@ -47,6 +49,7 @@ export default function StockSearch({
       notFoundContent={loading ? <Spin size="small" /> : query ? '无匹配结果' : undefined}
       loading={loading}
       disabled={disabled}
+      autoFocus={autoFocus}
       labelRender={() => selectedLabel || value || ''}
       options={options.map(o => ({
         value: o.code,
