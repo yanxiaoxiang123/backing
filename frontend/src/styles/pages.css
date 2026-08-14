@@ -210,3 +210,41 @@
   }
 }
 
+/* ===== 登录页 ===== */
+.login-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-lg);
+  background: var(--color-bg);
+}
+
+.login-card {
+  width: 100%;
+  max-width: 380px;
+  padding: var(--space-xl);
+  background: var(--color-canvas-lifted);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+}
+
+.login-title {
+  margin-bottom: var(--space-xs) !important;
+  text-align: center;
+}
+
+.login-subtitle {
+  margin-bottom: var(--space-lg) !important;
+  text-align: center;
+}
+
+.auth-loading {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-secondary);
+  font-size: 15px;
+}

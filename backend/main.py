@@ -2,7 +2,7 @@ import logging
 from contextlib import asynccontextmanager
 
 import pymysql
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
@@ -12,18 +12,23 @@ from starlette.middleware.sessions import SessionMiddleware
 
 import app.services.strategy  # side-effect import: registers built-in strategies
 from app.api.agent import router as agent_router
+from app.api.auth import router as auth_router
 from app.api.dl_prediction import router as dl_prediction_router
 from app.api.realtime import router as realtime_router
 from app.api.routes import router
 from app.api.screener_agent import router as screener_agent_router
 from app.api.strategies import router as strategies_router
 from app.api.watchlist import router as watchlist_router
-from app.auth import validate_api_key
-from app.config import SessionLocal, engine, settings
+from app.config import (
+    SessionLocal,
+    assert_safe_production_settings,
+    engine,
+    settings,
+)
 from app.error_handlers import register_error_handlers
 from app.limiter import limiter
 from app.logging_config import setup_logging
-from app.middleware import RequestLoggingMiddleware
+from app.middleware import CsrfMiddleware, RequestLoggingMiddleware
 from app.models.models import Strategy
 from app.services.job_store import job_store
 from app.services.tasks import get_task_executor
@@ -146,30 +151,32 @@ app.add_middleware(
 
 # Session cookie middleware – signs the cookie so frontend can't tamper with it.
 # Data is stored client-side (signed cookie). The secret key must be persistent
-# across restarts so existing sessions remain valid.
-app.add_middleware(SessionMiddleware, secret_key=settings.session_secret)
+# across restarts so existing sessions remain valid. Cookie is short-lived
+# (SESSION_MAX_AGE_S), SameSite=Lax, and HTTPS-only in production.
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=settings.session_secret,
+    max_age=settings.SESSION_MAX_AGE_S,
+    same_site=settings.SESSION_SAMESITE,
+    https_only=settings.SESSION_HTTPS_ONLY,
+)
+
+# CSRF: double-submit token required for cookie-authenticated mutations.
+app.add_middleware(CsrfMiddleware)
+
+# Fail fast: never run production with the default session secret or an
+# HTTPS-only disabled session cookie.
+assert_safe_production_settings(settings)
 
 # Include routers
 app.include_router(router, prefix="/api/v1", tags=["api"])
+app.include_router(auth_router)
 app.include_router(realtime_router, prefix="/api/v1", tags=["realtime"])
 app.include_router(strategies_router)
 app.include_router(agent_router, prefix="/api/v1", tags=["agent"])
 app.include_router(dl_prediction_router, prefix="/api/v1/dl", tags=["dl"])
 app.include_router(watchlist_router)
 app.include_router(screener_agent_router, prefix="/api/v1", tags=["screener_agent"])
-
-
-@app.post("/api/v1/auth/session")
-async def create_session(request: Request) -> dict:
-    """Exchange an API key for an HTTP-only session cookie.
-
-    The frontend calls this once on startup so the API key is never exposed
-    in subsequent XHR requests (which only carry the session cookie).
-    """
-    body = await request.json()
-    validate_api_key(body.get("api_key", ""))
-    request.session["authenticated"] = True
-    return {"success": True}
 
 
 @app.get("/")

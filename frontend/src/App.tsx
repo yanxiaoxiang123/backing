@@ -1,6 +1,11 @@
 import { Routes, Route, Navigate, NavLink, Link, useNavigate } from 'react-router-dom'
 import { useEffect, useRef, useState } from 'react'
-import { SearchOutlined, MenuOutlined, CloseOutlined } from '@ant-design/icons'
+import {
+  SearchOutlined,
+  MenuOutlined,
+  CloseOutlined,
+  LogoutOutlined,
+} from '@ant-design/icons'
 import { Modal } from 'antd'
 
 import Dashboard from './pages/Dashboard'
@@ -14,8 +19,15 @@ import DLPrediction from './pages/DLPrediction'
 import Watchlist from './pages/Watchlist'
 import ErrorBoundary from './components/ErrorBoundary'
 import StockSearch from './components/StockSearch'
-import { initSession } from './services/api'
+import Login from './pages/Login'
 import Screener from './pages/Screener'
+import {
+  bootstrapAuth,
+  getAuthState,
+  logout,
+  onAuthChange,
+  type AuthState,
+} from './services/api'
 
 const navItems = [
   { key: '/', label: '仪表盘' },
@@ -26,20 +38,23 @@ const navItems = [
   { key: '/dl-prediction', label: 'DL预测' },
   { key: '/backtest', label: '回测执行' },
   { key: '/history', label: '回测历史' },
-  { key: '/agent', label: 'AI分析' }
+  { key: '/agent', label: 'AI分析' },
 ]
 
 function App() {
   const navigate = useNavigate()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
+  const [authState, setAuthState] = useState<AuthState>(getAuthState())
   const toggleRef = useRef<HTMLButtonElement>(null)
   const overlayRef = useRef<HTMLDivElement>(null)
 
-  // 初始化 session cookie（用 API key 换一次 cookie，避免 key 暴露在 bundle 中）
-  useEffect(() => { initSession() }, [])
-
-  const closeMobileMenu = () => setMobileMenuOpen(false)
+  // 会话探测：无有效 HttpOnly session cookie 时进入未认证状态（跳转登录页）
+  useEffect(() => {
+    const unsubscribe = onAuthChange(setAuthState)
+    void bootstrapAuth()
+    return unsubscribe
+  }, [])
 
   // 移动端菜单：Escape 关闭、打开时聚焦关闭按钮、Tab 焦点圈定、关闭后焦点归还
   useEffect(() => {
@@ -54,7 +69,7 @@ function App() {
       }
       if (e.key !== 'Tab' || !overlay) return
       const focusables = Array.from(
-        overlay.querySelectorAll<HTMLElement>('a[href], button:not([disabled])')
+        overlay.querySelectorAll<HTMLElement>('a[href], button:not([disabled])'),
       )
       if (focusables.length === 0) return
       const first = focusables[0]
@@ -82,6 +97,28 @@ function App() {
   const navLinkClass = ({ isActive }: { isActive: boolean }) =>
     `nav-item${isActive ? ' active' : ''}`
 
+  // 未认证：只渲染登录页
+  if (authState === 'unauthenticated') {
+    return (
+      <Routes>
+        <Route path="/login" element={<Login />} />
+        <Route path="*" element={<Navigate to="/login" replace />} />
+      </Routes>
+    )
+  }
+
+  // 探测中：避免闪现登录页
+  if (authState === 'unknown') {
+    return <div className="auth-loading">加载中…</div>
+  }
+
+  const handleLogout = async () => {
+    await logout()
+    navigate('/login', { replace: true })
+  }
+
+  const closeMobileMenu = () => setMobileMenuOpen(false)
+
   return (
     <div className="app-layout">
       {/* Floating Pill Navigation */}
@@ -93,7 +130,7 @@ function App() {
 
           {/* Desktop Navigation */}
           <div className="nav-links">
-            {navItems.map(item => (
+            {navItems.map((item) => (
               <NavLink
                 key={item.key}
                 to={item.key}
@@ -112,6 +149,16 @@ function App() {
             onClick={() => setSearchOpen(true)}
           >
             <SearchOutlined />
+          </button>
+
+          {/* Logout */}
+          <button
+            className="nav-search-btn"
+            aria-label="退出登录"
+            title="退出登录"
+            onClick={handleLogout}
+          >
+            <LogoutOutlined />
           </button>
 
           {/* Mobile Menu Toggle */}
@@ -144,7 +191,7 @@ function App() {
         >
           <CloseOutlined />
         </button>
-        {navItems.map(item => (
+        {navItems.map((item) => (
           <NavLink
             key={item.key}
             to={item.key}
@@ -187,6 +234,7 @@ function App() {
             <Route path="/backtest" element={<Backtest />} />
             <Route path="/history" element={<BacktestHistory />} />
             <Route path="/agent" element={<AgentAnalysis />} />
+            <Route path="/login" element={<Navigate to="/" replace />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </ErrorBoundary>

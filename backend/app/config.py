@@ -29,6 +29,13 @@ class Settings(BaseSettings):
     # API 认证配置
     API_KEY: str | None = None  # 用于 API 认证的密钥，为 None 时表示禁用认证
     SESSION_SECRET: str | None = None  # session cookie 签名密钥，默认用 API_KEY
+    # 运行环境：development | production。production 下若 Session secret 仍为
+    # 默认值，服务启动直接拒绝（防止用默认密钥上线）。
+    APP_ENV: str = "development"
+    # Session cookie 参数：短期 HttpOnly cookie（SameSite + https_only + 过期）
+    SESSION_MAX_AGE_S: int = 8 * 3600  # 8 小时
+    SESSION_SAMESITE: str = "lax"  # lax | strict | none
+    SESSION_HTTPS_ONLY: bool = False  # production 必须为 True（仅 HTTPS 发送）
 
     # Agent 配置
     DEEPSEEK_API_KEY: str | None = None
@@ -97,6 +104,10 @@ class Settings(BaseSettings):
         return self.SESSION_SECRET or self.API_KEY or "dev-session-secret-do-not-use-in-prod"
 
     @property
+    def is_production(self) -> bool:
+        return self.APP_ENV.lower() == "production"
+
+    @property
     def bootstrap_database_url(self) -> str | None:
         if self.DB_BOOTSTRAP_URL:
             return self.DB_BOOTSTRAP_URL
@@ -105,6 +116,30 @@ class Settings(BaseSettings):
         if url.drivername.startswith("mysql") and url.database:
             return str(url.set(database=None))
         return None
+
+
+# 开发环境的 Session 签名密钥回退值（生产禁止使用）
+DEV_SESSION_SECRET = "dev-session-secret-do-not-use-in-prod"
+
+
+def assert_safe_production_settings(s: Settings) -> None:
+    """生产模式安全校验：拒绝使用默认 Session secret / 明文 cookie。
+
+    main.py 启动时调用；校验失败直接抛错阻止启动。
+    """
+    if not s.is_production:
+        return
+    if s.session_secret == DEV_SESSION_SECRET:
+        raise RuntimeError(
+            "Refusing to start in production: SESSION_SECRET is not configured "
+            "(using the development fallback). Set SESSION_SECRET (and API_KEY) "
+            "in backend/.env before deploying."
+        )
+    if not s.SESSION_HTTPS_ONLY:
+        raise RuntimeError(
+            "Refusing to start in production: SESSION_HTTPS_ONLY must be True "
+            "(session cookie would otherwise be sent over plain HTTP)."
+        )
 
 
 settings = Settings()

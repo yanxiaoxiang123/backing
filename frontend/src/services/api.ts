@@ -26,34 +26,87 @@ import type {
   ScreenerRequest,
   ScreenerResponse,
   CompareRequest,
-  CompareResponse
+  CompareResponse,
 } from '../types'
 
 const api = axios.create({
   baseURL: '/api/v1',
-  timeout: 120000  // 120秒超时，分析需要较长时间
+  timeout: 120000, // 120秒超时，分析需要较长时间
 })
 
-// Session cookie 认证 — 启动时用 API key 换一次 session cookie
-let _sessionInited = false
+// ---------------------------------------------------------------------------
+// 会话认证
+//
+// 后端签发短期 HttpOnly session cookie（SameSite=Lax，生产 https_only）。
+// API key 只在登录时经一次 POST /api/v1/auth/session 提交，随后即被丢弃：
+// 不写入 bundle（无 VITE_API_KEY）、不写 localStorage、不进任何请求头。
+// 状态变更请求携带后端登录时下发的 csrf_token cookie（double-submit）。
+// ---------------------------------------------------------------------------
 
-export async function initSession(): Promise<void> {
-  if (_sessionInited) return
-  _sessionInited = true
+export type AuthState = 'unknown' | 'authenticated' | 'unauthenticated'
 
-  const apiKey = import.meta.env.VITE_API_KEY
-  if (!apiKey) return
+let _authState: AuthState = 'unknown'
+const _authListeners = new Set<(state: AuthState) => void>()
 
-  try {
-    await axios.post('/api/v1/auth/session', { api_key: apiKey }, {
-      baseURL: '',
-      // withCredentials 由 Cookie 自动携带
-    } as any)
-  } catch {
-    // session 初始化失败不影响后续请求（会回退到 X-API-Key 或 401）
-    console.warn('[api] session init failed, requests may fall back to header auth')
+export function getAuthState(): AuthState {
+  return _authState
+}
+
+function setAuthState(state: AuthState): void {
+  if (_authState === state) return
+  _authState = state
+  _authListeners.forEach((fn) => fn(state))
+}
+
+/** 订阅认证状态变化，返回取消订阅函数。 */
+export function onAuthChange(fn: (state: AuthState) => void): () => void {
+  _authListeners.add(fn)
+  return () => {
+    _authListeners.delete(fn)
   }
 }
+
+function readCsrfToken(): string {
+  const match = document.cookie.match(/(?:^|;\s*)csrf_token=([^;]+)/)
+  return match ? decodeURIComponent(match[1]) : ''
+}
+
+/** 启动时探测会话：无有效 cookie 则进入未认证状态（跳转登录页）。 */
+export async function bootstrapAuth(): Promise<void> {
+  try {
+    const response = await axios.get('/api/v1/auth/me', { baseURL: '' })
+    setAuthState(response.data?.authenticated ? 'authenticated' : 'unauthenticated')
+  } catch {
+    setAuthState('unauthenticated')
+  }
+}
+
+/** 用 API key 换短期 HttpOnly session cookie（key 不落盘、不进 bundle）。 */
+export async function loginWithApiKey(apiKey: string): Promise<void> {
+  await axios.post('/api/v1/auth/session', { api_key: apiKey }, { baseURL: '' })
+  setAuthState('authenticated')
+}
+
+export async function logout(): Promise<void> {
+  try {
+    await axios.post('/api/v1/auth/logout', {}, { baseURL: '' })
+  } finally {
+    setAuthState('unauthenticated')
+  }
+}
+
+// 状态变更请求自动携带 CSRF token（double-submit）
+api.interceptors.request.use((config) => {
+  const method = (config.method || 'get').toUpperCase()
+  if (method !== 'GET' && method !== 'HEAD' && method !== 'OPTIONS') {
+    const token = readCsrfToken()
+    if (token) {
+      config.headers = config.headers || {}
+      config.headers['X-CSRF-Token'] = token
+    }
+  }
+  return config
+})
 
 // 提取后端统一错误体里的可读信息
 function extractUserMessage(error: unknown): string | undefined {
@@ -105,6 +158,10 @@ api.interceptors.response.use(
 
     // 401/403 静默（由页面自行处理跳转登录）
     if (status === 401 || status === 403) {
+      // 业务接口 401 = 会话失效/未登录 → 进入未认证状态（跳转登录页）
+      if (status === 401 && !(error.config?.url || '').includes('/auth/')) {
+        setAuthState('unauthenticated')
+      }
       console.warn(`[api] ${status} ${error.config?.url}`)
       return Promise.reject(error)
     }
@@ -122,7 +179,7 @@ api.interceptors.response.use(
     }
 
     return Promise.reject(error)
-  }
+  },
 )
 
 // Stock APIs
@@ -143,7 +200,7 @@ export async function getStocks(
   return {
     items,
     total: Number(response.headers['x-total-count'] || items.length),
-    nextCursor
+    nextCursor,
   }
 }
 
@@ -172,7 +229,7 @@ export async function getStock(code: string): Promise<Stock> {
 export async function getStockKline(
   code: string,
   startDate?: string,
-  endDate?: string
+  endDate?: string,
 ): Promise<DailyKline[]> {
   const params = new URLSearchParams()
   if (startDate) params.append('start_date', startDate)
@@ -185,7 +242,7 @@ export async function getStockIndicators(
   code: string,
   period = 'daily',
   startDate?: string,
-  endDate?: string
+  endDate?: string,
 ): Promise<KlineResponse> {
   const params = new URLSearchParams()
   params.append('period', period)
@@ -208,7 +265,7 @@ export async function syncStocks(): Promise<SyncResponse> {
 export async function syncKline(
   stockCodes?: string[],
   startDate?: string,
-  endDate?: string
+  endDate?: string,
 ): Promise<SyncResponse> {
   const params: Record<string, string> = {}
   if (startDate) {
@@ -218,7 +275,7 @@ export async function syncKline(
     params.end_date = endDate
   }
   const response = await api.post<SyncResponse>('/stocks/sync-kline', stockCodes, {
-    params
+    params,
   })
   return response.data
 }
@@ -230,12 +287,16 @@ export async function submitSyncStocks(): Promise<JobSubmission> {
 
 export async function submitSyncKline(
   stockCodes?: string[],
-  strategy: 'incremental' | 'full' = 'incremental'
+  strategy: 'incremental' | 'full' = 'incremental',
 ): Promise<JobSubmission> {
   const params: Record<string, string> = { strategy }
-  const response = await api.post<JobSubmission>('/stocks/sync-kline/submit', stockCodes, {
-    params
-  })
+  const response = await api.post<JobSubmission>(
+    '/stocks/sync-kline/submit',
+    stockCodes,
+    {
+      params,
+    },
+  )
   return response.data
 }
 
@@ -247,14 +308,14 @@ export async function getIndexList(): Promise<IndexInfo[]> {
 export async function submitSyncIndices(
   indexCodes?: string[],
   startDate = '2020-01-01',
-  endDate?: string
+  endDate?: string,
 ): Promise<JobSubmission> {
   const params: Record<string, string> = { start_date: startDate }
   if (endDate) {
     params.end_date = endDate
   }
   const response = await api.post<JobSubmission>('/indices/sync/submit', indexCodes, {
-    params
+    params,
   })
   return response.data
 }
@@ -268,7 +329,7 @@ export async function runBacktest(request: BacktestRequest): Promise<BacktestRes
 export async function getBacktestResults(
   stockCode?: string,
   skip = 0,
-  limit = 20
+  limit = 20,
 ): Promise<BacktestListItem[]> {
   const params = new URLSearchParams()
   if (stockCode) params.append('stock_code', stockCode)
@@ -316,8 +377,13 @@ export interface StrategyBacktestRequest {
   parameters?: Record<string, number | string>
 }
 
-export async function runStrategyBacktest(request: StrategyBacktestRequest): Promise<StrategyBacktestResponse> {
-  const response = await api.post<StrategyBacktestResponse>('/strategies/backtest', request)
+export async function runStrategyBacktest(
+  request: StrategyBacktestRequest,
+): Promise<StrategyBacktestResponse> {
+  const response = await api.post<StrategyBacktestResponse>(
+    '/strategies/backtest',
+    request,
+  )
   return response.data
 }
 
@@ -331,24 +397,32 @@ export interface OptimizeRequest {
   metric: string
 }
 
-export async function optimizeParameters(request: OptimizeRequest): Promise<OptimizeResponse> {
+export async function optimizeParameters(
+  request: OptimizeRequest,
+): Promise<OptimizeResponse> {
   const response = await api.post<OptimizeResponse>('/strategies/optimize', request)
   return response.data
 }
 
-export async function submitOptimizeParameters(request: OptimizeRequest): Promise<JobSubmission> {
+export async function submitOptimizeParameters(
+  request: OptimizeRequest,
+): Promise<JobSubmission> {
   const response = await api.post<JobSubmission>('/strategies/optimize/submit', request)
   return response.data
 }
 
 // ==================== Agent APIs ====================
 
-export async function analyzeStock(request: AgentAnalyzeRequest): Promise<AgentAnalyzeResponse> {
+export async function analyzeStock(
+  request: AgentAnalyzeRequest,
+): Promise<AgentAnalyzeResponse> {
   const response = await api.post<AgentAnalyzeResponse>('/agent/analyze', request)
   return response.data
 }
 
-export async function submitAnalyzeStock(request: AgentAnalyzeRequest): Promise<JobSubmission> {
+export async function submitAnalyzeStock(
+  request: AgentAnalyzeRequest,
+): Promise<JobSubmission> {
   const response = await api.post<JobSubmission>('/agent/analyze/submit', request)
   return response.data
 }
@@ -356,7 +430,7 @@ export async function submitAnalyzeStock(request: AgentAnalyzeRequest): Promise<
 export async function getAnalysisHistory(
   stockCode?: string,
   skip = 0,
-  limit = 20
+  limit = 20,
 ): Promise<AnalysisRecord[]> {
   const params = new URLSearchParams()
   if (stockCode) params.append('stock_code', stockCode)
@@ -366,12 +440,17 @@ export async function getAnalysisHistory(
   return response.data
 }
 
-export async function getAnalysisDetail(recordId: number): Promise<AgentAnalyzeResponse> {
+export async function getAnalysisDetail(
+  recordId: number,
+): Promise<AgentAnalyzeResponse> {
   const response = await api.get<AgentAnalyzeResponse>(`/agent/${recordId}`)
   return response.data
 }
 
-export async function getJobStatus<T = Record<string, unknown>>(jobId: string, signal?: AbortSignal): Promise<JobStatus<T>> {
+export async function getJobStatus<T = Record<string, unknown>>(
+  jobId: string,
+  signal?: AbortSignal,
+): Promise<JobStatus<T>> {
   const response = await api.get<JobStatus<T>>(`/jobs/${jobId}`, { signal })
   return response.data
 }
@@ -382,9 +461,12 @@ export async function cancelJob(jobId: string): Promise<void> {
 
 // 大盘分析 APIs
 export async function analyzeMarket(
-  request: MarketAnalyzeRequest
+  request: MarketAnalyzeRequest,
 ): Promise<MarketAnalyzeResponse> {
-  const response = await api.post<MarketAnalyzeResponse>('/agent/market/analyze', request)
+  const response = await api.post<MarketAnalyzeResponse>(
+    '/agent/market/analyze',
+    request,
+  )
   return response.data
 }
 
@@ -415,7 +497,9 @@ export interface DLPredictionResponse {
   error?: string
 }
 
-export async function dlPredict(request: DLPredictionRequest): Promise<DLPredictionResponse> {
+export async function dlPredict(
+  request: DLPredictionRequest,
+): Promise<DLPredictionResponse> {
   const response = await api.post<DLPredictionResponse>('/dl/predict', request)
   return response.data
 }
@@ -447,7 +531,9 @@ export interface DLBacktestResponse {
   error?: string
 }
 
-export async function dlBacktest(request: DLBacktestRequest): Promise<DLBacktestResponse> {
+export async function dlBacktest(
+  request: DLBacktestRequest,
+): Promise<DLBacktestResponse> {
   const response = await api.post<DLBacktestResponse>('/dl/backtest', request)
   return response.data
 }
@@ -464,11 +550,15 @@ export async function getWatchlistCodes(): Promise<string[]> {
 }
 
 export async function addToWatchlist(stockCode: string): Promise<WatchlistItem> {
-  const response = await api.post<WatchlistItem>('/watchlist', { stock_code: stockCode })
+  const response = await api.post<WatchlistItem>('/watchlist', {
+    stock_code: stockCode,
+  })
   return response.data
 }
 
-export async function removeFromWatchlist(stockCode: string): Promise<{ success: boolean }> {
+export async function removeFromWatchlist(
+  stockCode: string,
+): Promise<{ success: boolean }> {
   const response = await api.delete<{ success: boolean }>(`/watchlist/${stockCode}`)
   return response.data
 }
@@ -496,13 +586,18 @@ export async function getScreenerStatus(jobId: string): Promise<{
 }
 
 // Strategy Comparison API
-export async function compareStrategies(request: CompareRequest): Promise<CompareResponse> {
+export async function compareStrategies(
+  request: CompareRequest,
+): Promise<CompareResponse> {
   const response = await api.post<CompareResponse>('/strategies/compare', request)
   return response.data
 }
 
 // Realtime Bars API
-export async function getRealtimeBars(code: string, period: string = 'daily'): Promise<{
+export async function getRealtimeBars(
+  code: string,
+  period: string = 'daily',
+): Promise<{
   success: boolean
   code: string
   data: Array<{
