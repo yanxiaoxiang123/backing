@@ -66,13 +66,13 @@ def test_fresh_upgrade_reaches_head(db_url):
         "jobs",
     } <= tables
 
-    # The watchlist FK must exist, not just the table.
+    # The watchlist FKs must exist (stock + user), not just the table.
     engine = create_engine(db_url)
     try:
         fks = inspect(engine).get_foreign_keys("user_watchlist")
     finally:
         engine.dispose()
-    assert [fk["referred_table"] for fk in fks] == ["stocks"]
+    assert {fk["referred_table"] for fk in fks} == {"stocks", "users"}
 
 
 def test_upgrade_downgrade_upgrade_roundtrip(db_url):
@@ -171,10 +171,10 @@ def test_upgrade_repairs_drifted_watchlist_and_jobs(db_url):
     engine = create_engine(db_url)
     try:
         insp = inspect(engine)
-        # FK repaired via batch-mode table recreation.
-        assert [fk["referred_table"] for fk in insp.get_foreign_keys("user_watchlist")] == [
-            "stocks"
-        ]
+        # FKs repaired via batch-mode table recreation (stock + default user).
+        assert {
+            fk["referred_table"] for fk in insp.get_foreign_keys("user_watchlist")
+        } == {"stocks", "users"}
         assert "jobs" in insp.get_table_names()
         backtest_indexes = {i["name"] for i in insp.get_indexes("backtest_results")}
         assert "idx_backtest_stock_created" in backtest_indexes
