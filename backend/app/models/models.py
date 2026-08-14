@@ -1,17 +1,18 @@
 from sqlalchemy import (
+    JSON,
     Column,
-    Integer,
-    String,
-    Float,
     Date,
     DateTime,
-    Text,
+    Float,
     ForeignKey,
     Index,
-    JSON,
+    Integer,
+    String,
+    Text,
 )
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
+
 from app.config import Base
 
 
@@ -125,6 +126,10 @@ class BacktestTrade(Base):
 
     backtest_result = relationship("BacktestResult", back_populates="trades")
     stock = relationship("Stock", back_populates="backtest_trades_list")
+
+    __table_args__ = (
+        Index("idx_backtest_trades_result_stock", "backtest_result_id", "stock_code"),
+    )
 
 
 class JobDbRecord(Base):

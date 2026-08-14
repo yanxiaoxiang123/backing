@@ -1,27 +1,29 @@
+import logging
+from contextlib import asynccontextmanager
+
+import pymysql
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from starlette.middleware.sessions import SessionMiddleware
-from contextlib import asynccontextmanager
-import pymysql
-import logging
-from sqlalchemy.engine import make_url
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
+from sqlalchemy import inspect
+from sqlalchemy.engine import make_url
+from starlette.middleware.sessions import SessionMiddleware
 
-from app.config import settings, engine, Base, SessionLocal
-from app.limiter import limiter
-from app.error_handlers import register_error_handlers
-from app.api.routes import router
-from app.api.strategies import router as strategies_router
+import app.services.strategy  # side-effect import: registers built-in strategies
 from app.api.agent import router as agent_router
 from app.api.dl_prediction import router as dl_prediction_router
-from app.api.watchlist import router as watchlist_router
 from app.api.realtime import router as realtime_router
+from app.api.routes import router
 from app.api.screener_agent import router as screener_agent_router
+from app.api.strategies import router as strategies_router
+from app.api.watchlist import router as watchlist_router
+from app.auth import validate_api_key
+from app.config import SessionLocal, engine, settings
+from app.error_handlers import register_error_handlers
+from app.limiter import limiter
 from app.models.models import Strategy
 from app.services.job_store import job_store
-from app.auth import validate_api_key
-import app.services.strategy  # noqa: F401 - Import to register strategies
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -29,7 +31,13 @@ logger = logging.getLogger(__name__)
 
 
 def init_db():
-    """Initialize database tables"""
+    """Initialize database state (bootstrap MySQL DB, seed default data).
+
+    Schema is managed exclusively by Alembic migrations — run
+    ``alembic upgrade head`` (backend/) before starting the server.
+    ``Base.metadata.create_all`` was removed from startup because it silently
+    masked missing migrations and let the live schema drift from the chain.
+    """
     try:
         bootstrap_url = settings.bootstrap_database_url
         db_name = settings.database_name
@@ -57,8 +65,13 @@ def init_db():
                 )
             connection.close()
 
-        # Create tables
-        Base.metadata.create_all(bind=engine)
+        # Fail fast when migrations have not been applied, instead of silently
+        # recreating tables and hiding schema drift.
+        if not inspect(engine).has_table("strategies"):
+            raise RuntimeError(
+                "Database schema is not migrated (missing table 'strategies'). "
+                "Run `cd backend && alembic upgrade head` before starting."
+            )
 
         # Create default strategy if not exists
         db = SessionLocal()
