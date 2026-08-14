@@ -12,6 +12,7 @@ The React/Vite client uses `frontend/src/pages/` for screens, `components/` for 
 - `cd backend && pip install -r requirements.lock` installs the fully pinned environment (transitive closure); regenerate it with `pip freeze > requirements.lock` after dependency changes.
 - `cd backend && alembic upgrade head` applies database migrations.
 - `cd backend && python main.py` starts the API on port 8808.
+- `cd backend && python task_worker.py` runs the Arq worker for background tasks (production multi-instance; requires `TASK_BACKEND=arq`, `REDIS_URL`, and `pip install -r requirements-arq.txt`). The default `TASK_BACKEND=threads` runs tasks in-process with the same DB-persisted lifecycle (idempotency keys, leases, retries, metrics).
 - `cd backend && pytest` runs backend tests; add `-v` or a test path to focus.
 - `cd backend && ruff check .` checks Python style.
 - `cd frontend && npm ci` installs the locked frontend dependency set.

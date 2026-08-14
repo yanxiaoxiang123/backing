@@ -11,7 +11,7 @@
 - `backend/app/agent/` 是手写的线性阶段编排，状态主要停留在单次进程和自由文本中。
 - `TradingAgents-astock/` 已使用 LangGraph，并包含 7 类分析师、质量门控、多空辩论、风险辩论和 A 股规则，但尚未成为主系统的统一运行时。
 
-建议采用 **LangGraph Control Plane + Pi Quant Worker + 自研 Quant Harness**。LangGraph 是唯一持久流程编排器；Pi 不再复制一套业务工作流，而是作为隔离的策略工程/深度研究执行器。主后端作为控制面和 API，`TradingAgents-astock` 收敛为领域引擎。LLM 负责提出假设、调用工具、解释证据和审查结果；行情计算、回测、组合约束与订单风控必须由确定性代码执行。
+建议采用 **DeepSeek Harness 对话外壳 + LangGraph Quant Runtime + 自研 Quant Harness**。DeepSeek Harness 负责对话、Session、工具审批和可扩展 Web UI；LangGraph 是唯一的量化流程编排器，`TradingAgents-astock` 收敛为领域引擎。两者通过类型化工具调用衔接，不重复维护业务状态机。LLM 负责提出假设、调用工具、解释证据和审查结果；行情计算、回测、组合约束与订单风控必须由确定性代码执行。
 
 第一目标应是“可审计的 Agent 投研与策略实验平台”，然后依次开放模拟盘、影子盘，最后才评估受审批约束的实盘连接。
 
@@ -25,11 +25,17 @@ LangChain 当前把 Deep Agents 明确定义为 agent harness，内置规划、�
 
 OpenAI Agents SDK 也已提供工具、handoff、guardrails、session、HITL、MCP 和 tracing，说明这些能力已经成为生产 Agent runtime 的共同基线。[OpenAI Agents SDK](https://openai.github.io/openai-agents-python/) 但本项目已经深度使用 LangGraph，因此应借鉴这些能力，而非并存两套 runtime。
 
-### Pi 适合作为轻量策略工作区，而不是交易控制面
+### DeepSeek Harness 更适合当前产品入口
+
+DeepSeek Harness 已提供可直接启动的 Web UI、append-only Session 事件日志、工具审批、Sandbox、Telemetry、Web/headless profile 和官方 Python SDK。其 Cordis 架构将模型、工具、Agent loop、持久化和界面都实现为可替换插件，适合把现有股票分析与回测能力包装成金融工具，并在对话里渲染 K 线、证据、回测和审批节点。[DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) [Architecture](https://github.com/deepseek-ai/deepseek-harness/blob/master/docs/architecture.md)
+
+当前版本仍明确标注为 Developer Preview，未来会有破坏性变更。因此第一阶段应固定 commit 做独立 POC，不直接接管生产数据库或订单执行；LangGraph checkpoint 和主数据库仍是量化运行事实源。官方 Python SDK 可从 Python 3.10+ 环境启动 bundled runtime 并延续 Session，适合与当前 FastAPI 集成。[Python SDK](https://github.com/deepseek-ai/deepseek-harness/blob/master/docs/user/guide/python-sdk.md)
+
+### Pi 保留为备选策略 Worker
 
 最新 Pi 项目已迁移到 `earendil-works/pi`，核心包包括 `@earendil-works/pi-ai`、`pi-agent-core`、`pi-coding-agent` 和 vendor-neutral telemetry。它强调小核心，把工作流能力交给 Extensions、Skills、Prompt Templates 和 Packages；同时提供多模型、session/fork、JSON/RPC、工具 allowlist、`AGENTS.md` 上下文和自动 compaction。[Pi Agent Harness](https://github.com/earendil-works/pi) [Pi Coding Agent](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/README.md)
 
-这非常适合让一个 Agent 在独立工作区读取研究 artifact、生成 `StrategySpec`、运行受控测试并反复修正。但 Pi 官方明确说明它不内建文件、进程、网络或凭据权限系统，默认继承启动进程权限，强隔离需要容器或 sandbox。因此 Pi 不能直接持有生产数据库、券商凭据或无限制 Shell，也不应负责订单审批与 durable workflow。[Pi Permissions & Containerization](https://github.com/earendil-works/pi#permissions--containerization)
+Pi 适合让 Agent 在独立工作区读取研究 artifact、生成 `StrategySpec`、运行受控测试并反复修正。但 Pi 官方明确说明它不内建文件、进程、网络或凭据权限系统，默认继承启动进程权限，强隔离需要容器或 sandbox。[Pi Permissions & Containerization](https://github.com/earendil-works/pi#permissions--containerization) 当前主方案不同时引入 Pi，以避免维护三套 runtime；只有 DeepSeek Harness POC 无法满足策略工程沙箱时，再单独评估 Pi Worker。
 
 ### TradingAgents 的最新变化值得选择性吸收
 
@@ -39,15 +45,14 @@ OpenAI Agents SDK 也已提供工具、handoff、guardrails、session、HITL、M
 
 ```mermaid
 flowchart TD
-    UI["React Agent 工作台"] --> API["FastAPI 控制面"]
+    UI["DeepSeek Harness / React Agent 工作台"] --> DSH["DeepSeek Quant Plugin"]
+    DSH --> API["FastAPI 控制面"]
     API --> RUN["Quant Harness / LangGraph Runtime"]
     RUN --> SUP["Supervisor / Planner"]
     SUP --> RES["并行研究 Agent"]
     SUP --> STR["策略工程 Agent"]
     SUP --> CRT["回测审计 Agent"]
     SUP --> RISK["组合风险与合规 Agent"]
-    SUP --> PI["Pi Quant Worker / 隔离策略工作区"]
-    PI --> ART
     RES & STR & CRT & RISK --> ART["证据与 Artifact 工作区"]
     RUN --> TOOL["类型化 Tool Gateway"]
     TOOL --> DATA["Point-in-time 数据层"]
@@ -85,34 +90,87 @@ Harness 不是一个大 Prompt，而是一组强约束运行能力：
 
 现有 Bull/Bear 和三方风险辩论可作为 Research/Critic 的可选模式，而不是所有请求的固定流水线。只有证据冲突或高风险提案才触发辩论，以降低成本和“多 Agent 一致性幻觉”。
 
-### 3. Pi Quant Worker
+### 3. DeepSeek Harness 集成边界
 
-Pi 作为 Node.js sidecar/worker，由 LangGraph 节点通过 RPC 或队列启动，不直接面向交易 API：
+DeepSeek Harness 作为对话和交互外壳，不直接实现量化计算：
 
 ```text
-LangGraph strategy_engineer node
-  -> 创建 run workspace + 只读数据快照
-  -> 启动容器化 Pi RPC session
-  -> 加载量化 AGENTS.md / Skills / Extensions
-  -> 生成或修改 StrategySpec + tests + research notes
-  -> 调用受控 backtest extension
-  -> 输出 artifact manifest
-  -> LangGraph 校验 schema、保存 checkpoint、交给 Critic
+用户对话 / DeepSeek Harness Session
+  -> DeepSeek Quant Plugin 选择类型化金融工具
+  -> FastAPI 创建 run_id 并调用 LangGraph
+  -> LangGraph 执行研究、策略、回测和风控节点
+  -> 通过事件流返回进度与结构化 artifacts
+  -> Harness Chat Node 渲染 K 线、证据、回测和审批
+  -> session_id 与 run_id 建立映射，可分别恢复
 ```
 
 建议设计：
 
-- 每次运行创建 `/workspace/runs/{run_id}`；数据 snapshot 只读挂载，只有 `artifacts/` 可写。
-- 启动时禁用内置 `bash/write/edit`，只允许自研扩展工具；需要代码实验时切换到无网络、无密钥、限 CPU/内存/时长的 sandbox profile。
-- 编写 `factor-research`、`strategy-spec-authoring`、`backtest-audit` 三个项目级 Skill；`AGENTS.md` 固化 A 股规则、禁止项和验收命令。
-- Pi Extension 只调用 Tool Gateway，不直连数据库；返回值继续使用与 Python 端相同的 JSON Schema。
-- 将 Pi `session_id`、分支、compaction 摘要和 artifact checksum 写入 `agent_steps`；LangGraph checkpoint 才是全局事实源。
-- 使用 RPC/JSON 事件映射到现有前端 timeline；不要另起一套 Pi TUI 作为用户主界面。
-- 固定 Pi 版本和 package commit，第三方扩展逐个审计。Pi package/extension 可执行任意代码，不能在生产环境自动更新。
+- 固定 DeepSeek Harness commit，封装 `dsh-profile-quant`，不跟随 master 自动更新。
+- 插件只调用 FastAPI Tool Gateway，不直连数据库；返回值使用与 Python 端相同的 JSON Schema。
+- 默认移除 Bash、编辑器和宿主文件工具；研究代码实验只能在无生产密钥的隔离 Sandbox 中执行。
+- Harness 保存对话与展示事件；LangGraph 保存量化节点 checkpoint；数据库保存 run、tool、artifact 和 approval 事实。
+- `session_id`、`thread_id`、`run_id` 和 `data_snapshot_id` 必须关联，支持刷新、断线和进程重启后的恢复。
+- MVP 先以独立 Web UI 验证；接口稳定后再决定 fork Harness Web UI，或将 Chat Node 协议接入现有 React。
 
-Pi 的最佳用途是“长上下文、会读写 artifact、会迭代验证的策略工程师”；普通行情问答、固定分析图、风险审批继续由 Python/LangGraph 完成。这样既获得 Pi 的轻量 agent loop 和上下文管理，也避免跨语言双状态机。
+### 4. 桌面端 Agent 工作台
 
-### 4. Tool Gateway 与 MCP
+交互参考：[桌面端 Agent 量化工作台原型](desktop-agent-quant-ui-preview.html)。该原型可切换“行情与结论、证据、回测、风险”视图，并演示模拟盘提案审批流程。
+
+桌面端采用“三栏一体化工作台”，对话是任务入口，量化结果始终使用结构化组件展示，避免把重要数字埋在聊天文本中。
+
+```text
+┌──────────────────────── 顶部栏：股票搜索 / 市场状态 / 用户 ────────────────────────┐
+│ 左侧导航       │ Agent 对话与运行计划       │ 股票研究工作台                          │
+│ Agent 工作台   │ 用户目标                   │ 股票标题、价格、快照、证据覆盖率          │
+│ 行情中心       │ Supervisor 回复            │ 行情与结论 / 证据 / 回测 / 风险 Tabs      │
+│ 策略研究       │ Agent 节点实时进度          │ K 线、指标、结论、策略与模拟盘审批         │
+│ 回测历史       │ 追问与修改输入框            │                                        │
+│ 自选股/评测    │                           │                                        │
+└──────────────────────────────────────────────────────────────────────────────┘
+```
+
+#### 页面分区
+
+- **顶部栏：** 产品标识、股票/代码搜索、当前市场状态、数据更新时间和用户入口。
+- **左侧导航：** Agent 工作台、行情中心、策略研究、回测历史、自选股、运行记录、评测中心和设置。
+- **中间对话栏：** 持续对话、`thread_id`、Agent 计划、节点耗时、运行/成功/失败/等待审批状态，以及可引用当前股票和回测结果的输入框。
+- **右侧研究区：** 默认显示当前股票；使用“行情与结论、证据、回测、风险”四个页签切换，不离开对话上下文。
+
+#### 四个核心视图
+
+| 视图 | 必须展示 |
+|---|---|
+| 行情与结论 | ECharts K 线/成交量、Agent 信号与置信度、建议仓位、风险预算、简短投资结论 |
+| 证据 | 技术面、基本面、政策/新闻、数据质量；每条带来源、`as_of` 和原文入口 |
+| 回测 | 策略与基准净值、年化收益、最大回撤、样本外 Sharpe、交易成本及审计结论 |
+| 风险 | 单票/行业暴露、预估回撤、流动性、A 股硬约束结果和拒绝原因 |
+
+#### 交互规则
+
+- 对话中点击“查看证据/回测/风险”只切换右侧页签，不跳转页面。
+- Agent 每个工具调用映射为可折叠 timeline 事件；默认展示结论、状态和耗时，原始参数按需展开。
+- 高风险操作使用显式审批卡：展示方向、目标仓位、触发条件、风险摘要和有效期；批准后仅进入模拟盘。
+- 用户修改策略参数后创建新的 `run_id`，保留旧回测作为可比较版本，不能覆盖原结果。
+- 加载、部分失败、数据为空、等待审批、已取消和恢复中必须有独立状态；单个 Agent 失败不清空整个工作台。
+- 第一版只实现桌面端，目标设计宽度 1280–1600 px；左侧导航约 160–180 px，对话栏约 320–380 px，研究区占剩余空间。
+
+#### 前端组件映射
+
+```text
+frontend/src/pages/AgentWorkspace.tsx
+frontend/src/components/agent/AgentConversation.tsx
+frontend/src/components/agent/RunTimeline.tsx
+frontend/src/components/agent/EvidencePanel.tsx
+frontend/src/components/agent/BacktestPanel.tsx
+frontend/src/components/agent/RiskPanel.tsx
+frontend/src/components/agent/ApprovalCard.tsx
+frontend/src/components/agent/ArtifactViewer.tsx
+```
+
+继续复用当前 Ant Design、ECharts、股票详情和回测展示组件；新增 Agent 组件只消费结构化事件，不解析自然语言 HTML。
+
+### 5. Tool Gateway 与 MCP
 
 先把内部 Python 能力包装成严格类型化工具，再决定是否通过 MCP 暴露。建议工具域：
 
@@ -186,11 +244,10 @@ backend/app/
   domain/              # StrategySpec、ResearchClaim、PortfolioProposal 等 schema
   tools/               # 类型化工具与权限策略
   services/            # 行情、因子、回测、组合等确定性服务
-pi-worker/
-  extensions/          # 仅暴露 Tool Gateway 与 artifact 工具
-  skills/              # 因子研究、StrategySpec、回测审计
-  AGENTS.md             # A 股规则、权限边界、验收命令
-  package.json          # 固定 Pi 与扩展版本
+dsh-quant-plugin/
+  profile/             # 固定 DeepSeek Harness profile 与 Cordis 配置
+  plugins/             # Tool Gateway、Chat Node、权限与事件适配
+  skills/              # A 股研究、StrategySpec、回测审计
 TradingAgents-astock/
   tradingagents/       # A 股 Agent 图和角色；作为 workspace package 被 backend 调用
 frontend/src/
@@ -202,7 +259,7 @@ evals/
 ```
 
 - 废弃 `backend/app/agent/orchestrator.py` 的重复线性流程，API 通过 adapter 调用统一 LangGraph runtime。
-- 新增 `pi-worker` sidecar，但不让它维护独立业务状态；由 LangGraph 分配任务、保存 checkpoint 和执行审批。
+- 新增 `dsh-quant-plugin`，只承担对话、工具路由和结构化展示；LangGraph 继续分配量化任务、保存 checkpoint 和执行审批。
 - 从上游 v0.3.1 选择性回迁 checkpoint resume、结构化输出、决策日志、数据契约、前视过滤、路由容错和重试预算。
 - 保留本地政策、游资、解禁、A 股交易规则和质量门控；先用差异测试证明行为，再合并上游变更。
 - 当前 job 线程执行迁移到独立 worker；MVP 可用 ARQ/RQ + Redis，长期任务状态和 checkpoint 落 PostgreSQL。
@@ -230,7 +287,8 @@ evals/
 
 - 上线 Supervisor 动态规划、并行 Research、Strategy Engineer 和 Backtest Critic。
 - 建设 artifact workspace、上下文压缩、策略沙箱与声明式 StrategySpec。
-- 完成 Pi Quant Worker POC：RPC 事件流、3 个项目 Skill、受限 Extensions、容器隔离和 artifact manifest。
+- 完成 DeepSeek Harness POC：固定版本、Quant Plugin、Chat Node、工具审批、Session/run 映射和隔离 Sandbox。
+- 实现桌面三栏 Agent 工作台，以及行情、证据、回测、风险四个结构化视图。
 - 加入 walk-forward、数据泄漏审计、参数敏感性与组合风险硬门禁。
 
 **完成标准：** 用户可从自然语言目标生成可审阅策略，经自动回测和审计后输出“通过/拒绝及原因”，不能自动进入交易。
@@ -259,8 +317,8 @@ MVP 不做自动实盘、不做无限自主循环、不让 Agent 写任意生产
 
 | 领域 | 推荐 | 暂不推荐 |
 |---|---|---|
-| Agent runtime | LangGraph 负责 durable workflow，Pi 只做无状态/可恢复 worker | 让 LangGraph 与 Pi 各自维护业务状态机 |
-| Harness | Quant Harness + Pi Skills/Extensions + 隔离 workspace | 直接给金融 Agent 全功能 Shell 或宿主权限 |
+| Agent runtime | LangGraph 负责量化 durable workflow，DeepSeek Harness 负责对话 Session 与 UI | 让两者各自维护重复的量化状态机 |
+| Harness | 固定版本的 DeepSeek Quant Plugin + 类型化工具 + Sandbox | 直接给金融 Agent 全功能 Shell 或生产凭据 |
 | 状态 | PostgreSQL checkpoint + Redis worker | 进程内线程和内存状态 |
 | 数据 | Provider adapter + point-in-time snapshot + Parquet/列式存储 | Agent 直接调用多个不稳定网页接口 |
 | 输出 | Pydantic structured outputs + artifacts | 正则解析自由文本 Buy/Sell |
@@ -274,6 +332,9 @@ MVP 不做自动实盘、不做无限自主循环、不让 Agent 写任意生产
 - [LangGraph：Persistence](https://docs.langchain.com/oss/python/langgraph/persistence)
 - [LangGraph：Human-in-the-loop](https://docs.langchain.com/oss/python/langchain/human-in-the-loop)
 - [LangChain：Deep Agents agent harness](https://docs.langchain.com/oss/python/deepagents/overview)
+- [DeepSeek Harness 官方仓库](https://github.com/deepseek-ai/deepseek-harness)
+- [DeepSeek Harness Architecture](https://github.com/deepseek-ai/deepseek-harness/blob/master/docs/architecture.md)
+- [DeepSeek Harness Python SDK](https://github.com/deepseek-ai/deepseek-harness/blob/master/docs/user/guide/python-sdk.md)
 - [Pi Agent Harness 官方仓库](https://github.com/earendil-works/pi)
 - [Pi Coding Agent：Skills、Extensions、Context Files](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/README.md)
 - [Pi Compaction and Branch Summarization](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/compaction.md)
