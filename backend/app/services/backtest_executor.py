@@ -141,6 +141,8 @@ class BacktestExecutor:
             raise ValueError(
                 f"No kline data found for {stock_code} in the specified date range"
             )
+        if initial_capital <= 0:
+            raise ValueError("initial_capital must be positive")
 
         strategy = strategy_class(**(parameters or {}))
         signal_data = strategy.generate_signals(df.copy())
