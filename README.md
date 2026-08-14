@@ -178,8 +178,30 @@ cd backend
 pytest
 ```
 
+## 数据生命周期
+
+后台任务状态持久化在数据库（`jobs` 表，幂等键/租约/重试），K 线、分析记录与回测结果按保留期清理，K 线可归档：
+
+```bash
+cd backend
+python maintenance_cli.py jobs --days 30        # 清理过期任务记录
+python maintenance_cli.py analysis --days 180   # 清理过期分析记录
+python maintenance_cli.py backtests --days 365  # 清理过期回测结果
+python maintenance_cli.py archive-klines --before 2015-01-01  # 归档历史 K 线
+python maintenance_cli.py backup --out /backup/dir   # SQLite 备份（WAL checkpoint + 自动命名）
+python maintenance_cli.py all                    # 默认保留期执行全部清理
+```
+
+生产环境挂 systemd timer 每日执行（`deploy/systemd/stockbacking-maintenance.{service,timer}`）。
+MySQL 备份用 `mysqldump`；**恢复演练**：停服 → 用备份文件覆盖数据库 → 起服 →
+`alembic upgrade head` 校验迁移版本 → 抽查关键表计数（stocks / jobs / 最新 K 线日期）。
+
 ## 注意事项
 
 - 默认数据库已切到 SQLite，方便本地快速启动；如需 MySQL，请修改 `.env`
+- 启动前必须 `alembic upgrade head`（schema 完全由迁移管理，`compare_metadata` 差异应为空）
+- 资金/价格/收益列为 `Numeric`（元 / 百分比 % / 无量纲，见模型注释）；外键显式 `ondelete=CASCADE`
+- 自选股当前归属默认用户（多用户就绪：`users` 表 + `(user_id, stock_code)` 唯一约束）
 - `Backtest.tsx` 为兼容页，主策略研究能力集中在 `Strategies.tsx`
-- 任务状态当前为进程内存存储，适合单机开发；如果要上线，建议改成 Redis 或数据库持久化
+- 后台任务默认在进程内线程执行（`TASK_BACKEND=threads`，状态持久化，重启自动重置在途任务）；
+  生产多实例用 `TASK_BACKEND=arq` + Redis（`pip install -r requirements-arq.txt` + `python task_worker.py`）

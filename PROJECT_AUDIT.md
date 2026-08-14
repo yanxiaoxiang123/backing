@@ -117,6 +117,8 @@
 - 缺少状态/数值约束与级联规则，如 job status、交易 action、数量/资金非负、日期区间。用 `CheckConstraint`、Enum 和明确 `ondelete` 防止脏数据。
 - 需要数据生命周期：K 线归档策略、任务结果清理调度、分析记录保留期、数据库备份与恢复演练。
 
+**修复（2026-08）：** 数据模型 5 项全部落地（迁移 `20260322_01` + `20260323_01`，开发库已升级、`compare_metadata` 差异为空）— ① **Numeric**：`daily_klines`（价格 `Numeric(12,4)`、成交量/额 `Numeric(18,2)`）、`backtest_results`（资金 `Numeric(16,2)`、收益/回撤/胜率 `Numeric(10,4)`）、`backtest_trades`（价格 `Numeric(12,4)`、金额 `Numeric(16,2)`）、`jobs.progress`/`analysis.final_confidence` `Numeric(5,4)`；列注释标明单位（元 / 百分比 % / 无量纲 / 0-1）。SQLite 读取按声明 scale 量化（与 MySQL DECIMAL 一致，ROUND_HALF_EVEN）。② **JSON 统一 + schema_version**：`strategies.parameters`、`analysis_records.opinions_json/stages_json` 由 Text 改 JSON（与 jobs 一致），三表均加 `schema_version=1`；读写端改为直接传/取对象（`json.dumps/loads` 已移除）。③ **多用户就绪**：新增 `users` 表（迁移写入默认用户 id=1），`user_watchlist.user_id`（FK CASCADE）+ `(user_id, stock_code)` 复合唯一（`uq_watchlist_user_stock`）；watchlist/dashboard 查询按 `DEFAULT_USER_ID` 隔离，前端 API 不变，接入认证后从 session 解析用户即可。④ **约束与级联**：`CheckConstraint` 覆盖 job status、trade action、数量/资金/价格非负、回测日期区间、K 线非负、analysis signal；全部外键显式命名并 `ondelete=CASCADE`（`passive_deletes=True` 配合），SQLite 整表重建（batch `copy_from`）完成。⑤ **数据生命周期**：新增 [`services/maintenance.py`](backend/app/services/maintenance.py) + [`maintenance_cli.py`](backend/maintenance_cli.py)（清理过期任务/分析/回测、K 线归档到 `daily_klines_archive`、SQLite 备份含 WAL checkpoint），systemd timer 示例（`deploy/systemd/stockbacking-maintenance.{service,timer}`，每日 03:30 执行 + 备份到独立目录）；恢复演练流程写入 README。**测试**：新增 `test_data_model.py`（精度/JSON 往返/约束/级联/多用户）+ `test_maintenance.py`（清理/归档/备份/恢复演练），`pytest` 112 → **136 全过**；迁移链 4/4（fresh upgrade、往返、compare_metadata 干净、漂移修复）。
+
 ### `TradingAgents-astock`
 
 - 作为独立可发布包已有 `pyproject.toml`、markers 和 Docker 非 root 用户，方向正确。
