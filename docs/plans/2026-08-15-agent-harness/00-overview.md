@@ -62,3 +62,11 @@ Wave F
 4. **委派任务**：子 agent 交付后主 agent 验收（跑验收命令 + 读关键 diff）再 commit；不合格退回修正。
 5. **冲突处理**：任务 01 若得出"TradingAgents 必须隔离进程/环境"的结论，05/07/09 的接缝需按隔离方案调整并回报用户；任务 11 若 Python SDK 与当前环境不可调和，降级为 HTTP 直连 + 文档记录，并回报用户。
 6. **禁止**：推送、开 PR、部署、删除既有行为（adapter 退役须待 10/12 完成后另行评估）。
+
+## 执行备注（2026-08-15，已完成）
+
+- **子 agent 委派不可用**：本会话 4 次子 agent 启动均以"无消息失败"告终（运行时系统性故障）。任务 02/03/08/10 原标记 eligible，全部改由主 agent 亲自执行；验收标准不变。
+- **任务 01 结论**：单环境对齐可行（langgraph 1.2.11 + langchain-core 1.5.4，TradingAgents checkpoint resume 3/3）；修复了 TradingAgents pyproject 的 `[project.urls]` 元数据缺陷。详见 `compat-decision.md`。
+- **任务 11 回退**：DSH SDK 无 PyPI 发布、runtime 需源码构建（无预编译二进制），本轮交付 `dsh-quant-plugin/` POC 骨架 + **HTTP 直连网关验证通过**（Supervisor run：4 节点 + 3 工具事件 SSE 回放）；运行时构建列为后续切片。详见 `dsh-quant-plugin/docs/POC-REPORT.md`。
+- **评审已知缺口（不阻断）**：① 引用覆盖率 ≥95% 目标在确定性演示流水线下实测 0.1–0.5（无 news/financials/announcement 工具），真实研究专家落地后绑定；② 前端策略参数编辑→新 run 的 UI 未做；③ TradingAgents 图作为研究引擎的深度接线未做（facade 就绪）。
+- **交付状态**：13 个任务全部完成并本地提交（P0–P2 核心实现；P3 规划、P4 附录文档）。终点：已验证的本地改动（不推送）。
