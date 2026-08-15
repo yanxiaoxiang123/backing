@@ -402,3 +402,63 @@ class TestAccountEnsure:
             .one()
         )
         assert account.cash == paper_service.DEFAULT_INITIAL_CASH
+
+
+class TestConcurrency:
+    def test_concurrent_cycles_no_double_fill(self, tmp_path):
+        """并发撮合（soak 线程 vs 手动 API）只成交一次（规格风险 4 回归）。"""
+        from threading import Barrier, Thread
+
+        # 文件型 SQLite：多连接共享同一库（内存库每连接独立，无法模拟并发）
+        engine = create_engine(f"sqlite:///{tmp_path / 'conc.db'}")
+        Base.metadata.create_all(bind=engine)
+        db = sessionmaker(bind=engine)()
+        try:
+            _seed(db)
+            _, approval_id = _propose(db, order_id="po-conc")
+            paper_service.decide_approval(db, approval_id, "approved")
+            order = (
+                db.query(PaperOrder)
+                .filter(PaperOrder.order_id == "po-conc")
+                .one()
+            )
+            order.target_trade_date = "2026-08-17"
+            db.commit()
+
+            barrier = Barrier(2)
+
+            def worker():
+                session = sessionmaker(bind=engine)()
+                try:
+                    barrier.wait()
+                    paper_service.run_matching_cycle(session)
+                finally:
+                    session.close()
+
+            threads = [Thread(target=worker) for _ in range(2)]
+            for t in threads:
+                t.start()
+            for t in threads:
+                t.join(timeout=10)
+
+            order = (
+                db.query(PaperOrder)
+                .filter(PaperOrder.order_id == "po-conc")
+                .one()
+            )
+            assert order.status == "filled"
+            fills = (
+                db.query(PaperFill)
+                .filter(PaperFill.order_id == "po-conc")
+                .count()
+            )
+            assert fills == 1, "并发撮合不得重复成交"
+            cash_seq = [
+                e.seq
+                for e in db.query(PaperCashEvent)
+                .order_by(PaperCashEvent.seq)
+                .all()
+            ]
+            assert len(cash_seq) == len(set(cash_seq)), "资金事件 seq 不得重复"
+        finally:
+            db.close()

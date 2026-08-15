@@ -11,6 +11,7 @@
 from __future__ import annotations
 
 import logging
+import threading
 from datetime import date, datetime, time, timezone
 from typing import Any
 
@@ -37,6 +38,10 @@ from app.models.paper_trading import (
 
 logger = logging.getLogger(__name__)
 
+#: 进程级撮合互斥：soak 线程与手动 match API 不得并发处理同一订单
+#: （否则 cash/order 事件 seq 分配竞态；规格风险 4：SQLite 并发写）。
+_MATCH_LOCK = threading.Lock()
+
 DEFAULT_ACCOUNT_ID = "default"
 DEFAULT_INITIAL_CASH = 1_000_000.0
 
@@ -61,6 +66,8 @@ def ensure_account(db: Session) -> PaperAccount:
 
 
 def _next_order_event_seq(db: Session, order_id: str) -> int:
+    # autoflush=False 的会话：先 flush 挂起事件，max() 才能看到（seq 分配正确）
+    db.flush()
     return (
         db.query(func.max(PaperOrderEvent.seq))
         .filter(PaperOrderEvent.order_id == order_id)
@@ -70,6 +77,7 @@ def _next_order_event_seq(db: Session, order_id: str) -> int:
 
 
 def _next_cash_event_seq(db: Session) -> int:
+    db.flush()
     return (db.query(func.max(PaperCashEvent.seq)).scalar() or 0) + 1
 
 
@@ -381,7 +389,12 @@ def _match_one(db: Session, account: PaperAccount, order: PaperOrder) -> str:
 
 
 def run_matching_cycle(db: Session) -> dict[str, int]:
-    """每日撮合循环：处理全部 approved 订单（确定性、可重入）。"""
+    """每日撮合循环：处理全部 approved 订单（确定性、可重入、进程内互斥）。"""
+    with _MATCH_LOCK:
+        return _run_matching_cycle_locked(db)
+
+
+def _run_matching_cycle_locked(db: Session) -> dict[str, int]:
     ensure_account(db)
     account = (
         db.query(PaperAccount)

@@ -66,3 +66,5 @@ Wave E
 
 - 2026-08-15：grilling 七项决策已确认（研究数据层/TA 接线/撮合规则/审批 TTL/P3-5 方式/DSH 构建位置）。
 - 2026-08-15：**子 agent 委派仍不可用**（探针启动后无消息失败，与上一轮一致）。切片 01/07/11 原标记 eligible，全部改由主 agent 亲自执行；验收标准不变。
+- 2026-08-15（切片 01–11 完成）：研究数据层（引用覆盖率 1.0）、paper 撮合/审批/soak、TA 子图 gateway vendor、artifact 工作区、参数编辑、归因、告警、DSH 运行时装配（exe 191MB + SDK + quant.gateway E2E）全部提交。
+- 2026-08-15（切片 12）：E2E 黄金路径脚本（`backend/scripts/paper_e2e_demo.py`）、重放审计工具（`backend/scripts/paper_replay_audit.py`）、4–8 周验收 runbook（`docs/runbooks/paper-trading-4-8-week-validation.md`）交付；**修复两个真实缺陷**：① soak 与手动 match 并发 → 进程级撮合锁；② `autoflush=False` 会话下 `max(seq)` 看不到挂起事件 → seq 分配前显式 flush。恢复演练 100%（杀进程→重启→单次成交→重放 PASS）；模拟盘引擎后台连跑中。
