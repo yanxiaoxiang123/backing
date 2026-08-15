@@ -5,6 +5,14 @@
   grid-template-columns: 170px minmax(320px, 380px) 1fr;
   gap: 12px;
   min-height: calc(100vh - 96px);
+  padding-top: 80px; /* 浮动导航让位（与其他页面 .page-header 一致） */
+}
+
+@media (max-width: 767px) {
+  .agent-workspace {
+    padding-top: 72px;
+    grid-template-columns: 1fr;
+  }
 }
 
 .agent-workspace-nav {

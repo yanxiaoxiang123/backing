@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import { Collapse, Tag, Tooltip } from 'antd'
 import {
   CheckCircleOutlined,
@@ -33,14 +34,33 @@ function statusIcon(status?: string) {
   return <CheckCircleOutlined />
 }
 
+/**
+ * 合并事件流：同一 seq 的 step 事件就地替换（running → completed 收敛），
+ * 避免瞬态"执行中"条目残留；tool 事件按序追加。
+ */
+export function mergeTimelineEvents(events: AgentRunEvent[]): AgentRunEvent[] {
+  const merged: AgentRunEvent[] = []
+  for (const event of events) {
+    if (event.type === 'step') {
+      const index = merged.findIndex((e) => e.type === 'step' && e.seq === event.seq)
+      if (index >= 0) merged[index] = event
+      else merged.push(event)
+    } else {
+      merged.push(event)
+    }
+  }
+  return merged
+}
+
 export function RunTimeline({ events }: { events: AgentRunEvent[] }) {
-  if (events.length === 0) {
+  const merged = useMemo(() => mergeTimelineEvents(events), [events])
+  if (merged.length === 0) {
     return <div className="agent-empty">暂无运行事件</div>
   }
   return (
     <Collapse
       size="small"
-      items={events.map((event, index) => ({
+      items={merged.map((event, index) => ({
         key: String(index),
         label: (
           <span className="agent-timeline-item">

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { RunTimeline } from './RunTimeline'
+import { RunTimeline, mergeTimelineEvents } from './RunTimeline'
 import type { AgentRunEvent } from '../../types/agent'
 
 const events: AgentRunEvent[] = [
@@ -29,5 +29,19 @@ describe('RunTimeline', () => {
     render(<RunTimeline events={events} />)
     await user.click(screen.getByText(/节点 2 · data_qa/))
     expect(screen.getByText(/无 K 线数据/)).toBeInTheDocument()
+  })
+
+  it('同一 seq 的瞬态 running 被 completed 就地替换（不残留"执行中"）', () => {
+    const stream: AgentRunEvent[] = [
+      { type: 'step', seq: 2, node: 'data_qa', status: 'running' },
+      { type: 'step', seq: 2, node: 'data_qa', status: 'completed' },
+      { type: 'step', seq: 3, node: 'research', status: 'completed' },
+    ]
+    const merged = mergeTimelineEvents(stream)
+    expect(merged.filter((e) => e.type === 'step' && e.seq === 2)).toHaveLength(1)
+    render(<RunTimeline events={stream} />)
+    expect(screen.getAllByText(/节点 2 · data_qa/)).toHaveLength(1)
+    expect(screen.queryByText('执行中')).not.toBeInTheDocument()
+    expect(screen.getAllByText('完成')).toHaveLength(2)
   })
 })

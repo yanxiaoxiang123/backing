@@ -7,6 +7,7 @@ import type {
   Claim,
   RiskPanelData,
   RunDetail,
+  StepEvent,
 } from '../types/agent'
 import {
   AgentRunStream,
@@ -119,6 +120,40 @@ export function useAgentRun(): UseAgentRunResult {
   const researchClaims = useMemo(() => deriveResearchClaims(run), [run])
   const backtestData = useMemo(() => deriveBacktestData(run), [run])
   const riskData = useMemo(() => deriveRiskData(run), [run])
+
+  // run 终态时用 run.steps（权威事实）收敛事件列表：step 事件按 seq 替换为终态，
+  // 保证即使 SSE 丢失部分事件，时间线也不会停留在瞬态"执行中"。
+  useEffect(() => {
+    if (!run?.steps || run.status === 'running' || run.status === 'planned') return
+    setEvents((prev) => {
+      const next = [...prev]
+      for (const step of run.steps ?? []) {
+        const final: StepEvent = {
+          type: 'step',
+          seq: step.seq,
+          node: step.node,
+          status: step.status,
+          output_schema: step.output_schema,
+          tokens_used: step.tokens_used,
+          duration_s: step.duration_s,
+          error: step.error,
+          started_at: step.started_at,
+          finished_at: step.finished_at,
+        }
+        const index = next.findIndex((e) => e.type === 'step' && e.seq === step.seq)
+        if (index >= 0) next[index] = final
+        else next.push(final)
+      }
+      return next
+    })
+  }, [run])
+
+  // SSE 断开/出错时兜底拉取终态，避免界面卡在中间状态
+  useEffect(() => {
+    if (runId && (streamState === 'closed' || streamState === 'error')) {
+      void refresh(runId)
+    }
+  }, [streamState, runId, refresh])
 
   return {
     runId,
