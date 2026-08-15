@@ -1,5 +1,5 @@
 import { Routes, Route, Navigate, NavLink, Link, useNavigate } from 'react-router-dom'
-import { useEffect, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import {
   SearchOutlined,
   MenuOutlined,
@@ -21,6 +21,7 @@ import ErrorBoundary from './components/ErrorBoundary'
 import StockSearch from './components/StockSearch'
 import Login from './pages/Login'
 import Screener from './pages/Screener'
+const AgentWorkspace = lazy(() => import('./pages/AgentWorkspace'))
 import {
   bootstrapAuth,
   getAuthState,
@@ -39,6 +40,7 @@ const navItems = [
   { key: '/backtest', label: '回测执行' },
   { key: '/history', label: '回测历史' },
   { key: '/agent', label: 'AI分析' },
+  { key: '/workspace', label: 'Agent工作台' },
 ]
 
 function App() {
@@ -234,6 +236,14 @@ function App() {
             <Route path="/backtest" element={<Backtest />} />
             <Route path="/history" element={<BacktestHistory />} />
             <Route path="/agent" element={<AgentAnalysis />} />
+            <Route
+              path="/workspace"
+              element={
+                <Suspense fallback={<div className="auth-loading">加载工作台…</div>}>
+                  <AgentWorkspace />
+                </Suspense>
+              }
+            />
             <Route path="/login" element={<Navigate to="/" replace />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

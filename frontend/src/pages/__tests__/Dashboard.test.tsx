@@ -17,6 +17,13 @@ vi.mock('../../services/api', async () => {
   }
 })
 
+// jsdom 无 canvas 2d 上下文，echarts 渲染会随机崩溃（"Cannot set properties
+// of null (setting 'dpr')"）。该测试只断言功能行为，不测图表渲染，故 mock 掉
+// echarts 组件以消除基线 flake。
+vi.mock('echarts-for-react', () => ({
+  default: () => <div data-testid="echarts-stub" />,
+}))
+
 import Dashboard from '../Dashboard'
 import {
   getRealtimeQuotes,
@@ -146,7 +153,7 @@ describe('Dashboard partial degrade', () => {
 
     await waitFor(() => expect(screen.getByText('上证指数')).toBeInTheDocument())
     // quotes error renders an Alert + retry button. Verify the message appears.
-    expect(screen.getByText('行情服务不可用')).toBeInTheDocument()
+    await waitFor(() => expect(screen.getByText('行情服务不可用')).toBeInTheDocument())
     // At least one retry button for the quotes block.
     expect(
       screen.getAllByRole('button', { name: /重试/ }).length,
