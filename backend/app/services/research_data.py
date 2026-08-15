@@ -38,6 +38,30 @@ _CACHE_LOCK = threading.Lock()
 
 _NEWS_CONTENT_LIMIT = 400
 
+# 评测夹具覆盖（eval 回放确定性；生产路径为空，不注入任何数据）
+_FIXTURES: dict[str, Any] = {}
+
+
+def set_fixture(tool: str, provider: Any) -> None:
+    """注册夹具 provider：callable(params) -> entry dict，或静态 entry dict。
+
+    仅用于评测回放（golden cases 确定性）；生产运行保持空。
+    """
+    _FIXTURES[tool] = provider
+
+
+def clear_fixtures() -> None:
+    _FIXTURES.clear()
+
+
+def _fixture_for(tool: str, params: dict[str, Any]) -> dict[str, Any] | None:
+    provider = _FIXTURES.get(tool)
+    if provider is None:
+        return None
+    if callable(provider):
+        return provider(params)
+    return provider
+
 
 def _normalize_code(stock_code: str) -> str:
     """'sh.600000' -> '600000'（akshare 使用 6 位纯代码）。"""
@@ -150,6 +174,9 @@ def fetch_stock_news(stock_code: str, limit: int = 10) -> dict[str, Any]:
     """个股新闻（akshare stock_news_em）。返回证据五元组 dict。"""
     tool = "event.news"
     params = {"stock_code": stock_code, "limit": limit}
+    fixture = _fixture_for(tool, params)
+    if fixture is not None:
+        return fixture
     hit = cache_get(tool, params)
     if hit is not None:
         return hit
@@ -180,6 +207,9 @@ def fetch_announcements(stock_code: str, date: str) -> dict[str, Any]:
     """指定日期的个股公告（akshare stock_notice_report）。"""
     tool = "event.announcement"
     params = {"stock_code": stock_code, "date": date}
+    fixture = _fixture_for(tool, params)
+    if fixture is not None:
+        return fixture
     hit = cache_get(tool, params)
     if hit is not None:
         return hit
@@ -212,6 +242,9 @@ def fetch_financials_summary(stock_code: str, periods: int = 5) -> dict[str, Any
     """财报摘要（akshare stock_financial_abstract），取最近 periods 个报告期。"""
     tool = "fundamental.financials"
     params = {"stock_code": stock_code, "periods": periods}
+    fixture = _fixture_for(tool, params)
+    if fixture is not None:
+        return fixture
     hit = cache_get(tool, params)
     if hit is not None:
         return hit
@@ -248,6 +281,9 @@ def fetch_index_kline(
         "start_date": start_date,
         "end_date": end_date,
     }
+    fixture = _fixture_for(tool, params)
+    if fixture is not None:
+        return fixture
     hit = cache_get(tool, params)
     if hit is not None:
         return hit

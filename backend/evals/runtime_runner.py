@@ -50,6 +50,79 @@ def _parse_available_at(case: dict[str, Any]) -> datetime | None:
         return None
 
 
+def _stock_code_of(case: dict[str, Any]) -> str:
+    from app.agent_runtime.graphs.supervisor import extract_stock_code
+
+    return extract_stock_code(case.get("objective", ""))
+
+
+_FIXTURE_FILE = Path(__file__).parent / "datasets" / "v1" / "research_fixtures.json"
+
+
+def _load_research_fixtures() -> dict[str, dict[str, dict[str, Any]]]:
+    """case_id → {tool: entry}。研究数据层夹具，保证评测确定性（无网络）。"""
+    if not _FIXTURE_FILE.exists():
+        return {}
+    return json.loads(_FIXTURE_FILE.read_text(encoding="utf-8"))
+
+
+RESEARCH_FIXTURES = _load_research_fixtures()
+
+
+def _apply_case_fixtures(case: dict[str, Any]) -> None:
+    """为该 case 注册研究数据夹具（as_of 统一为 data_available_at）。
+
+    未显式配置的工具也注册"空数据"默认夹具，保证评测全程无网络、
+    确定性可回放。
+    """
+    from app.services import research_data
+
+    fixtures = dict(RESEARCH_FIXTURES.get(case["id"]) or {})
+    available_at = _parse_available_at(case)
+    stock = _stock_code_of(case)
+
+    empty: dict[str, dict[str, Any]] = {
+        "event.news": {
+            "payload": {"stock_code": stock, "rows": 0, "news": []},
+            "source_id": "news:none",
+            "as_of": "",
+            "vendor": "akshare",
+            "data_version": "1.0.0",
+        },
+        "event.announcement": {
+            "payload": {"stock_code": stock, "rows": 0, "announcements": []},
+            "source_id": "notice:none",
+            "as_of": "",
+            "vendor": "akshare",
+            "data_version": "1.0.0",
+        },
+        "fundamental.financials": {
+            "payload": {"stock_code": stock, "rows": 0, "financials": []},
+            "source_id": "financials:none",
+            "as_of": "",
+            "vendor": "akshare",
+            "data_version": "1.0.0",
+        },
+    }
+    for tool, value in empty.items():
+        fixtures.setdefault(tool, value)
+
+    def provider(params: dict[str, Any], entry: dict[str, Any], at: Any) -> dict[str, Any]:
+        result = dict(entry)
+        if at is not None:
+            result["as_of"] = at.isoformat()
+        return result
+
+    for tool, entry in fixtures.items():
+        research_data.set_fixture(tool, lambda p, e=entry, a=available_at: provider(p, e, a))
+
+
+def _clear_case_fixtures() -> None:
+    from app.services import research_data
+
+    research_data.clear_fixtures()
+
+
 def evaluate_case_through_runtime(
     case: dict[str, Any], session: Any, *, budget: RunBudget | None = None
 ) -> dict[str, Any]:
@@ -60,7 +133,11 @@ def evaluate_case_through_runtime(
     executor = RunExecutor(stores, db=session, as_of=_parse_available_at(case))
     run_id = executor.create_run(objective=objective, budget=budget)
     pipeline = build_supervisor_pipeline(objective, budget)
-    final = executor.execute(run_id, pipeline)
+    _apply_case_fixtures(case)
+    try:
+        final = executor.execute(run_id, pipeline)
+    finally:
+        _clear_case_fixtures()
 
     result = _result_from_run(stores, run_id)
     scores = {

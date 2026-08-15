@@ -94,6 +94,13 @@ def test_kline_volume_case_citation_full(session_factory):
     assert evaluated["checks"]["lookahead"]["passed"] is True
 
 
+def test_citation_coverage_reaches_target(session_factory):
+    """研究专家升级（US-2.6）：夹具回放下引用覆盖率 ≥95%（规格 v2 验收）。"""
+    report = evaluate_runtime_cases(load_cases(), session_factory)
+    assert report["citation_coverage_avg"] >= 0.95
+    assert all(c["scores"]["citation_coverage"] >= 0.95 for c in report["cases"])
+
+
 def test_as_of_injection_matches_case_available_at(session_factory):
     cases = {c["id"]: c for c in load_cases()}
     case = cases["case-003"]

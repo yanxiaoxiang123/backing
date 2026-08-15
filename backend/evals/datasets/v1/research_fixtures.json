@@ -1,0 +1,175 @@
+{
+  "case-004": {
+    "event.announcement": {
+      "payload": {
+        "stock_code": "sh.600000",
+        "date": "2026-08-07",
+        "rows": 1,
+        "announcements": [
+          {
+            "代码": "600000",
+            "名称": "浦发银行",
+            "公告标题": "关于筹划重大资产重组事项停牌的公告",
+            "公告类型": "停牌",
+            "公告日期": "2026-08-07",
+            "网址": "http://example.com/notice/1"
+          }
+        ]
+      },
+      "source_id": "notice:600000:2026-08-07",
+      "as_of": "2026-08-07T15:00:00+08:00",
+      "vendor": "akshare",
+      "data_version": "1.0.0"
+    }
+  },
+  "case-005": {
+    "event.news": {
+      "payload": {
+        "stock_code": "sh.600000",
+        "rows": 1,
+        "news": [
+          {
+            "关键词": "涨停",
+            "新闻标题": "浦发银行涨停：银行板块集体走强",
+            "新闻内容": "浦发银行今日涨停，市场关注银行板块估值修复机会，追涨需注意波动风险。",
+            "发布时间": "2026-08-10 09:00:00",
+            "文章来源": "东方财富",
+            "新闻链接": "http://example.com/news/1"
+          }
+        ]
+      },
+      "source_id": "news:600000",
+      "as_of": "2026-08-10T15:00:00+08:00",
+      "vendor": "akshare",
+      "data_version": "1.0.0"
+    }
+  },
+  "case-006": {
+    "event.news": {
+      "payload": {
+        "stock_code": "sh.600000",
+        "rows": 1,
+        "news": [
+          {
+            "关键词": "跌停",
+            "新闻标题": "浦发银行跌停：市场情绪谨慎，抄底需评估基本面",
+            "新闻内容": "浦发银行今日跌停，成交量放大，抄底资金需关注后续基本面与政策面变化。",
+            "发布时间": "2026-08-12 09:00:00",
+            "文章来源": "东方财富",
+            "新闻链接": "http://example.com/news/2"
+          }
+        ]
+      },
+      "source_id": "news:600000",
+      "as_of": "2026-08-12T15:00:00+08:00",
+      "vendor": "akshare",
+      "data_version": "1.0.0"
+    }
+  },
+  "case-007": {
+    "fundamental.financials": {
+      "payload": {
+        "stock_code": "sh.600000",
+        "rows": 1,
+        "financials": [
+          {
+            "报告期": "20260630",
+            "净利润": 325.6,
+            "净利润同比增长率": 8.2,
+            "营业总收入": 1040.3,
+            "净资产收益率": 9.8
+          }
+        ]
+      },
+      "source_id": "financials:600000",
+      "as_of": "2026-08-14T15:00:00+08:00",
+      "vendor": "akshare",
+      "data_version": "1.0.0"
+    },
+    "event.announcement": {
+      "payload": {
+        "stock_code": "sh.600000",
+        "date": "2026-08-14",
+        "rows": 1,
+        "announcements": [
+          {
+            "代码": "600000",
+            "名称": "浦发银行",
+            "公告标题": "2026年半年度报告",
+            "公告类型": "定期报告",
+            "公告日期": "2026-08-14",
+            "网址": "http://example.com/notice/2"
+          }
+        ]
+      },
+      "source_id": "notice:600000:2026-08-14",
+      "as_of": "2026-08-14T15:00:00+08:00",
+      "vendor": "akshare",
+      "data_version": "1.0.0"
+    }
+  },
+  "case-008": {
+    "event.announcement": {
+      "payload": {
+        "stock_code": "sh.600000",
+        "date": "2026-08-14",
+        "rows": 1,
+        "announcements": [
+          {
+            "代码": "600000",
+            "名称": "浦发银行",
+            "公告标题": "关于限售股解禁上市流通的提示性公告",
+            "公告类型": "解禁",
+            "公告日期": "2026-08-14",
+            "网址": "http://example.com/notice/3"
+          }
+        ]
+      },
+      "source_id": "notice:600000:2026-08-14",
+      "as_of": "2026-08-14T15:00:00+08:00",
+      "vendor": "akshare",
+      "data_version": "1.0.0"
+    }
+  },
+  "case-010": {
+    "event.news": {
+      "payload": {
+        "stock_code": "sh.600000",
+        "rows": 1,
+        "news": [
+          {
+            "关键词": "业绩",
+            "新闻标题": "浦发银行中期业绩稳健增长",
+            "新闻内容": "公司披露中期业绩，营收与利润保持稳健增长，资产质量改善。",
+            "发布时间": "2026-08-14 09:00:00",
+            "文章来源": "东方财富",
+            "新闻链接": "http://example.com/news/3"
+          }
+        ]
+      },
+      "source_id": "news:600000",
+      "as_of": "2026-08-14T15:00:00+08:00",
+      "vendor": "akshare",
+      "data_version": "1.0.0"
+    },
+    "fundamental.financials": {
+      "payload": {
+        "stock_code": "sh.600000",
+        "rows": 1,
+        "financials": [
+          {
+            "报告期": "20260630",
+            "净利润": 325.6,
+            "净利润同比增长率": 8.2,
+            "营业总收入": 1040.3,
+            "净资产收益率": 9.8
+          }
+        ]
+      },
+      "source_id": "financials:600000",
+      "as_of": "2026-08-14T15:00:00+08:00",
+      "vendor": "akshare",
+      "data_version": "1.0.0"
+    }
+  }
+}
