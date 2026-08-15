@@ -8,6 +8,7 @@ import { BacktestPanel } from '../components/agent/BacktestPanel'
 import { RiskPanel } from '../components/agent/RiskPanel'
 import { ApprovalCard } from '../components/agent/ApprovalCard'
 import { ArtifactViewer } from '../components/agent/ArtifactViewer'
+import { AttributionPanel } from '../components/agent/AttributionPanel'
 import { useAgentRun } from '../hooks/useAgentRun'
 import { getStockKline } from '../services/api'
 import type { ApprovalRequest } from '../types/agent'
@@ -238,6 +239,11 @@ export default function AgentWorkspace() {
               children: (
                 <ArtifactViewer artifacts={artifacts} runId={run?.run_id ?? null} />
               ),
+            },
+            {
+              key: 'attribution',
+              label: '归因',
+              children: <AttributionPanel />,
             },
           ]}
         />

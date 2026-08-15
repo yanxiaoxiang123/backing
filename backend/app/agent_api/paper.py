@@ -147,3 +147,41 @@ def get_paper_events(
             for e in cash_events
         ],
     }
+
+
+@router.get("/paper/attribution")
+def get_attribution(
+    start_date: str | None = None,
+    end_date: str | None = None,
+    db: Session = Depends(get_db),
+    _: str = Depends(get_current_api_key),
+) -> dict[str, Any]:
+    """盘后归因：组合权益 vs sh.000300 的收益分解（US-3.3）。"""
+    from datetime import date, timedelta
+
+    end = end_date or date.today().isoformat()
+    start = start_date or (date.fromisoformat(end) - timedelta(days=30)).isoformat()
+    benchmark_series: list[float] | None = None
+    try:
+        from app.services.research_data import fetch_index_kline
+
+        entry = fetch_index_kline("sh.000300", start, end)
+        rows = entry["payload"]["kline"]
+        benchmark_series = [float(r["close"]) for r in rows] or None
+    except Exception:
+        benchmark_series = None
+    try:
+        return paper_service.attribution_report(
+            db, start, end, benchmark_series=benchmark_series
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/paper/plan")
+def get_pre_market_plan(
+    db: Session = Depends(get_db),
+    _: str = Depends(get_current_api_key),
+) -> dict[str, Any]:
+    """盘前计划：待批/已批订单快照（US-3.3）。"""
+    return paper_service.pre_market_plan(db)

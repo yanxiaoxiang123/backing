@@ -447,3 +447,151 @@ def account_state(db: Session) -> dict[str, Any]:
         "initial_cash": row.initial_cash,
         "positions": positions,
     }
+
+
+def equity_series(db: Session, start_date: str, end_date: str) -> list[dict[str, Any]]:
+    """每日权益序列：现金（初始 + 累计事件）+ 持仓市值（按日收盘标记）。
+
+    确定性、可审计；用于盘后归因（US-3.3）。
+    """
+    from collections import defaultdict
+
+    from app.models.models import DailyKline
+
+    start = date.fromisoformat(start_date)
+    end = date.fromisoformat(end_date)
+    days = [
+        row[0]
+        for row in db.query(DailyKline.date)
+        .filter(DailyKline.date >= start, DailyKline.date <= end)
+        .distinct()
+        .order_by(DailyKline.date.asc())
+        .all()
+    ]
+    if not days:
+        return []
+
+    cash_events = (
+        db.query(PaperCashEvent)
+        .filter(PaperCashEvent.created_at >= datetime.combine(start, time.min))
+        .all()
+    )
+    cash_by_day: dict[date, float] = defaultdict(float)
+    for ev in cash_events:
+        if ev.created_at is not None:
+            cash_by_day[ev.created_at.date()] += float(ev.amount)
+
+    fills = (
+        db.query(PaperFill, PaperOrder)
+        .join(PaperOrder, PaperOrder.order_id == PaperFill.order_id)
+        .all()
+    )
+    closes: dict[tuple[str, date], float] = {}
+    for kline in db.query(DailyKline).filter(
+        DailyKline.date >= start, DailyKline.date <= end
+    ):
+        closes[(kline.stock_code, kline.date)] = float(kline.close)
+
+    account = (
+        db.query(PaperAccount)
+        .filter(PaperAccount.account_id == DEFAULT_ACCOUNT_ID)
+        .one_or_none()
+    )
+    cash = float(account.initial_cash) if account else 0.0
+    positions: dict[str, int] = {}
+    series: list[dict[str, Any]] = []
+    for day in days:
+        cash += cash_by_day.get(day, 0.0)
+        for fill, order in fills:
+            if fill.trade_date == day.isoformat():
+                delta = fill.quantity if order.side == "buy" else -fill.quantity
+                positions[order.stock_code] = positions.get(order.stock_code, 0) + delta
+        market_value = sum(
+            qty * closes.get((code, day), 0.0)
+            for code, qty in positions.items()
+            if qty > 0
+        )
+        series.append(
+            {
+                "date": day.isoformat(),
+                "equity": round(cash + market_value, 4),
+                "cash": round(cash, 4),
+            }
+        )
+    return series
+
+
+def total_costs(db: Session) -> float:
+    """累计费用（佣金+印花税+过户费），用于归因 cost_drag。"""
+    rows = db.query(PaperFill).all()
+    return round(
+        sum(
+            float(f.commission) + float(f.stamp_tax) + float(f.transfer_fee)
+            for f in rows
+        ),
+        4,
+    )
+
+
+def attribution_report(
+    db: Session,
+    start_date: str,
+    end_date: str,
+    *,
+    benchmark_series: list[float] | None = None,
+) -> dict[str, Any]:
+    """盘后归因：组合权益 vs 基准（sh.000300）分解（US-3.3）。"""
+    from app.agent_runtime.paper.attribution import decompose_returns
+
+    series = equity_series(db, start_date, end_date)
+    if len(series) < 2:
+        raise ValueError("权益序列不足（区间内无成交或数据缺失）")
+    portfolio_values = [s["equity"] for s in series]
+    account = (
+        db.query(PaperAccount)
+        .filter(PaperAccount.account_id == DEFAULT_ACCOUNT_ID)
+        .one_or_none()
+    )
+    report = decompose_returns(
+        portfolio_values,
+        benchmark_series or portfolio_values,  # 基准不可用时的退化（beta=0）
+        start_date=start_date,
+        end_date=end_date,
+        total_cost=total_costs(db),
+        initial_equity=float(account.initial_cash) if account else 0.0,
+    )
+    return {
+        **report.to_dict(),
+        "benchmark_available": benchmark_series is not None,
+        "equity_series": series,
+        "dates": [s["date"] for s in series],
+    }
+
+
+def pre_market_plan(db: Session) -> dict[str, Any]:
+    """盘前计划：待批/已批订单（目标窗口、触发条件）快照（US-3.3）。"""
+    from datetime import datetime, timezone
+
+    orders = (
+        db.query(PaperOrder)
+        .filter(PaperOrder.status.in_(("pending_approval", "approved")))
+        .order_by(PaperOrder.created_at.asc())
+        .all()
+    )
+    return {
+        "as_of": datetime.now(timezone.utc).isoformat(),
+        "orders": [
+            {
+                "order_id": o.order_id,
+                "run_id": o.run_id,
+                "stock_code": o.stock_code,
+                "side": o.side,
+                "quantity": o.quantity,
+                "limit_price": o.limit_price,
+                "status": o.status,
+                "target_trade_date": o.target_trade_date,
+                "trigger_note": o.trigger_note,
+            }
+            for o in orders
+        ],
+    }

@@ -123,3 +123,16 @@ export interface ArtifactRecord {
   as_of?: string | null
   schema_version?: string | null
 }
+
+export interface AttributionData {
+  start_date: string
+  end_date: string
+  total_portfolio_return: number
+  total_benchmark_return: number
+  alpha: number
+  beta: number
+  exposure_effect: number
+  selection_effect: number
+  cost_drag: number
+  benchmark_available: boolean
+}

@@ -3,6 +3,7 @@ import type {
   AgentRunEvent,
   ApprovalRequest,
   ArtifactRecord,
+  AttributionData,
   BacktestPanelData,
   Claim,
   RiskPanelData,
@@ -177,6 +178,11 @@ export async function getArtifact(
   const resp = await api.get<Record<string, unknown>>(
     `/agent-runs/${runId}/artifacts/${artifactId}/download`,
   )
+  return resp.data
+}
+
+export async function getAttribution(): Promise<AttributionData> {
+  const resp = await api.get<AttributionData>('/paper/attribution')
   return resp.data
 }
 
