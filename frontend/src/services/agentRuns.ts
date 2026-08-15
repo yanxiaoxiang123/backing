@@ -135,8 +135,14 @@ export class AgentRunStream {
 // ---------------------------------------------------------------------------
 // REST 辅助
 // ---------------------------------------------------------------------------
-export async function createRun(objective: string): Promise<CreateRunResult> {
-  const resp = await api.post<CreateRunResult>('/agent-runs', { objective })
+export async function createRun(
+  objective: string,
+  strategyParams?: Record<string, number> | null,
+): Promise<CreateRunResult> {
+  const resp = await api.post<CreateRunResult>('/agent-runs', {
+    objective,
+    strategy_params: strategyParams ?? undefined,
+  })
   return resp.data
 }
 

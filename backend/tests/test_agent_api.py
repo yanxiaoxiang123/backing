@@ -161,3 +161,20 @@ def test_validation_errors(client):
         json={"objective": "x", "budget": {"max_rounds": 0}},
     )
     assert resp.status_code == 422
+
+
+def test_create_run_with_strategy_params(client):
+    """US-2.8：参数修改产生新 run，strategy 产物携带新参数。"""
+    run_id = _create(
+        client,
+        objective="生成 ma_cross 策略并回测验证 sh.600000",
+        strategy_params={"short_period": 10, "long_period": 30},
+    ).json()["run_id"]
+    detail = client.get(f"/api/v1/agent-runs/{run_id}").json()
+    strategy = next(s for s in detail["steps"] if s["node"] == "strategy_engineer")
+    assert strategy["output_json"]["signal_parameters"] == {
+        "short_period": 10,
+        "long_period": 30,
+    }
+    backtest = next(s for s in detail["steps"] if s["node"] == "backtest_critic")
+    assert backtest["output_json"]["metrics"] is not None

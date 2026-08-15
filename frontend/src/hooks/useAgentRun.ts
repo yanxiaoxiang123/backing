@@ -35,7 +35,10 @@ export interface UseAgentRunResult {
   backtestData: BacktestPanelData | null
   riskData: RiskPanelData | null
   error: string | null
-  start: (objective: string) => Promise<string>
+  start: (
+    objective: string,
+    strategyParams?: Record<string, number> | null,
+  ) => Promise<string>
   cancel: () => Promise<void>
   resume: () => Promise<void>
   decide: (
@@ -68,8 +71,11 @@ export function useAgentRun(): UseAgentRunResult {
   }, [])
 
   const start = useCallback(
-    async (objective: string): Promise<string> => {
-      const result = await createRun(objective)
+    async (
+      objective: string,
+      strategyParams?: Record<string, number> | null,
+    ): Promise<string> => {
+      const result = await createRun(objective, strategyParams)
       setRunId(result.run_id)
       setEvents([])
       setArtifacts([])

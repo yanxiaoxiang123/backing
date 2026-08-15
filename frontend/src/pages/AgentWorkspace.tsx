@@ -201,7 +201,16 @@ export default function AgentWorkspace() {
             {
               key: 'backtest',
               label: '回测',
-              children: <BacktestPanel data={backtestData} />,
+              children: (
+                <BacktestPanel
+                  data={backtestData}
+                  objective={run?.objective ?? null}
+                  onRerun={(params) => {
+                    if (!run?.objective) return
+                    void start(run.objective, params)
+                  }}
+                />
+              ),
             },
             {
               key: 'risk',

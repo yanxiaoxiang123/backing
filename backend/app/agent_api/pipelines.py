@@ -32,8 +32,12 @@ def _placeholder_node(ctx: NodeContext) -> dict[str, Any]:
     }
 
 
-def default_pipeline(objective: str | None = None) -> list[RuntimeNode]:
+def default_pipeline(
+    objective: str | None = None, strategy_params: dict | None = None
+) -> list[RuntimeNode]:
     """Supervisor 动态路由；无目标时退回确定性占位。"""
     if objective:
-        return build_supervisor_pipeline(objective, RunBudget())
+        return build_supervisor_pipeline(
+            objective, RunBudget(), strategy_params=strategy_params
+        )
     return [SimpleNode("research_placeholder", _placeholder_node)]

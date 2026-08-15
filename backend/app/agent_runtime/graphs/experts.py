@@ -213,14 +213,22 @@ def research_node(stock_code: str) -> RuntimeNode:
     return SimpleNode("research", run)
 
 
-def strategy_engineer_node(stock_code: str) -> RuntimeNode:
+def strategy_engineer_node(
+    stock_code: str, params: dict[str, Any] | None = None
+) -> RuntimeNode:
+    """策略工程师（US-2.8）：参数修改产生新 run，旧回测永不覆盖。"""
+
     def run(ctx: NodeContext) -> dict[str, Any]:
+        p = params or {}
         spec = StrategySpec(
             name="ma_cross_demo",
             description="演示策略：MA 双均线交叉",
             universe={"kind": "custom", "ref": stock_code, "codes": [stock_code]},
             signal="ma_cross",
-            signal_parameters={"short_period": 5, "long_period": 20},
+            signal_parameters={
+                "short_period": int(p.get("short_period", 5)),
+                "long_period": int(p.get("long_period", 20)),
+            },
             rebalance="weekly",
         )
         record_tool_call(
@@ -244,8 +252,17 @@ def strategy_engineer_node(stock_code: str) -> RuntimeNode:
     return SimpleNode("strategy_engineer", run)
 
 
-def backtest_critic_node(stock_code: str) -> RuntimeNode:
+def backtest_critic_node(
+    stock_code: str, params: dict[str, Any] | None = None
+) -> RuntimeNode:
+    """回测审计（US-2.8）：按策略参数回测（默认 5/20）。"""
+
     def run(ctx: NodeContext) -> dict[str, Any]:
+        p = params or {}
+        parameters = {
+            "short_period": int(p.get("short_period", 5)),
+            "long_period": int(p.get("long_period", 20)),
+        }
         end = date.today()
         start = end.replace(year=end.year - 1)
         record_tool_call(
@@ -256,7 +273,7 @@ def backtest_critic_node(stock_code: str) -> RuntimeNode:
                 "stock_code": stock_code,
                 "start_date": start.isoformat(),
                 "end_date": end.isoformat(),
-                "parameters": {"short_period": 5, "long_period": 20},
+                "parameters": parameters,
             },
             permission="strategy",
         )
@@ -266,7 +283,7 @@ def backtest_critic_node(stock_code: str) -> RuntimeNode:
                 stock_code=stock_code,
                 start_date=start,
                 end_date=end,
-                parameters={"short_period": 5, "long_period": 20},
+                parameters=parameters,
             )
         except ValueError as exc:
             verdict = BacktestVerdict(

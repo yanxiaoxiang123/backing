@@ -1,7 +1,21 @@
-import { Descriptions, Empty, Result, Statistic, Row, Col, Tag } from 'antd'
+import { useState } from 'react'
+import { Button, Descriptions, Empty, InputNumber, Result, Space, Tag } from 'antd'
 import type { BacktestPanelData } from '../../types/agent'
 
-export function BacktestPanel({ data }: { data?: BacktestPanelData | null }) {
+interface BacktestPanelProps {
+  data?: BacktestPanelData | null
+  objective?: string | null
+  onRerun?: (params: { short_period: number; long_period: number }) => void
+}
+
+/**
+ * 回测审计面板（US-2.2/2.8）：展示审计结论；可编辑策略参数发起新 run，
+ * 参数修改产生新 run_id，旧回测永不覆盖。
+ */
+export function BacktestPanel({ data, objective, onRerun }: BacktestPanelProps) {
+  const [shortPeriod, setShortPeriod] = useState(5)
+  const [longPeriod, setLongPeriod] = useState(20)
+
   if (!data) {
     return <Empty description="尚无回测结果" />
   }
@@ -15,38 +29,35 @@ export function BacktestPanel({ data }: { data?: BacktestPanelData | null }) {
           style={{ padding: '12px 0' }}
         />
       )}
-      <Row gutter={16}>
-        <Col span={8}>
-          <Statistic
-            title="总收益"
-            value={
-              data.total_return != null ? (data.total_return * 100).toFixed(2) : '—'
-            }
-            suffix="%"
-          />
-        </Col>
-        <Col span={8}>
-          <Statistic
-            title="年化收益"
-            value={
-              data.annual_return != null ? (data.annual_return * 100).toFixed(2) : '—'
-            }
-            suffix="%"
-          />
-        </Col>
-        <Col span={8}>
-          <Statistic
-            title="最大回撤"
-            value={
-              data.max_drawdown_pct != null
-                ? (data.max_drawdown_pct * 100).toFixed(2)
-                : '—'
-            }
-            suffix="%"
-          />
-        </Col>
-      </Row>
-      <Descriptions size="small" column={1} style={{ marginTop: 12 }}>
+      <Space size="small" style={{ marginBottom: 12 }}>
+        <InputNumber
+          size="small"
+          addonBefore="短均线"
+          min={2}
+          max={60}
+          value={shortPeriod}
+          onChange={(v) => setShortPeriod(v ?? 5)}
+        />
+        <InputNumber
+          size="small"
+          addonBefore="长均线"
+          min={3}
+          max={120}
+          value={longPeriod}
+          onChange={(v) => setLongPeriod(v ?? 20)}
+        />
+        <Button
+          size="small"
+          type="primary"
+          disabled={!objective || !onRerun || longPeriod <= shortPeriod}
+          onClick={() =>
+            onRerun?.({ short_period: shortPeriod, long_period: longPeriod })
+          }
+        >
+          参数修改 → 新 run
+        </Button>
+      </Space>
+      <Descriptions size="small" column={1}>
         <Descriptions.Item label="样本外 Sharpe">
           {data.sharpe_out_of_sample ?? '—'}
         </Descriptions.Item>

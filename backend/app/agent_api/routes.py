@@ -45,7 +45,7 @@ def _cancel_token(run_id: str) -> CancelToken:
         return token
 
 
-def _spawn_execution(run_id: str, objective: str) -> None:
+def _spawn_execution(run_id: str, objective: str, strategy_params: dict | None = None) -> None:
     """后台线程执行（threads 后端；生产可换独立 worker，见规格决策 6 备注）。"""
 
     def _run() -> None:
@@ -53,7 +53,10 @@ def _spawn_execution(run_id: str, objective: str) -> None:
         try:
             stores = create_stores(session)
             executor = RunExecutor(stores, db=session, cancel_token=_cancel_token(run_id))
-            executor.execute(run_id, default_pipeline(objective))
+            executor.execute(
+                run_id,
+                default_pipeline(objective, strategy_params=strategy_params),
+            )
         except Exception:
             logger.exception("run %s 后台执行异常", run_id)
         finally:
@@ -86,9 +89,14 @@ def create_run(
     token = _cancel_token(run_id)
     if payload.execute_inline:
         executor = RunExecutor(stores, db=db, cancel_token=token)
-        final = executor.execute(run_id, default_pipeline(payload.objective))
+        final = executor.execute(
+            run_id,
+            default_pipeline(payload.objective, strategy_params=payload.strategy_params),
+        )
     else:
-        _spawn_execution(run_id, payload.objective)
+        _spawn_execution(
+            run_id, payload.objective, strategy_params=payload.strategy_params
+        )
         final = stores.runs.get_run(run_id)
     return RunResponse(
         run_id=run_id,

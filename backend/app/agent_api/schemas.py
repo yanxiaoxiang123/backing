@@ -12,6 +12,10 @@ class CreateRunRequest(BaseModel):
     budget: RunBudget | None = None
     thread_id: str | None = Field(default=None, max_length=64)
     snapshot_id: str | None = Field(default=None, max_length=64)
+    strategy_params: dict | None = Field(
+        default=None,
+        description="策略参数（如 ma_cross 的 short_period/long_period）；参数修改产生新 run，旧回测永不覆盖（US-2.2/2.8）",
+    )
     execute_inline: bool = Field(
         default=False, description="测试/调试用：同步执行到完成后再返回"
     )

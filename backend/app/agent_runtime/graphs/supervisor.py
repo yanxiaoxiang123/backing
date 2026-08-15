@@ -98,6 +98,7 @@ def build_supervisor_pipeline(
     objective: str,
     budget: RunBudget,
     provider: SupervisorPlanProvider | None = None,
+    strategy_params: dict | None = None,
 ) -> list[RuntimeNode]:
     """按 Supervisor 计划动态组装专家节点列表。"""
     provider = provider or RuleBasedSupervisor()
@@ -115,8 +116,12 @@ def build_supervisor_pipeline(
     node_factory = {
         "data_qa": lambda: data_qa_node(extract_stock_code(objective)),
         "research": lambda: research_node(extract_stock_code(objective)),
-        "strategy_engineer": lambda: strategy_engineer_node(extract_stock_code(objective)),
-        "backtest_critic": lambda: backtest_critic_node(extract_stock_code(objective)),
+        "strategy_engineer": lambda: strategy_engineer_node(
+            extract_stock_code(objective), params=strategy_params
+        ),
+        "backtest_critic": lambda: backtest_critic_node(
+            extract_stock_code(objective), params=strategy_params
+        ),
         "portfolio_risk": lambda: portfolio_risk_node(extract_stock_code(objective)),
         "ta_research": lambda: ta_research_node(
             extract_stock_code(objective), objective

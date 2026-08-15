@@ -153,4 +153,33 @@ describe('AgentWorkspace', () => {
     await user.click(screen.getByRole('button', { name: /批准（仅模拟盘）/ }))
     expect(mockHook.decide).toHaveBeenCalledWith(1, 'approved')
   })
+
+  it('参数修改 → 新 run：提交编辑后的策略参数（US-2.8）', async () => {
+    const user = userEvent.setup()
+    mockHook.run = {
+      run_id: 'run-1',
+      objective: '生成策略并回测验证 sh.600000',
+      status: 'completed',
+      steps: [],
+    }
+    mockHook.backtestData = {
+      strategy_name: 'ma_cross_demo',
+      total_return: 0.0143,
+      annual_return: 0.0143,
+      max_drawdown_pct: -0.9955,
+      sharpe_out_of_sample: 0,
+      passed: false,
+      reasons: ['收益非正或回撤过大'],
+    }
+    renderWorkspace()
+    await user.click(screen.getByRole('tab', { name: /回测/ }))
+    const inputs = screen.getAllByRole('spinbutton')
+    await user.clear(inputs[1])
+    await user.type(inputs[1], '30')
+    await user.click(screen.getByRole('button', { name: /参数修改 → 新 run/ }))
+    expect(mockHook.start).toHaveBeenCalledWith('生成策略并回测验证 sh.600000', {
+      short_period: 5,
+      long_period: 30,
+    })
+  })
 })
