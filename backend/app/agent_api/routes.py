@@ -45,7 +45,7 @@ def _cancel_token(run_id: str) -> CancelToken:
         return token
 
 
-def _spawn_execution(run_id: str) -> None:
+def _spawn_execution(run_id: str, objective: str) -> None:
     """后台线程执行（threads 后端；生产可换独立 worker，见规格决策 6 备注）。"""
 
     def _run() -> None:
@@ -53,7 +53,7 @@ def _spawn_execution(run_id: str) -> None:
         try:
             stores = create_stores(session)
             executor = RunExecutor(stores, db=session, cancel_token=_cancel_token(run_id))
-            executor.execute(run_id, default_pipeline())
+            executor.execute(run_id, default_pipeline(objective))
         except Exception:
             logger.exception("run %s 后台执行异常", run_id)
         finally:
@@ -86,9 +86,9 @@ def create_run(
     token = _cancel_token(run_id)
     if payload.execute_inline:
         executor = RunExecutor(stores, db=db, cancel_token=token)
-        final = executor.execute(run_id, default_pipeline())
+        final = executor.execute(run_id, default_pipeline(payload.objective))
     else:
-        _spawn_execution(run_id)
+        _spawn_execution(run_id, payload.objective)
         final = stores.runs.get_run(run_id)
     return RunResponse(
         run_id=run_id,
@@ -163,10 +163,12 @@ def resume_run(
 ):
     _require_run(db, run_id)
     stores = create_stores(db)
+    run = stores.runs.get_run(run_id)
+    objective = run["objective"]
     executor = RunExecutor(stores, db=db, cancel_token=_cancel_token(run_id))
     if wait:
-        return executor.execute(run_id, default_pipeline())
-    _spawn_execution(run_id)
+        return executor.execute(run_id, default_pipeline(objective))
+    _spawn_execution(run_id, objective)
     return stores.runs.get_run(run_id)
 
 

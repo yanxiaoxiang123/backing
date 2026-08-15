@@ -70,14 +70,14 @@ def test_events_sse_replays_steps_and_tools(client):
         text = resp.read().decode()
 
     ids = [int(line.split(": ", 1)[1]) for line in text.splitlines() if line.startswith("id: ")]
-    assert ids == sorted(ids) and len(ids) >= 3  # plan/research/verdict 节点事件
+    assert ids == sorted(ids) and len(ids) >= 3  # supervisor 动态路由后的节点事件
     assert "event: done" in text
     # 节点事件内容
     assert '"type": "step"' in text
-    assert '"node": "plan"' in text
-    # 工具事件（research 节点调用 strategy.list）
+    assert '"node": "supervisor"' in text
+    # 工具事件（data_qa/research 节点调用确定性工具）
     assert '"type": "tool_call"' in text
-    assert '"tool": "strategy.list"' in text
+    assert '"tool": "market.snapshot"' in text
 
 
 def test_events_sse_last_event_id_resume(client):
