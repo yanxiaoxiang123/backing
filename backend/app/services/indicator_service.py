@@ -249,6 +249,11 @@ class IndicatorService:
             ]
         )
 
+        # SQLite Numeric 列读出为 Decimal，pandas 3 下指标计算会崩溃；
+        # 先统一转 float（生产路径同样受益）。
+        for col in ("open", "high", "low", "close", "volume"):
+            df[col] = df[col].astype(float)
+
         # 聚合周期数据 (周K/月K)
         if period == "weekly":
             df = IndicatorService._aggregate_to_weekly(df)
