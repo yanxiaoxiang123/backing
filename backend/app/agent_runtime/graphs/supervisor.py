@@ -17,6 +17,7 @@ from app.domain.plans import PlanStep, RunBudget, RunPlan
 DEFAULT_STOCK_CODE = "sh.600000"
 
 _HIGH_RISK_KEYWORDS = ("高风险", "杠杆", "追涨", "全仓", "重仓", "满仓")
+DEEP_RESEARCH_KEYWORDS = ("深度研究", "深度分析", "多空辩论", "全面分析", "综合研究")
 
 
 def extract_stock_code(objective: str) -> str:
@@ -50,6 +51,16 @@ class RuleBasedSupervisor(SupervisorPlanProvider):
         if "回测" in objective or "验证" in objective or "策略" in objective:
             steps.append(
                 PlanStep(order=order, node="backtest_critic", description="回测审计")
+            )
+            order += 1
+        # 深度研究：TradingAgents 多分析师子图（US-2.7）
+        if any(k in objective for k in DEEP_RESEARCH_KEYWORDS):
+            steps.append(
+                PlanStep(
+                    order=order,
+                    node="ta_research",
+                    description="TradingAgents 深度研究（多分析师 + 辩论）",
+                )
             )
             order += 1
         # 默认或高风险目标都做组合风控
@@ -89,6 +100,7 @@ def build_supervisor_pipeline(
         research_node,
         strategy_engineer_node,
     )
+    from app.agent_runtime.ta_bridge.subgraph import ta_research_node
 
     node_factory = {
         "data_qa": lambda: data_qa_node(extract_stock_code(objective)),
@@ -96,6 +108,9 @@ def build_supervisor_pipeline(
         "strategy_engineer": lambda: strategy_engineer_node(extract_stock_code(objective)),
         "backtest_critic": lambda: backtest_critic_node(extract_stock_code(objective)),
         "portfolio_risk": lambda: portfolio_risk_node(extract_stock_code(objective)),
+        "ta_research": lambda: ta_research_node(
+            extract_stock_code(objective), objective
+        ),
     }
     nodes = [_emit_plan(plan)]
     for step in sorted(plan.steps, key=lambda s: s.order):
