@@ -23,6 +23,13 @@ def _iso(value: Any) -> Any:
     return value
 
 
+def _dt(value: Any) -> Any:
+    """ISO 字符串 → datetime（create 路径的统一转换）。"""
+    if isinstance(value, str):
+        return datetime.fromisoformat(value)
+    return value
+
+
 def _row_to_dict(row: Any) -> dict[str, Any]:
     return {column.name: _iso(getattr(row, column.name)) for column in row.__table__.columns}
 
@@ -32,6 +39,10 @@ class SqlAlchemyRunStore:
         self.session = session
 
     def create_run(self, *, run_id: str, objective: str, **fields: Any) -> dict[str, Any]:
+        if fields.get("started_at") is not None:
+            fields["started_at"] = _dt(fields["started_at"])
+        if fields.get("finished_at") is not None:
+            fields["finished_at"] = _dt(fields["finished_at"])
         row = AgentRun(run_id=run_id, objective=objective, **fields)
         self.session.add(row)
         self.session.commit()
@@ -83,6 +94,10 @@ class SqlAlchemyStepStore:
         self.session = session
 
     def create_step(self, *, run_id: str, seq: int, node: str, **fields: Any) -> dict[str, Any]:
+        if fields.get("started_at") is not None:
+            fields["started_at"] = _dt(fields["started_at"])
+        if fields.get("finished_at") is not None:
+            fields["finished_at"] = _dt(fields["finished_at"])
         row = AgentStep(run_id=run_id, seq=seq, node=node, **fields)
         self.session.add(row)
         self.session.commit()
@@ -197,6 +212,8 @@ class SqlAlchemyArtifactStore:
         uri: str,
         **fields: Any,
     ) -> dict[str, Any]:
+        if fields.get("as_of") is not None:
+            fields["as_of"] = _dt(fields["as_of"])
         row = ArtifactRecord(run_id=run_id, artifact_type=artifact_type, uri=uri, **fields)
         self.session.add(row)
         self.session.commit()
@@ -225,6 +242,10 @@ class SqlAlchemyApprovalStore:
         summary: str,
         **fields: Any,
     ) -> dict[str, Any]:
+        if fields.get("expires_at") is not None:
+            fields["expires_at"] = _dt(fields["expires_at"])
+        if fields.get("decided_at") is not None:
+            fields["decided_at"] = _dt(fields["decided_at"])
         row = ApprovalRecord(run_id=run_id, action=action, summary=summary, **fields)
         self.session.add(row)
         self.session.commit()
