@@ -269,24 +269,16 @@ def analyze_stock(
     db: Session = Depends(get_db),
     _: str = Depends(get_current_api_key),
 ):
-    """执行股票分析"""
+    """执行股票分析（经统一 runtime：落 run/step/tool 事实，行为与旧版一致）"""
+    from app.agent_api.adapter import run_legacy_analysis
+
     _ensure_stock_kline_data(db, request.stock_code)
-    # 初始化编排器
-    orchestrator = AgentOrchestrator(mode=request.mode)
-
-    # 检查 LLM 是否可用
-    if not orchestrator.is_available:
-        raise ProviderUnavailableError(
-            detail="LLM service not available. Please check API key configuration.",
-            provider="deepseek",
-        )
-
-    # 执行分析
-    result = orchestrator.run(
-        stock_code=request.stock_code,
-        stock_name=request.stock_name or request.stock_code,
-    )
-
+    _, final, result = run_legacy_analysis(db, request)
+    if final["status"] != "completed" or result is None:
+        error = final.get("error") or "analysis failed"
+        if "LLM service not available" in error or "API key" in error:
+            raise ProviderUnavailableError(detail=error, provider="deepseek")
+        raise HTTPException(status_code=500, detail=error)
     return _persist_analysis(db, request, result)
 
 
