@@ -13,6 +13,8 @@ build/
 *.log
 logs/*.log
 backend/models/llm/
+# agent eval LLM response cache (generated, never commit)
+backend/evals/cache/
 .gstack/
 .DS_Store
 
