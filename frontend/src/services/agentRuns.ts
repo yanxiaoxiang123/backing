@@ -186,6 +186,24 @@ export async function getAttribution(): Promise<AttributionData> {
   return resp.data
 }
 
+export interface AlertItem {
+  id: number
+  alert_type: string
+  severity: string
+  message: string
+  is_read: boolean
+  created_at?: string | null
+}
+
+export async function getAlerts(): Promise<{ alerts: AlertItem[] }> {
+  const resp = await api.get<{ alerts: AlertItem[] }>('/paper/alerts')
+  return resp.data
+}
+
+export async function markAlertRead(alertId: number): Promise<void> {
+  await api.post(`/paper/alerts/${alertId}/read`)
+}
+
 export async function listApprovals(runId: string): Promise<ApprovalRequest[]> {
   const resp = await api.get<{ approvals: ApprovalRequest[] }>(
     `/agent-runs/${runId}/approvals`,

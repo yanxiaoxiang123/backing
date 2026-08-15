@@ -6,6 +6,7 @@ from app.models.agent_runtime import (
     ArtifactRecord,
     ToolCallRecord,
 )
+from app.models.alerts import AlertRecord
 from app.models.analysis import AnalysisRecord
 from app.models.models import BacktestResult, BacktestTrade, DailyKline, Stock, Strategy
 from app.models.paper_trading import (
@@ -20,6 +21,7 @@ from app.models.paper_trading import (
 __all__ = [
     "AgentRun",
     "AgentStep",
+    "AlertRecord",
     "AnalysisRecord",
     "ApprovalRecord",
     "ArtifactRecord",

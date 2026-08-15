@@ -400,6 +400,13 @@ def run_matching_cycle(db: Session) -> dict[str, int]:
         summary[outcome] += 1
         summary["processed"] += 1
     db.commit()
+    # 撮合后运行告警条件检查（US-3.4；同日去重）
+    try:
+        from app.agent_runtime.alerts import run_alert_checks
+
+        summary["alerts"] = len(run_alert_checks(db))
+    except Exception:
+        logger.exception("告警检查失败")
     return summary
 
 

@@ -189,7 +189,8 @@ class TestMatchingCycle:
         _seed(db)
         _propose(db)  # 保持 pending_approval
         summary = paper_service.run_matching_cycle(db)
-        assert summary == {"processed": 0, "filled": 0, "expired": 0, "noop": 0}
+        for key in ("processed", "filled", "expired", "noop"):
+            assert summary[key] == 0
         order = db.query(PaperOrder).filter(PaperOrder.order_id == "po-1").one()
         assert order.status == "pending_approval"
 

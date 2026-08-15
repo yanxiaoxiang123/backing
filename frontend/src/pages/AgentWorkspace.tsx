@@ -9,6 +9,7 @@ import { RiskPanel } from '../components/agent/RiskPanel'
 import { ApprovalCard } from '../components/agent/ApprovalCard'
 import { ArtifactViewer } from '../components/agent/ArtifactViewer'
 import { AttributionPanel } from '../components/agent/AttributionPanel'
+import { AlertsPanel } from '../components/agent/AlertsPanel'
 import { useAgentRun } from '../hooks/useAgentRun'
 import { getStockKline } from '../services/api'
 import type { ApprovalRequest } from '../types/agent'
@@ -244,6 +245,11 @@ export default function AgentWorkspace() {
               key: 'attribution',
               label: '归因',
               children: <AttributionPanel />,
+            },
+            {
+              key: 'alerts',
+              label: '告警',
+              children: <AlertsPanel />,
             },
           ]}
         />

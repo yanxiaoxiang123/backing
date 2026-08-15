@@ -185,3 +185,39 @@ def get_pre_market_plan(
 ) -> dict[str, Any]:
     """盘前计划：待批/已批订单快照（US-3.3）。"""
     return paper_service.pre_market_plan(db)
+
+
+@router.get("/paper/alerts")
+def list_alerts(
+    unread_only: bool = False,
+    db: Session = Depends(get_db),
+    _: str = Depends(get_current_api_key),
+) -> dict[str, Any]:
+    """告警列表（US-3.4；阈值可配置，同日去重）。"""
+    from app.agent_runtime.alerts import list_alerts as list_alert_rows
+
+    return {"alerts": list_alert_rows(db, unread_only=unread_only)}
+
+
+@router.post("/paper/alerts/check")
+def check_alerts(
+    db: Session = Depends(get_db),
+    _: str = Depends(get_current_api_key),
+) -> dict[str, Any]:
+    """手动触发告警条件检查（demo/验收用）。"""
+    from app.agent_runtime.alerts import run_alert_checks
+
+    return {"created": run_alert_checks(db)}
+
+
+@router.post("/paper/alerts/{alert_id}/read")
+def read_alert(
+    alert_id: int,
+    db: Session = Depends(get_db),
+    _: str = Depends(get_current_api_key),
+) -> dict[str, Any]:
+    from app.agent_runtime.alerts import mark_read
+
+    if not mark_read(db, alert_id):
+        raise HTTPException(status_code=404, detail="告警不存在")
+    return {"id": alert_id, "is_read": True}
