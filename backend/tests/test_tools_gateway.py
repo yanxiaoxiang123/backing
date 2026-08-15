@@ -64,14 +64,14 @@ def test_registry_allowlist_has_eight_domains():
     assert "strategy.validate" in names
     assert "backtest.run" in names
     assert "portfolio.constraints" in names
-    assert "execution.paper.order" in names
+    assert "execution.paper.propose_order" in names
 
 
 def test_list_tools_shape():
     tools = DEFAULT_REGISTRY.list_tools()
     by_name = {t["name"]: t for t in tools}
     assert "input_schema" in by_name["market.kline"]
-    assert by_name["execution.paper.order"]["permission"] == "approval"
+    assert by_name["execution.paper.propose_order"]["permission"] == "approval"
 
 
 def test_unknown_tool_rejected():
@@ -113,26 +113,50 @@ def test_strategy_validate_unknown_signal_fails():
     assert result["error"]["code"] == "handler"
 
 
-def test_paper_order_denied_without_approval():
+def test_paper_propose_denied_without_approval():
     ctx = ToolContext()
     result = DEFAULT_REGISTRY.invoke(
-        "execution.paper.order",
-        {"code": "sh.600519", "action": "buy", "shares": 100, "price": 10.0},
+        "execution.paper.propose_order",
+        {"stock_code": "sh.600519", "side": "buy", "quantity": 100},
         ctx,
     )
     assert result["ok"] is False
     assert result["error"]["code"] == "permission_denied"
 
 
-def test_paper_order_placeholder_with_approval():
-    ctx = ToolContext(granted_permissions={"read", "approval"}, run_id="run-1")
+def test_paper_propose_creates_order_and_approval(db):
+    from app.models.agent_runtime import AgentRun
+
+    db.add(AgentRun(run_id="run-1", objective="测试"))
+    db.add(Stock(code="sh.600519", name="贵州茅台", market="sh"))
+    db.commit()
+    ctx = ToolContext(
+        granted_permissions={"read", "approval"}, run_id="run-1", db=db
+    )
     result = DEFAULT_REGISTRY.invoke(
-        "execution.paper.order",
-        {"code": "sh.600519", "action": "buy", "shares": 100, "price": 10.0},
+        "execution.paper.propose_order",
+        {"stock_code": "sh.600519", "side": "buy", "quantity": 100},
         ctx,
     )
     assert result["ok"] is True
-    assert result["data"]["queue"] == "paper"
+    assert result["data"]["status"] == "pending_approval"
+    assert result["data"]["order_id"].startswith("po-")
+    from app.models.paper_trading import PaperOrder, PaperOrderEvent
+
+    order = (
+        db.query(PaperOrder)
+        .filter(PaperOrder.order_id == result["data"]["order_id"])
+        .one()
+    )
+    assert order.status == "pending_approval"
+    assert order.approval_id is not None
+    event = (
+        db.query(PaperOrderEvent)
+        .filter(PaperOrderEvent.order_id == order.order_id)
+        .one()
+    )
+    assert event.event_type == "proposed"
+    assert event.seq == 1
 
 
 # ---------- 参数校验 ----------
@@ -148,15 +172,23 @@ def test_invalid_params_rejected():
     assert result["error"]["code"] == "validation"
 
 
-def test_paper_order_lot_size_param():
-    ctx = ToolContext(granted_permissions={"read", "approval"})
+def test_paper_propose_bad_lot_rejected(db):
+    from app.models.agent_runtime import AgentRun
+
+    db.add(AgentRun(run_id="run-1", objective="测试"))
+    db.add(Stock(code="sh.600519", name="贵州茅台", market="sh"))
+    db.commit()
+    ctx = ToolContext(
+        granted_permissions={"read", "approval"}, run_id="run-1", db=db
+    )
     result = DEFAULT_REGISTRY.invoke(
-        "execution.paper.order",
-        {"code": "sh.600519", "action": "buy", "shares": 150, "price": 10.0},
+        "execution.paper.propose_order",
+        {"stock_code": "sh.600519", "side": "buy", "quantity": 150},
         ctx,
     )
     assert result["ok"] is False
-    assert result["error"]["code"] == "validation"
+    assert result["error"]["code"] == "handler"
+    assert "整数倍" in result["error"]["message"]
 
 
 # ---------- 确定性服务包装 ----------
