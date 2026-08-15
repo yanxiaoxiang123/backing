@@ -11,6 +11,7 @@ from sqlalchemy.engine import make_url
 from starlette.middleware.sessions import SessionMiddleware
 
 import app.services.strategy  # side-effect import: registers built-in strategies
+from app.agent_api.paper import router as paper_router
 from app.agent_api.routes import router as agent_runtime_router
 from app.api.agent import router as agent_router
 from app.api.auth import router as auth_router
@@ -116,8 +117,18 @@ async def lifespan(app: FastAPI):
     task_executor = get_task_executor()
     app.state.task_executor = task_executor
     task_executor.startup()
+    # 模拟盘 soak 撮合循环（可配置；默认开启，间隔 60s）
+    from app.agent_runtime.paper.soak import PaperSoakRunner
+
+    soak = PaperSoakRunner(
+        interval_s=float(getattr(settings, "PAPER_SOAK_INTERVAL_S", 60) or 60),
+        enabled=bool(getattr(settings, "PAPER_SOAK_ENABLED", True)),
+    )
+    soak.start()
+    app.state.paper_soak = soak
     yield
     # Shutdown
+    soak.stop()
     task_executor.shutdown()
     logger.info("Shutting down...")
 
@@ -176,6 +187,7 @@ app.include_router(realtime_router, prefix="/api/v1", tags=["realtime"])
 app.include_router(strategies_router)
 app.include_router(agent_router, prefix="/api/v1", tags=["agent"])
 app.include_router(agent_runtime_router, prefix="/api/v1", tags=["agent-runs"])
+app.include_router(paper_router, prefix="/api/v1", tags=["paper"])
 app.include_router(dl_prediction_router, prefix="/api/v1/dl", tags=["dl"])
 app.include_router(watchlist_router)
 app.include_router(screener_agent_router, prefix="/api/v1", tags=["screener_agent"])

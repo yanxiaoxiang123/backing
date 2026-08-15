@@ -13,10 +13,12 @@ import {
   AgentRunStream,
   cancelRun,
   createRun,
+  decideApproval,
   deriveBacktestData,
   deriveResearchClaims,
   deriveRiskData,
   getRun,
+  listApprovals,
   listArtifacts,
   resumeRun,
   type StreamState,
@@ -36,6 +38,10 @@ export interface UseAgentRunResult {
   start: (objective: string) => Promise<string>
   cancel: () => Promise<void>
   resume: () => Promise<void>
+  decide: (
+    approvalId: number | string,
+    decision: 'approved' | 'rejected',
+  ) => Promise<void>
 }
 
 /**
@@ -111,7 +117,24 @@ export function useAgentRun(): UseAgentRunResult {
     void listArtifacts(runId)
       .then(setArtifacts)
       .catch(() => undefined)
+    void listApprovals(runId)
+      .then(setApprovals)
+      .catch(() => undefined)
   }, [runId, run?.status])
+
+  const decide = useCallback(
+    async (approvalId: number | string, decision: 'approved' | 'rejected') => {
+      if (!runId) return
+      try {
+        await decideApproval(runId, approvalId, decision)
+      } catch {
+        // 失败由调用方展示
+      }
+      const fresh = await listApprovals(runId).catch(() => [])
+      setApprovals(fresh)
+    },
+    [runId],
+  )
 
   useEffect(() => {
     return () => streamRef.current?.stop()
@@ -169,5 +192,6 @@ export function useAgentRun(): UseAgentRunResult {
     start,
     cancel,
     resume,
+    decide,
   }
 }

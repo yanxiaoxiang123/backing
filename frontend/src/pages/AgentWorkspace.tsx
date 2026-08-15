@@ -23,16 +23,6 @@ const navItems = [
   { key: '/watchlist', label: '自选股' },
 ]
 
-const DEMO_APPROVAL: ApprovalRequest = {
-  id: 'demo-1',
-  action: 'execution.paper.order',
-  summary: '演示：买入 sh.600519 100 股（模拟盘占位，无真实成交）',
-  direction: 'buy',
-  target_position_pct: 0.05,
-  risk_summary: '演示风险摘要；P3 前不产生成交',
-  status: 'pending',
-}
-
 function KlineChart({ klines }: { klines: DailyKline[] }) {
   const option = useMemo(() => {
     const dates = klines.map((k) => k.date)
@@ -86,6 +76,7 @@ export default function AgentWorkspace() {
     events,
     streamState,
     artifacts,
+    approvals,
     researchClaims,
     backtestData,
     riskData,
@@ -93,8 +84,8 @@ export default function AgentWorkspace() {
     start,
     cancel,
     resume,
+    decide,
   } = useAgentRun()
-  const [approvals, setApprovals] = useState<ApprovalRequest[]>([DEMO_APPROVAL])
   const [klines, setKlines] = useState<DailyKline[]>([])
 
   const stockCode = useMemo(
@@ -124,9 +115,7 @@ export default function AgentWorkspace() {
     approval: ApprovalRequest,
     decision: 'approved' | 'rejected',
   ) => {
-    setApprovals((prev) =>
-      prev.map((a) => (a.id === approval.id ? { ...a, status: decision } : a)),
-    )
+    void decide(approval.id, decision)
   }
 
   return (
@@ -220,13 +209,17 @@ export default function AgentWorkspace() {
               children: (
                 <div>
                   <RiskPanel data={riskData} />
-                  {approvals.map((approval) => (
-                    <ApprovalCard
-                      key={approval.id}
-                      approval={approval}
-                      onDecide={decideApproval}
-                    />
-                  ))}
+                  {approvals.length === 0 ? (
+                    <div className="agent-approval-empty">暂无待审批事项</div>
+                  ) : (
+                    approvals.map((approval) => (
+                      <ApprovalCard
+                        key={approval.id}
+                        approval={approval}
+                        onDecide={decideApproval}
+                      />
+                    ))
+                  )}
                 </div>
               ),
             },

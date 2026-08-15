@@ -165,7 +165,19 @@ export async function listArtifacts(runId: string): Promise<ArtifactRecord[]> {
 }
 
 export async function listApprovals(runId: string): Promise<ApprovalRequest[]> {
-  // P3 前 approvals 只经 run 事件呈现；此辅助为后续审批 API 预留
-  void runId
-  return []
+  const resp = await api.get<{ approvals: ApprovalRequest[] }>(
+    `/agent-runs/${runId}/approvals`,
+  )
+  return resp.data.approvals
+}
+
+export async function decideApproval(
+  runId: string,
+  approvalId: number | string,
+  decision: 'approved' | 'rejected',
+): Promise<void> {
+  await api.post(`/agent-runs/${runId}/approvals/${approvalId}/decide`, {
+    decision,
+    decided_by: 'workspace',
+  })
 }

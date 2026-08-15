@@ -15,10 +15,12 @@ const mockHook = vi.hoisted(() => ({
   riskData: null as Record<string, unknown> | null,
   streamState: 'idle',
   artifacts: [] as unknown[],
+  approvals: [] as Array<Record<string, unknown>>,
   error: null as string | null,
   start: vi.fn(),
   cancel: vi.fn(),
   resume: vi.fn(),
+  decide: vi.fn(),
 }))
 
 vi.mock('../../hooks/useAgentRun', () => ({
@@ -27,7 +29,7 @@ vi.mock('../../hooks/useAgentRun', () => ({
     events: mockHook.events,
     streamState: mockHook.streamState,
     artifacts: mockHook.artifacts,
-    approvals: [],
+    approvals: mockHook.approvals,
     researchClaims: mockHook.researchClaims,
     backtestData: mockHook.backtestData,
     riskData: mockHook.riskData,
@@ -35,6 +37,7 @@ vi.mock('../../hooks/useAgentRun', () => ({
     start: mockHook.start,
     cancel: mockHook.cancel,
     resume: mockHook.resume,
+    decide: mockHook.decide,
   }),
 }))
 
@@ -85,9 +88,7 @@ describe('AgentWorkspace', () => {
     expect(screen.getByText('尚无回测结果')).toBeInTheDocument()
 
     await user.click(screen.getByRole('tab', { name: /风险/ }))
-    expect(
-      screen.getByText('演示：买入 sh.600519 100 股（模拟盘占位，无真实成交）'),
-    ).toBeInTheDocument()
+    expect(screen.getByText('暂无待审批事项')).toBeInTheDocument()
   })
 
   it('run 完成后研究面板展示结构化数据（证据/回测/风险）', async () => {
@@ -136,14 +137,20 @@ describe('AgentWorkspace', () => {
     expect(screen.getByText('整手')).toBeInTheDocument()
   })
 
-  it('审批卡批准后状态更新', async () => {
+  it('审批卡批准调用 decide（真实审批 API 由 hook 封装）', async () => {
     const user = userEvent.setup()
+    mockHook.approvals = [
+      {
+        id: 1,
+        action: 'paper.order',
+        summary: '买入 100 股 sh.600000',
+        direction: 'buy',
+        status: 'pending',
+      },
+    ]
     renderWorkspace()
     await user.click(screen.getByRole('tab', { name: /风险/ }))
     await user.click(screen.getByRole('button', { name: /批准（仅模拟盘）/ }))
-    expect(screen.getByText('approved')).toBeInTheDocument()
-    expect(
-      screen.queryByRole('button', { name: /批准（仅模拟盘）/ }),
-    ).not.toBeInTheDocument()
+    expect(mockHook.decide).toHaveBeenCalledWith(1, 'approved')
   })
 })

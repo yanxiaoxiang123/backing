@@ -327,6 +327,36 @@ def portfolio_risk_node(stock_code: str) -> RuntimeNode:
             risk_budget_used_pct=0.1,
             rejected=False,
         )
+        # 组合风控通过后，提议一笔小规模模拟盘订单（生成审批卡；不自动成交）。
+        # 无审批任何订单不成交（撮合层拒绝 pending 订单；US-3.2）。
+        if not proposal.rejected:
+            from app.tools import DEFAULT_REGISTRY
+            from app.tools.base import ToolContext as GatewayContext
+
+            gateway = GatewayContext(
+                db=ctx.db,
+                stores=ctx.stores,
+                run_id=ctx.run_id,
+                granted_permissions={"read", "approval"},
+            )
+            env = DEFAULT_REGISTRY.invoke(
+                "execution.paper.propose_order",
+                {
+                    "stock_code": stock_code,
+                    "side": "buy",
+                    "quantity": 100,
+                    "trigger_note": "组合风控通过后的演示订单（审批后下一交易日撮合）",
+                },
+                gateway,
+            )
+            if not env.get("ok"):
+                proposal.constraints.append(
+                    ConstraintResult(
+                        rule="paper_propose",
+                        passed=False,
+                        detail=f"模拟盘订单提议失败: {env.get('error', {}).get('message', 'unknown')}",
+                    )
+                )
         return {"output": proposal.model_dump(mode="json"), "output_schema": "PortfolioProposal"}
 
     return SimpleNode("portfolio_risk", run)
