@@ -198,3 +198,29 @@ def list_artifacts(
 ):
     _require_run(db, run_id)
     return {"run_id": run_id, "artifacts": create_stores(db).artifacts.list_artifacts(run_id)}
+
+
+@router.get("/agent-runs/{run_id}/artifacts/{artifact_id}/download")
+def download_artifact(
+    run_id: str,
+    artifact_id: int,
+    db: Session = Depends(get_db),
+    _: str = Depends(get_current_api_key),
+):
+    """下载产物工作区文件（US-2.9；内容与记录一致）。"""
+    from fastapi.responses import JSONResponse
+
+    from app.agent_runtime.artifacts import filename_of, read_artifact
+    from app.models.agent_runtime import ArtifactRecord
+
+    _require_run(db, run_id)
+    record = db.get(ArtifactRecord, artifact_id)
+    if record is None or record.run_id != run_id:
+        raise HTTPException(status_code=404, detail="产物不存在")
+    content = read_artifact(run_id, filename_of(record.uri))
+    if content is None:
+        raise HTTPException(status_code=404, detail="产物文件缺失")
+    try:
+        return JSONResponse(content=json.loads(content))
+    except json.JSONDecodeError:
+        return JSONResponse(content={"raw": content})

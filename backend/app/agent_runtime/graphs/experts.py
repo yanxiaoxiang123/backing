@@ -196,6 +196,15 @@ def research_node(stock_code: str) -> RuntimeNode:
                 ).model_dump(mode="json")
             )
 
+        from app.agent_runtime.artifacts import emit_artifact
+
+        emit_artifact(
+            ctx.stores,
+            ctx.run_id,
+            "research_summary",
+            "research.json",
+            {"stock_code": stock_code, "claims": claims},
+        )
         return {
             "output": {"claims": claims},
             "output_schema": "ResearchClaim[]",
@@ -220,7 +229,17 @@ def strategy_engineer_node(stock_code: str) -> RuntimeNode:
             {"spec": spec.model_dump(mode="json")},
             permission="strategy",
         )
-        return {"output": spec.model_dump(mode="json"), "output_schema": "StrategySpec"}
+        from app.agent_runtime.artifacts import emit_artifact
+
+        payload = spec.model_dump(mode="json")
+        emit_artifact(
+            ctx.stores,
+            ctx.run_id,
+            "strategy_spec",
+            "strategy.json",
+            {"strategy": payload},
+        )
+        return {"output": payload, "output_schema": "StrategySpec"}
 
     return SimpleNode("strategy_engineer", run)
 
@@ -268,6 +287,15 @@ def backtest_critic_node(stock_code: str) -> RuntimeNode:
                 reasons=[f"回测无法执行: {exc}"],
                 produced_by="backtest_critic",
             )
+            from app.agent_runtime.artifacts import emit_artifact
+
+            emit_artifact(
+                ctx.stores,
+                ctx.run_id,
+                "backtest_report",
+                "backtest.json",
+                {"verdict": verdict.model_dump(mode="json")},
+            )
             return {"output": verdict.model_dump(mode="json"), "output_schema": "BacktestVerdict"}
 
         metrics = result.metrics
@@ -300,6 +328,15 @@ def backtest_critic_node(stock_code: str) -> RuntimeNode:
             passed=passed,
             reasons=["收益为正且回撤可控" if passed else "收益非正或回撤过大"],
             produced_by="backtest_critic",
+        )
+        from app.agent_runtime.artifacts import emit_artifact
+
+        emit_artifact(
+            ctx.stores,
+            ctx.run_id,
+            "backtest_report",
+            "backtest.json",
+            {"verdict": verdict.model_dump(mode="json")},
         )
         return {"output": verdict.model_dump(mode="json"), "output_schema": "BacktestVerdict"}
 

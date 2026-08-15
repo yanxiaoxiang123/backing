@@ -164,6 +164,16 @@ export async function listArtifacts(runId: string): Promise<ArtifactRecord[]> {
   return resp.data.artifacts
 }
 
+export async function getArtifact(
+  runId: string,
+  artifactId: number,
+): Promise<Record<string, unknown>> {
+  const resp = await api.get<Record<string, unknown>>(
+    `/agent-runs/${runId}/artifacts/${artifactId}/download`,
+  )
+  return resp.data
+}
+
 export async function listApprovals(runId: string): Promise<ApprovalRequest[]> {
   const resp = await api.get<{ approvals: ApprovalRequest[] }>(
     `/agent-runs/${runId}/approvals`,

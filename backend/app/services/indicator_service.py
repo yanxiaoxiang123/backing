@@ -22,12 +22,22 @@ class IndicatorService:
 
     def _cache_key(
         self,
+        db: Session,
         stock_code: str,
         period: str,
         start_date: Optional[date],
         end_date: Optional[date],
     ) -> str:
-        return f"indicator:{stock_code}:{period}:{start_date}:{end_date}"
+        # 缓存按数据源 engine 隔离：不同数据库（如各测试内存库）的同代码
+        # 行情不得串缓存（回归：跨测试 latest close 错误）。
+        engine_id = "default"
+        bind = getattr(db, "bind", None)
+        if bind is not None:
+            engine_id = str(id(bind))
+        return (
+            f"indicator:{engine_id}:{stock_code}:{period}:"
+            f"{start_date}:{end_date}"
+        )
 
     def _cache_get(self, key: str) -> Optional[List[Dict[str, Any]]]:
         self._maybe_cleanup()
@@ -214,7 +224,7 @@ class IndicatorService:
         end_date: Optional[date] = None,
     ) -> List[Dict[str, Any]]:
         """获取K线数据及技术指标（带 5 分钟缓存）"""
-        cache_key = self._cache_key(stock_code, period, start_date, end_date)
+        cache_key = self._cache_key(db, stock_code, period, start_date, end_date)
         cached = self._cache_get(cache_key)
         if cached is not None:
             return cached

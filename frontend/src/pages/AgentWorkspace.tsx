@@ -226,7 +226,9 @@ export default function AgentWorkspace() {
             {
               key: 'artifacts',
               label: '产物',
-              children: <ArtifactViewer artifacts={artifacts} />,
+              children: (
+                <ArtifactViewer artifacts={artifacts} runId={run?.run_id ?? null} />
+              ),
             },
           ]}
         />

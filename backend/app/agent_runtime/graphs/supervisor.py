@@ -79,7 +79,17 @@ class RuleBasedSupervisor(SupervisorPlanProvider):
 def _emit_plan(plan: RunPlan) -> RuntimeNode:
     def run(ctx: NodeContext) -> dict[str, Any]:
         plan.run_id = ctx.run_id
-        return {"output": plan.model_dump(mode="json"), "output_schema": "RunPlan"}
+        output = plan.model_dump(mode="json")
+        from app.agent_runtime.artifacts import emit_artifact
+
+        emit_artifact(
+            ctx.stores,
+            ctx.run_id,
+            "run_plan",
+            "plan.json",
+            {"plan": output},
+        )
+        return {"output": output, "output_schema": "RunPlan"}
 
     return SimpleNode("supervisor", run)
 

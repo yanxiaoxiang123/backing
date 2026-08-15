@@ -122,11 +122,13 @@ def test_cancel_endpoint(client):
     assert resp.json()["run_id"] == run_id
 
 
-def test_artifacts_empty_list(client):
+def test_artifacts_include_run_plan(client):
+    """US-2.9：run 至少产出 run_plan 工作区产物（supervisor 节点 emit）。"""
     run_id = _create(client).json()["run_id"]
     resp = client.get(f"/api/v1/agent-runs/{run_id}/artifacts")
     assert resp.status_code == 200
-    assert resp.json()["artifacts"] == []
+    artifacts = resp.json()["artifacts"]
+    assert any(a["artifact_type"] == "run_plan" for a in artifacts)
 
 
 def test_run_detail_includes_step_outputs(client):
