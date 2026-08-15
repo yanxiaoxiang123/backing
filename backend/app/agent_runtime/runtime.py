@@ -63,6 +63,7 @@ class NodeContext:
     stores: Stores
     step_db_id: int
     db: Any = None
+    as_of: datetime | None = None  # 市场当时可获得时间（评测注入；默认 None → 节点用当前时间）
 
 
 class RuntimeNode(Protocol):
@@ -118,10 +119,18 @@ def record_tool_call(
 class RunExecutor:
     """创建与执行 run；execute 可安全重入（resume 语义）。"""
 
-    def __init__(self, stores: Stores, *, db: Any = None, cancel_token: CancelToken | None = None):
+    def __init__(
+        self,
+        stores: Stores,
+        *,
+        db: Any = None,
+        cancel_token: CancelToken | None = None,
+        as_of: datetime | None = None,
+    ):
         self.stores = stores
         self.db = db
         self.cancel = cancel_token or CancelToken()
+        self.as_of = as_of
 
     def create_run(
         self,
@@ -239,6 +248,7 @@ class RunExecutor:
                         stores=self.stores,
                         step_db_id=step_row["id"],
                         db=self.db,
+                        as_of=self.as_of,
                     )
                 )
             except Exception as exc:

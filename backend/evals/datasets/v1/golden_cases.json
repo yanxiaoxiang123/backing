@@ -6,8 +6,14 @@
     "objective": "判断贵州茅台短期趋势并给出证据",
     "data_available_at": "2026-08-01T15:00:00+08:00",
     "expected": {
-      "conclusion_points": ["趋势判断", "量价配合"],
-      "evidence_requirements": ["kline", "volume"]
+      "conclusion_points": [
+        "趋势判断",
+        "量价配合"
+      ],
+      "evidence_requirements": [
+        "kline",
+        "volume"
+      ]
     },
     "risk_markers": []
   },
@@ -18,8 +24,14 @@
     "objective": "判断平安银行下跌趋势是否延续",
     "data_available_at": "2026-08-03T15:00:00+08:00",
     "expected": {
-      "conclusion_points": ["趋势判断", "支撑位"],
-      "evidence_requirements": ["kline", "volume"]
+      "conclusion_points": [
+        "趋势判断",
+        "支撑位"
+      ],
+      "evidence_requirements": [
+        "kline",
+        "volume"
+      ]
     },
     "risk_markers": []
   },
@@ -30,8 +42,14 @@
     "objective": "判断浦发银行是否处于震荡整理",
     "data_available_at": "2026-08-05T15:00:00+08:00",
     "expected": {
-      "conclusion_points": ["区间判断", "突破条件"],
-      "evidence_requirements": ["kline", "volume"]
+      "conclusion_points": [
+        "区间判断",
+        "突破条件"
+      ],
+      "evidence_requirements": [
+        "kline",
+        "volume"
+      ]
     },
     "risk_markers": []
   },
@@ -42,10 +60,17 @@
     "objective": "判断万科A停牌后的投资风险",
     "data_available_at": "2026-08-07T15:00:00+08:00",
     "expected": {
-      "conclusion_points": ["停牌原因", "复牌风险"],
-      "evidence_requirements": ["announcement"]
+      "conclusion_points": [
+        "停牌原因",
+        "复牌风险"
+      ],
+      "evidence_requirements": [
+        "announcement"
+      ]
     },
-    "risk_markers": ["suspension"]
+    "risk_markers": [
+      "suspension"
+    ]
   },
   {
     "id": "case-005",
@@ -54,10 +79,18 @@
     "objective": "分析涨停后的追涨可行性",
     "data_available_at": "2026-08-10T15:00:00+08:00",
     "expected": {
-      "conclusion_points": ["涨停原因", "次日风险"],
-      "evidence_requirements": ["kline", "news"]
+      "conclusion_points": [
+        "涨停原因",
+        "次日风险"
+      ],
+      "evidence_requirements": [
+        "kline",
+        "news"
+      ]
     },
-    "risk_markers": ["limit_up"]
+    "risk_markers": [
+      "limit_up"
+    ]
   },
   {
     "id": "case-006",
@@ -66,10 +99,18 @@
     "objective": "分析跌停后的抄底风险",
     "data_available_at": "2026-08-12T15:00:00+08:00",
     "expected": {
-      "conclusion_points": ["跌停原因", "流动性风险"],
-      "evidence_requirements": ["kline", "news"]
+      "conclusion_points": [
+        "跌停原因",
+        "流动性风险"
+      ],
+      "evidence_requirements": [
+        "kline",
+        "news"
+      ]
     },
-    "risk_markers": ["limit_down"]
+    "risk_markers": [
+      "limit_down"
+    ]
   },
   {
     "id": "case-007",
@@ -78,44 +119,72 @@
     "objective": "评估中国平安财报发布后的影响",
     "data_available_at": "2026-08-14T15:00:00+08:00",
     "expected": {
-      "conclusion_points": ["业绩变化", "估值影响"],
-      "evidence_requirements": ["financials", "announcement"]
+      "conclusion_points": [
+        "业绩变化",
+        "估值影响"
+      ],
+      "evidence_requirements": [
+        "financials",
+        "announcement"
+      ]
     },
-    "risk_markers": ["earnings"]
+    "risk_markers": [
+      "earnings"
+    ]
   },
   {
     "id": "case-008",
     "scenario": "unlock",
     "stock_code": "sz.300750",
     "objective": "评估宁德时代限售解禁的抛压风险",
-    "data_available_at": "2026-08-18T15:00:00+08:00",
+    "data_available_at": "2026-08-14T15:00:00+08:00",
     "expected": {
-      "conclusion_points": ["解禁规模", "抛压判断"],
-      "evidence_requirements": ["announcement"]
+      "conclusion_points": [
+        "解禁规模",
+        "抛压判断"
+      ],
+      "evidence_requirements": [
+        "announcement"
+      ]
     },
-    "risk_markers": ["unlock"]
+    "risk_markers": [
+      "unlock"
+    ]
   },
   {
     "id": "case-009",
     "scenario": "missing_data",
     "stock_code": "sz.002594",
     "objective": "在数据缺失情况下给出结论",
-    "data_available_at": "2026-08-20T15:00:00+08:00",
+    "data_available_at": "2026-08-14T15:00:00+08:00",
     "expected": {
-      "conclusion_points": ["数据缺口说明", "假设标记"],
+      "conclusion_points": [
+        "数据缺口说明",
+        "假设标记"
+      ],
       "evidence_requirements": []
     },
-    "risk_markers": ["data_missing"]
+    "risk_markers": [
+      "data_missing"
+    ]
   },
   {
     "id": "case-010",
     "scenario": "regular",
     "stock_code": "sh.600036",
     "objective": "常规综合投研：给出趋势、基本面与风险摘要",
-    "data_available_at": "2026-08-21T15:00:00+08:00",
+    "data_available_at": "2026-08-14T15:00:00+08:00",
     "expected": {
-      "conclusion_points": ["趋势", "基本面", "风险"],
-      "evidence_requirements": ["kline", "financials", "news"]
+      "conclusion_points": [
+        "趋势",
+        "基本面",
+        "风险"
+      ],
+      "evidence_requirements": [
+        "kline",
+        "financials",
+        "news"
+      ]
     },
     "risk_markers": []
   }

@@ -44,7 +44,7 @@ def data_qa_node(stock_code: str) -> RuntimeNode:
             run_id=ctx.run_id,
             stock_code=stock_code,
             snapshot_id=f"snap-{ctx.run_id}",
-            as_of=datetime.now(timezone.utc),
+            as_of=ctx.as_of or datetime.now(timezone.utc),
             checks=checks,
             vendor_sources=["backend"],
             overall="fail" if bar is None else "pass",
@@ -69,6 +69,7 @@ def research_node(stock_code: str) -> RuntimeNode:
         else:
             close = float(bar["close"])
             ma5 = bar.get("ma5")
+            volume = float(bar.get("volume") or 0)
             direction = "bullish" if (ma5 is not None and close > float(ma5)) else "bearish"
             claim = ResearchClaim(
                 claim=f"收盘 {close} 相对 MA5 {'上穿' if direction == 'bullish' else '下破'}",
@@ -78,10 +79,10 @@ def research_node(stock_code: str) -> RuntimeNode:
                 evidence=[
                     {
                         "source_id": f"factor:{stock_code}:daily",
-                        "as_of": datetime.now(timezone.utc),
+                        "as_of": ctx.as_of or datetime.now(timezone.utc),
                         "vendor": "backend",
                         "data_version": "v1",
-                        "summary": f"close={close}, ma5={ma5}",
+                        "summary": f"K线收盘 {close}，成交量 {volume:,.0f}，MA5 {ma5}",
                     }
                 ],
             )
