@@ -19,24 +19,29 @@ export function BacktestPanel({ data }: { data?: BacktestPanelData | null }) {
         <Col span={8}>
           <Statistic
             title="总收益"
-            value={data.total_return ?? '—'}
-            precision={2}
+            value={
+              data.total_return != null ? (data.total_return * 100).toFixed(2) : '—'
+            }
             suffix="%"
           />
         </Col>
         <Col span={8}>
           <Statistic
             title="年化收益"
-            value={data.annual_return ?? '—'}
-            precision={2}
+            value={
+              data.annual_return != null ? (data.annual_return * 100).toFixed(2) : '—'
+            }
             suffix="%"
           />
         </Col>
         <Col span={8}>
           <Statistic
             title="最大回撤"
-            value={data.max_drawdown_pct ?? '—'}
-            precision={2}
+            value={
+              data.max_drawdown_pct != null
+                ? (data.max_drawdown_pct * 100).toFixed(2)
+                : '—'
+            }
             suffix="%"
           />
         </Col>

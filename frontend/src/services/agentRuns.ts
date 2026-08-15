@@ -3,6 +3,10 @@ import type {
   AgentRunEvent,
   ApprovalRequest,
   ArtifactRecord,
+  BacktestPanelData,
+  Claim,
+  RiskPanelData,
+  RunDetail,
   RunRecord,
 } from '../types/agent'
 
@@ -12,6 +16,26 @@ export interface CreateRunResult {
   run_id: string
   status: string
   events_url: string
+}
+
+// ---------------------------------------------------------------------------
+// 结构化推导：run.steps（节点输出）→ 研究面板数据（纯函数，便于测试）
+// ---------------------------------------------------------------------------
+
+export function deriveResearchClaims(run: RunDetail | null): Claim[] {
+  const step = run?.steps?.find((s) => s.node === 'research')
+  const claims = step?.output_json?.['claims']
+  return Array.isArray(claims) ? (claims as Claim[]) : []
+}
+
+export function deriveBacktestData(run: RunDetail | null): BacktestPanelData | null {
+  const step = run?.steps?.find((s) => s.node === 'backtest_critic')
+  return (step?.output_json as BacktestPanelData | undefined) ?? null
+}
+
+export function deriveRiskData(run: RunDetail | null): RiskPanelData | null {
+  const step = run?.steps?.find((s) => s.node === 'portfolio_risk')
+  return (step?.output_json as RiskPanelData | undefined) ?? null
 }
 
 // ---------------------------------------------------------------------------
@@ -116,8 +140,8 @@ export async function createRun(objective: string): Promise<CreateRunResult> {
   return resp.data
 }
 
-export async function getRun(runId: string): Promise<RunRecord> {
-  const resp = await api.get<RunRecord>(`/agent-runs/${runId}`)
+export async function getRun(runId: string): Promise<RunDetail> {
+  const resp = await api.get<RunDetail>(`/agent-runs/${runId}`)
   return resp.data
 }
 

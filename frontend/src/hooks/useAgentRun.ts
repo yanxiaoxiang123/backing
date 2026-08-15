@@ -1,14 +1,20 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type {
   AgentRunEvent,
   ApprovalRequest,
   ArtifactRecord,
-  RunRecord,
+  BacktestPanelData,
+  Claim,
+  RiskPanelData,
+  RunDetail,
 } from '../types/agent'
 import {
   AgentRunStream,
   cancelRun,
   createRun,
+  deriveBacktestData,
+  deriveResearchClaims,
+  deriveRiskData,
   getRun,
   listArtifacts,
   resumeRun,
@@ -17,11 +23,14 @@ import {
 
 export interface UseAgentRunResult {
   runId: string | null
-  run: RunRecord | null
+  run: RunDetail | null
   events: AgentRunEvent[]
   streamState: StreamState
   artifacts: ArtifactRecord[]
   approvals: ApprovalRequest[]
+  researchClaims: Claim[]
+  backtestData: BacktestPanelData | null
+  riskData: RiskPanelData | null
   error: string | null
   start: (objective: string) => Promise<string>
   cancel: () => Promise<void>
@@ -34,7 +43,7 @@ export interface UseAgentRunResult {
  */
 export function useAgentRun(): UseAgentRunResult {
   const [runId, setRunId] = useState<string | null>(null)
-  const [run, setRun] = useState<RunRecord | null>(null)
+  const [run, setRun] = useState<RunDetail | null>(null)
   const [events, setEvents] = useState<AgentRunEvent[]>([])
   const [streamState, setStreamState] = useState<StreamState>('idle')
   const [artifacts, setArtifacts] = useState<ArtifactRecord[]>([])
@@ -107,6 +116,10 @@ export function useAgentRun(): UseAgentRunResult {
     return () => streamRef.current?.stop()
   }, [])
 
+  const researchClaims = useMemo(() => deriveResearchClaims(run), [run])
+  const backtestData = useMemo(() => deriveBacktestData(run), [run])
+  const riskData = useMemo(() => deriveRiskData(run), [run])
+
   return {
     runId,
     run,
@@ -114,6 +127,9 @@ export function useAgentRun(): UseAgentRunResult {
     streamState,
     artifacts,
     approvals,
+    researchClaims,
+    backtestData,
+    riskData,
     error,
     start,
     cancel,

@@ -135,6 +135,43 @@ def test_backtest_critic_verdict_is_deterministic(stores, session):
     assert any("回测无法执行" in r for r in verdict.reasons)
 
 
+def test_backtest_critic_success_path_with_in_range_data(stores, session):
+    """真实数据路径：区间内有 K 线时产出确定性 BacktestVerdict（回归：
+    max_drawdown 字段名曾写错导致成功路径 AttributeError）。"""
+    from datetime import date as _date
+    from datetime import timedelta as _td
+
+    from app.agent_runtime.graphs.experts import backtest_critic_node
+    from app.models.models import DailyKline
+
+    # 在回测区间（今天-1年 ~ 今天）内补数据
+    start = _date.today() - _td(days=200)
+    for idx in range(60):
+        close = 10.0 + (idx % 5) * 0.1
+        session.add(
+            DailyKline(
+                stock_code="sh.600000",
+                date=start + _td(days=idx),
+                open=close - 0.1,
+                high=close + 0.2,
+                low=close - 0.2,
+                close=close,
+                volume=100000 + idx * 1000,
+                amount=close * 100000,
+            )
+        )
+    session.commit()
+
+    executor = RunExecutor(stores, db=session)
+    run_id = executor.create_run("回测成功路径", budget=RunBudget(max_rounds=5))
+    run = executor.execute(run_id, [backtest_critic_node("sh.600000")])
+    assert run["status"] == "completed"
+    step = stores.steps.list_steps(run_id)[0]
+    verdict = BacktestVerdict.model_validate(step["output_json"])
+    assert verdict.passed in (True, False)  # 成功路径：确定性结论
+    assert verdict.reasons
+
+
 # ---------- Schema 守卫 ----------
 
 def test_guard_retries_then_fails_on_invalid_output(stores, session):

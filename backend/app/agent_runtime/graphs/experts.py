@@ -165,7 +165,12 @@ def backtest_critic_node(stock_code: str) -> RuntimeNode:
             BacktestCheck(name="lookahead", passed=True, detail="引擎无前视（按日线顺序撮合）"),
             BacktestCheck(name="out_of_sample", passed=True, detail="引擎按声明参数执行"),
         ]
-        passed = metrics.total_return > 0 and metrics.max_drawdown_pct > -0.5
+        # 引擎返回百分比（total_return=12.5 表示 12.5%，max_drawdown=18.0 表示 18%），
+        # 领域契约用小数（0.12 / -0.18）：统一换算
+        total_return = float(metrics.total_return) / 100
+        annual_return = float(metrics.annual_return) / 100
+        max_drawdown_pct = -float(metrics.max_drawdown) / 100
+        passed = total_return > 0 and max_drawdown_pct > -0.5
         verdict = BacktestVerdict(
             run_id=ctx.run_id,
             strategy=StrategySpec(name="ma_cross_demo", signal="ma_cross"),
@@ -174,9 +179,9 @@ def backtest_critic_node(stock_code: str) -> RuntimeNode:
             end_date=end,
             benchmark="sh.000300",
             metrics=BacktestMetrics(
-                total_return=float(metrics.total_return),
-                annual_return=float(metrics.annual_return),
-                max_drawdown_pct=float(metrics.max_drawdown_pct),
+                total_return=total_return,
+                annual_return=annual_return,
+                max_drawdown_pct=max_drawdown_pct,
                 sharpe_out_of_sample=float(metrics.sharpe_ratio or 0.0),
                 turnover_annual=0.0,
                 total_cost_bps=0.0,

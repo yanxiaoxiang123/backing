@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { Alert, Descriptions, Tabs, Tag } from 'antd'
+import { Alert, Descriptions, Empty, Tabs, Tag } from 'antd'
+import ReactECharts from 'echarts-for-react'
 import { AgentConversation } from '../components/agent/AgentConversation'
 import { EvidencePanel } from '../components/agent/EvidencePanel'
 import { BacktestPanel } from '../components/agent/BacktestPanel'
@@ -8,7 +9,9 @@ import { RiskPanel } from '../components/agent/RiskPanel'
 import { ApprovalCard } from '../components/agent/ApprovalCard'
 import { ArtifactViewer } from '../components/agent/ArtifactViewer'
 import { useAgentRun } from '../hooks/useAgentRun'
+import { getStockKline } from '../services/api'
 import type { ApprovalRequest } from '../types/agent'
+import type { DailyKline } from '../types'
 import '../styles/agent.css'
 
 const navItems = [
@@ -30,11 +33,92 @@ const DEMO_APPROVAL: ApprovalRequest = {
   status: 'pending',
 }
 
+function KlineChart({ klines }: { klines: DailyKline[] }) {
+  const option = useMemo(() => {
+    const dates = klines.map((k) => k.date)
+    const candles = klines.map((k) => [k.open, k.close, k.low, k.high])
+    const volumes = klines.map((k) => ({
+      value: k.volume,
+      itemStyle: { color: k.close >= k.open ? '#ef232a' : '#14b143' },
+      xAxisIndex: 0,
+      yAxisIndex: 0,
+    }))
+    return {
+      tooltip: { trigger: 'axis' },
+      axisPointer: { type: 'cross' },
+      legend: { data: ['K线', '成交量'] },
+      grid: [
+        { left: 40, right: 20, top: 30, height: '55%' },
+        { left: 40, right: 20, top: '72%', height: '18%' },
+      ],
+      xAxis: [
+        { type: 'category', data: dates, boundaryGap: true },
+        { type: 'category', data: dates, gridIndex: 1, axisLabel: { show: false } },
+      ],
+      yAxis: [
+        { scale: true },
+        { gridIndex: 1, axisLabel: { show: false }, splitLine: { show: false } },
+      ],
+      dataZoom: [{ type: 'inside', xAxisIndex: [0, 1], start: 0, end: 100 }],
+      series: [
+        {
+          name: 'K线',
+          type: 'candlestick',
+          data: candles,
+          itemStyle: {
+            color: '#ef232a',
+            color0: '#14b143',
+            borderColor: '#ef232a',
+            borderColor0: '#14b143',
+          },
+        },
+        { name: '成交量', type: 'bar', xAxisIndex: 1, yAxisIndex: 1, data: volumes },
+      ],
+    }
+  }, [klines])
+  return <ReactECharts option={option} style={{ height: 320 }} />
+}
+
 export default function AgentWorkspace() {
   const location = useLocation()
-  const { run, events, streamState, artifacts, error, start, cancel, resume } =
-    useAgentRun()
+  const {
+    run,
+    events,
+    streamState,
+    artifacts,
+    researchClaims,
+    backtestData,
+    riskData,
+    error,
+    start,
+    cancel,
+    resume,
+  } = useAgentRun()
   const [approvals, setApprovals] = useState<ApprovalRequest[]>([DEMO_APPROVAL])
+  const [klines, setKlines] = useState<DailyKline[]>([])
+
+  const stockCode = useMemo(
+    () => run?.objective?.match(/\b(?:sh|sz)\.\d{6}\b/)?.[0] ?? null,
+    [run],
+  )
+
+  useEffect(() => {
+    if (!stockCode) {
+      setKlines([])
+      return
+    }
+    let cancelled = false
+    void getStockKline(stockCode)
+      .then((data) => {
+        if (!cancelled) setKlines(data)
+      })
+      .catch(() => {
+        if (!cancelled) setKlines([])
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [stockCode])
 
   const decideApproval = (
     approval: ApprovalRequest,
@@ -112,25 +196,30 @@ export default function AgentWorkspace() {
                       message="在左侧输入研究目标发起分析；K 线/结论数据将随事件流渲染"
                     />
                   )}
+                  {klines.length > 0 ? (
+                    <KlineChart klines={klines} />
+                  ) : (
+                    <Empty description="暂无 K 线数据" style={{ marginTop: 16 }} />
+                  )}
                 </div>
               ),
             },
             {
               key: 'evidence',
               label: '证据',
-              children: <EvidencePanel claims={[]} />,
+              children: <EvidencePanel claims={researchClaims} />,
             },
             {
               key: 'backtest',
               label: '回测',
-              children: <BacktestPanel data={null} />,
+              children: <BacktestPanel data={backtestData} />,
             },
             {
               key: 'risk',
               label: '风险',
               children: (
                 <div>
-                  <RiskPanel data={null} />
+                  <RiskPanel data={riskData} />
                   {approvals.map((approval) => (
                     <ApprovalCard
                       key={approval.id}

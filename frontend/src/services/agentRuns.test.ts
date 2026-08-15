@@ -1,5 +1,73 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { AgentRunStream } from './agentRuns'
+import {
+  AgentRunStream,
+  deriveBacktestData,
+  deriveResearchClaims,
+  deriveRiskData,
+} from './agentRuns'
+import type { RunDetail } from '../types/agent'
+
+describe('derive* panel data from run steps', () => {
+  const run: RunDetail = {
+    run_id: 'r1',
+    objective: '生成策略并回测验证 sh.600000',
+    status: 'completed',
+    steps: [
+      {
+        id: 1,
+        seq: 1,
+        node: 'supervisor',
+        status: 'completed',
+        output_schema: 'RunPlan',
+      },
+      {
+        id: 2,
+        seq: 3,
+        node: 'research',
+        status: 'completed',
+        output_schema: 'ResearchClaim[]',
+        output_json: { claims: [{ claim: '看多', category: 'technical' }] },
+      },
+      {
+        id: 3,
+        seq: 5,
+        node: 'backtest_critic',
+        status: 'completed',
+        output_schema: 'BacktestVerdict',
+        output_json: { passed: true, total_return: 0.12, reasons: ['达标'] },
+      },
+      {
+        id: 4,
+        seq: 6,
+        node: 'portfolio_risk',
+        status: 'completed',
+        output_schema: 'PortfolioProposal',
+        output_json: { positions: [{ code: 'sh.600000' }], rejected: false },
+      },
+    ],
+  }
+
+  it('deriveResearchClaims 提取 research 节点 claims', () => {
+    expect(deriveResearchClaims(run)).toEqual([
+      { claim: '看多', category: 'technical' },
+    ])
+    expect(deriveResearchClaims(null)).toEqual([])
+  })
+
+  it('deriveBacktestData 提取回测审计输出', () => {
+    const data = deriveBacktestData(run)
+    expect(data?.passed).toBe(true)
+    expect(data?.total_return).toBe(0.12)
+    expect(deriveBacktestData(null)).toBeNull()
+  })
+
+  it('deriveRiskData 提取组合风险输出', () => {
+    const data = deriveRiskData(run)
+    expect(data?.rejected).toBe(false)
+    expect(data?.positions?.[0].code).toBe('sh.600000')
+    expect(deriveRiskData(null)).toBeNull()
+  })
+})
 
 function frame(id: number, data: unknown, eventName?: string): string {
   const lines = [`id: ${id}`, `data: ${JSON.stringify(data)}`]

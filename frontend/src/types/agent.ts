@@ -16,6 +16,24 @@ export interface RunRecord {
   finished_at?: string | null
 }
 
+export interface StepOutput {
+  id: number
+  seq: number
+  node: string
+  status: 'pending' | 'running' | 'completed' | 'failed'
+  output_schema?: string | null
+  output_json?: Record<string, unknown> | null
+  tokens_used?: number | null
+  duration_s?: number | null
+  error?: string | null
+  started_at?: string | null
+  finished_at?: string | null
+}
+
+export interface RunDetail extends RunRecord {
+  steps?: StepOutput[]
+}
+
 export interface StepEvent {
   type: 'step'
   seq: number
