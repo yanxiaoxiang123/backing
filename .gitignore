@@ -20,3 +20,6 @@ backend/evals/cache/
 
 # scratch UI preview artifacts
 desktop-agent-quant-ui-preview.html
+
+# backend runtime data (research cache, artifact workspace, ta logs)
+backend/data/
