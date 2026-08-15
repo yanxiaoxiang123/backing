@@ -63,6 +63,33 @@ def _market_snapshot(params: MarketSnapshotParams, context: ToolContext) -> dict
     }
 
 
+class MarketIndexKlineParams(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    index_code: str = Field(..., min_length=1)
+    start_date: str = Field(..., pattern=r"^\d{4}-\d{2}-\d{2}$")
+    end_date: str = Field(..., pattern=r"^\d{4}-\d{2}-\d{2}$")
+
+
+def _market_index_kline(
+    params: MarketIndexKlineParams, context: ToolContext
+) -> dict:
+    from app.services import research_data
+
+    entry = research_data.fetch_index_kline(
+        params.index_code, params.start_date, params.end_date
+    )
+    return {
+        "source_id": entry["source_id"],
+        "as_of": entry["as_of"],
+        "vendor": entry["vendor"],
+        "data_version": entry["data_version"],
+        "index_code": params.index_code,
+        "rows": entry["payload"]["rows"],
+        "kline": entry["payload"]["kline"],
+    }
+
+
 MARKET_TOOLS = [
     Tool(
         name="market.kline",
@@ -81,5 +108,14 @@ MARKET_TOOLS = [
         description="获取最新行情快照与技术指标摘要（只读）",
         input_schema=MarketSnapshotParams,
         handler=_market_snapshot,
+    ),
+    Tool(
+        name="market.index_kline",
+        domain="market",
+        version="1.0.0",
+        permission=Permission.READ,
+        description="基准指数日 K 线（确定性数据服务，只读，带证据五元组）",
+        input_schema=MarketIndexKlineParams,
+        handler=_market_index_kline,
     ),
 ]

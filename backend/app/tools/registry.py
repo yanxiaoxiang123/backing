@@ -192,6 +192,7 @@ class ToolRegistry:
 def build_registry() -> ToolRegistry:
     """组装全部工具（八域）为默认注册表。"""
     from app.tools.backtest import BACKTEST_TOOLS
+    from app.tools.event import EVENT_TOOLS
     from app.tools.execution import EXECUTION_TOOLS
     from app.tools.factor import FACTOR_TOOLS
     from app.tools.fundamental import FUNDAMENTAL_TOOLS
@@ -202,6 +203,7 @@ def build_registry() -> ToolRegistry:
     return ToolRegistry(
         MARKET_TOOLS
         + FUNDAMENTAL_TOOLS
+        + EVENT_TOOLS
         + FACTOR_TOOLS
         + STRATEGY_TOOLS
         + BACKTEST_TOOLS

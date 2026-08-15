@@ -38,6 +38,32 @@ def _fundamental_stock_info(
     }
 
 
+class FundamentalFinancialsParams(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    stock_code: str = Field(..., min_length=1)
+    periods: int = Field(default=5, ge=1, le=20)
+
+
+def _fundamental_financials(
+    params: FundamentalFinancialsParams, context: ToolContext
+) -> dict:
+    from app.services import research_data
+
+    entry = research_data.fetch_financials_summary(
+        params.stock_code, periods=params.periods
+    )
+    return {
+        "source_id": entry["source_id"],
+        "as_of": entry["as_of"],
+        "vendor": entry["vendor"],
+        "data_version": entry["data_version"],
+        "stock_code": params.stock_code,
+        "rows": entry["payload"]["rows"],
+        "financials": entry["payload"]["financials"],
+    }
+
+
 FUNDAMENTAL_TOOLS = [
     Tool(
         name="fundamental.stock_info",
@@ -47,5 +73,14 @@ FUNDAMENTAL_TOOLS = [
         description="股票基础信息（代码/名称/市场/上市日期，只读）",
         input_schema=FundamentalStockInfoParams,
         handler=_fundamental_stock_info,
+    ),
+    Tool(
+        name="fundamental.financials",
+        domain="fundamental",
+        version="1.0.0",
+        permission=Permission.READ,
+        description="财报摘要（最近 N 个报告期，只读，带证据五元组）",
+        input_schema=FundamentalFinancialsParams,
+        handler=_fundamental_financials,
     ),
 ]
