@@ -3,6 +3,8 @@
 不触碰真实数据提供方：仅覆盖不依赖外部服务的端点。
 """
 
+from unittest.mock import patch
+
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -120,3 +122,115 @@ class TestStrategiesContract:
         body = resp.json()["error"]
         assert body["code"] == "validation_error"
         assert "detail" in body
+
+
+class TestRealtimeHealthEndpoint:
+    def test_health_returns_provider_snapshot(self):
+        from fastapi.testclient import TestClient
+
+        from app.api.realtime import router as realtime_router
+
+        app = FastAPI()
+        app.include_router(realtime_router, prefix="/api/v1")
+        app.dependency_overrides[get_current_api_key] = lambda: "test"
+
+        resp = TestClient(app).get("/api/v1/realtime/health")
+        assert resp.status_code == 200
+        payload = resp.json()
+        assert payload["provider"] == "mootdx"
+        assert "selected_server" in payload
+        assert "healthy_count" in payload
+        assert "total_servers" in payload
+        assert "counters" in payload
+
+
+class TestRealtimeUnavailableContract:
+    def _build_app(self):
+        from fastapi import FastAPI
+
+        from app.api.realtime import router as realtime_router
+        from app.auth import get_current_api_key
+        from app.error_handlers import register_error_handlers
+
+        app = FastAPI()
+        register_error_handlers(app)
+        app.include_router(realtime_router, prefix="/api/v1")
+        app.dependency_overrides[get_current_api_key] = lambda: "test"
+        return app
+
+    def test_bars_returns_503_when_provider_unavailable(self):
+        from fastapi.testclient import TestClient
+
+        from app.services.realtime_service import (
+            STATUS_UNAVAILABLE,
+            FetchResult,
+        )
+
+        app = self._build_app()
+        with patch("app.api.realtime.realtime_service") as service:
+            service.fetch_bars.return_value = FetchResult(
+                status=STATUS_UNAVAILABLE, reason="no_healthy_server"
+            )
+            response = TestClient(app).get("/api/v1/realtime/600036?period=daily")
+
+        assert response.status_code == 503
+        body = response.json()["error"]
+        assert body["code"] == "provider_unavailable"
+        assert body["provider"] == "mootdx"
+        assert body["retryable"] is True
+        assert body["reason"] == "no_healthy_server"
+
+    def test_bars_returns_200_with_empty_data_on_empty_status(self):
+        from fastapi.testclient import TestClient
+
+        from app.services.realtime_service import (
+            STATUS_EMPTY,
+            FetchResult,
+        )
+
+        app = self._build_app()
+        with patch("app.api.realtime.realtime_service") as service:
+            service.fetch_bars.return_value = FetchResult(status=STATUS_EMPTY)
+            response = TestClient(app).get("/api/v1/realtime/600036?period=daily")
+
+        assert response.status_code == 200
+        assert response.json() == {"success": True, "code": "600036", "data": []}
+
+    def test_quotes_returns_503_when_provider_unavailable(self):
+        from fastapi.testclient import TestClient
+
+        from app.services.realtime_service import (
+            STATUS_UNAVAILABLE,
+            FetchResult,
+        )
+
+        app = self._build_app()
+        with patch("app.api.realtime.realtime_service") as service:
+            service.fetch_quotes.return_value = FetchResult(
+                status=STATUS_UNAVAILABLE, reason="no_healthy_server"
+            )
+            response = TestClient(app).get(
+                "/api/v1/realtime/quotes?codes=600036,000001"
+            )
+
+        assert response.status_code == 503
+        body = response.json()["error"]
+        assert body["code"] == "provider_unavailable"
+        assert body["provider"] == "mootdx"
+
+    def test_indices_returns_503_when_provider_unavailable(self):
+        from fastapi.testclient import TestClient
+
+        from app.services.realtime_service import (
+            STATUS_UNAVAILABLE,
+            FetchResult,
+        )
+
+        app = self._build_app()
+        with patch("app.api.realtime.realtime_service") as service:
+            service.fetch_indices.return_value = FetchResult(
+                status=STATUS_UNAVAILABLE, reason="no_healthy_server"
+            )
+            response = TestClient(app).get("/api/v1/realtime/indices")
+
+        assert response.status_code == 503

@@ -1,7 +1,7 @@
 """WebSocket Session 测试：认证拒绝码、限流码、init/update 消息。
 
 覆盖 realtime 路由的 WS 端点：无需真实行情服务，monkeypatch
-``realtime_service.normalise_bars`` 提供固定数据；轮询间隔由
+``realtime_service.fetch_bars`` 提供固定数据；轮询间隔由
 ``settings.REALTIME_WS_POLL_S`` 控制以便测试。
 """
 
@@ -14,6 +14,7 @@ from starlette.websockets import WebSocketDisconnect
 
 from app.api.realtime import router as realtime_router
 from app.config import settings
+from app.services.realtime_service import STATUS_OK, FetchResult
 
 BAR = {
     "date": "2026-08-14",
@@ -25,6 +26,10 @@ BAR = {
     "amount": 102000,
     "symbol": "600036",
 }
+
+
+def _ok_result(data=None):
+    return FetchResult(status=STATUS_OK, data=list(data) if data is not None else [BAR])
 
 
 @pytest.fixture()
@@ -74,7 +79,8 @@ class TestWebSocketAuth:
 
     def test_valid_api_key_connects_and_receives_init(self, client):
         with patch("app.auth.settings") as mock_settings, patch(
-            "app.api.realtime.realtime_service.normalise_bars", return_value=[BAR]
+            "app.api.realtime.realtime_service.fetch_bars",
+            return_value=_ok_result(),
         ):
             mock_settings.API_KEY = "test-secret"
             with client.websocket_connect(
@@ -82,11 +88,13 @@ class TestWebSocketAuth:
             ) as ws:
                 message = ws.receive_json()
                 assert message["type"] == "init"
+                assert message["status"] == "ok"
                 assert message["data"][0]["close"] == 10.2
 
     def test_period_mapping_weekly(self, client):
         with patch("app.auth.settings") as mock_settings, patch(
-            "app.api.realtime.realtime_service.normalise_bars", return_value=[BAR]
+            "app.api.realtime.realtime_service.fetch_bars",
+            return_value=_ok_result(),
         ) as mock_bars:
             mock_settings.API_KEY = "test-secret"
             with client.websocket_connect(
@@ -95,14 +103,14 @@ class TestWebSocketAuth:
                 ws.receive_json()  # init
                 # 周K：frequency=5, offset=104
                 call = mock_bars.call_args_list[0]
-                assert call.kwargs["frequency"] == 5
-                assert call.kwargs["offset"] == 104
+                assert call.args == ("600036", "weekly")
 
 
 class TestWebSocketRateLimit:
     def test_sixth_connection_rejected_with_4009(self, client):
         with patch("app.auth.settings") as mock_settings, patch(
-            "app.api.realtime.realtime_service.normalise_bars", return_value=[BAR]
+            "app.api.realtime.realtime_service.fetch_bars",
+            return_value=_ok_result(),
         ):
             mock_settings.API_KEY = "test-secret"
             url = "/api/v1/ws/realtime/600036?api_key=test-secret"
@@ -125,7 +133,8 @@ class TestWebSocketLifecycle:
         from app.api import realtime as realtime_module
 
         with patch("app.auth.settings") as mock_settings, patch(
-            "app.api.realtime.realtime_service.normalise_bars", return_value=[BAR]
+            "app.api.realtime.realtime_service.fetch_bars",
+            return_value=_ok_result(),
         ):
             mock_settings.API_KEY = "test-secret"
             with client.websocket_connect(

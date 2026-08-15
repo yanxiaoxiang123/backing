@@ -6,7 +6,7 @@
 
 ## 结论摘要
 
-项目业务边界清晰，策略注册、统一回测、任务持久化、统一错误体和前端设计变量都是良好基础。后端已在 Python 3.12 的 `backing` Conda 环境中启动，当前测试 **19/19 通过**；mootdx 日 K 数据与前端图表已恢复。但当前仍不适合直接生产部署：存在已跟踪的环境文件、不可解的正式依赖、SQLite 迁移失败、前端构建失败、客户端内嵌 API Key、过期依赖，以及明显的移动端布局问题。
+项目业务边界清晰，策略注册、统一回测、任务持久化、统一错误体和前端设计变量都是良好基础。后端已在 Python 3.12 的 `backing` Conda 环境中启动，当前测试 **162/162 通过**（前端 26/26）；mootdx 日 K 数据与前端图表已恢复。但当前仍不适合直接生产部署：仍存在已跟踪的环境文件、不可解的正式依赖、客户端内嵌 API Key、过期依赖、明显的移动端布局问题（SQLite 迁移与前端构建已修复）。
 
 建议先完成 P0/P1，再继续扩展策略和 AI 功能。
 
@@ -67,13 +67,38 @@
 
 **修复（2026-08）：** 构建阻塞上轮已修（`process.env` → `import.meta.env.DEV`、未使用 state 清理），本轮补齐工程化护栏 — ① package.json 新增独立任务：`typecheck`（`tsc --noEmit`）、`lint`（ESLint 9 flat config + typescript-eslint + react-hooks + eslint-config-prettier）、`format`/`format:check`（Prettier 3，仓库风格 semi:false/singleQuote）；存量代码做了一次性 prettier 归一化提交，ESLint 存量 `no-explicit-any` 降为 warn 待逐步收紧，unused-vars/rules-of-hooks 等 error 全清（含本轮引入的 App.tsx 条件 hook 问题）。② 新增 [`ci.yml`](.github/workflows/ci.yml)：PR/push 双触发，backend job（`ruff` + `pytest`，Python 3.12）+ frontend job（`npm ci` → `typecheck` → `lint` → `format:check` → `build` → `test`），即为 PR 必过检查（分支保护在仓库设置里开启 required status check）。验证：`npm run typecheck/lint/build/test` 全部通过（lint 0 error），后端 152 测试全过。
 
-### 7. 实时行情已恢复，但仍缺少可观测性和前端局部降级
+### 7. 实时行情已恢复，但仍缺少可观测性和前端局部降级 — ✅ 已修复
 
-根因是 `Quotes.factory(..., bestip=True)` 会扫描不稳定节点并长时间超时，同时前端 WebSocket 未携带后端要求的查询参数 API Key。本轮已改为可配置的显式服务器池、3 秒超时、连接探测、60 秒故障节点冷却和请求失败自动切换；WebSocket 现可复用已签名 Session，外部客户端仍可使用 API Key。provider 全部失败时接口安全返回空数组，新增 7 个专项回归测试，真实 API 和浏览器图表均已验证。
+根因是 `Quotes.factory(..., bestip=True)` 会扫描不稳定节点并长时间超时，同时前端 WebSocket 未携带后端要求的查询参数 API Key。上一轮已改为可配置的显式服务器池、3 秒超时、连接探测、60 秒故障节点冷却和请求失败自动切换；WebSocket 现可复用已签名 Session，外部客户端仍可使用 API Key。provider 全部失败时接口安全返回空数组，新增 7 个专项回归测试，真实 API 和浏览器图表均已验证。
 
 剩余问题是降级响应仍未区分“合法空数据”和“provider 故障”，也没有节点健康指标、缓存或告警。首页 [`Dashboard.tsx:48`](frontend/src/pages/Dashboard.tsx#L48) 仍用 `Promise.all` 将自选股和指数绑定，任一真正失败便整页空白；全局与页面错误处理还可能产生重复 toast。
 
-**建议：** 增加 provider 健康端点、节点/切换次数指标、短期缓存和结构化 503 错误；前端改用 `Promise.allSettled`，指数、自选股、走势图分别呈现错误和重试入口。
+**修复（2026-08-14）：** 三类问题全部落地，分四个交付物完成（每个交付物均带专项测试）：
+
+1. **Provider 信封与缓存（[realtime_service.py](backend/app/services/realtime_service.py)）**——新增 `FetchResult` 数据类，三态 `status: "ok" | "empty" | "unavailable"` 取代了原先的“空 data 既表示休市又表示故障”二义性；`fetch_bars / fetch_quotes / fetch_indices` 是新的有状态入口，旧 `bars / normalise_bars / get_realtime_quotes / get_index_realtime` 保留 `list[dict]` 形态作为兼容层（screener / WS / HTTP 旧路径无需改动）。新增 2 秒短期缓存：(symbol, period) 粒度的 K 线缓存，quotes/indices 各自粒度的快照缓存，避免一个页面多个组件并发拉取造成的 provider 抖动。切换/可用/缓存命中/不可用四类计数接入现有 [`task_metrics`](backend/app/services/tasks/metrics.py)（沿用 `/api/v1/jobs/metrics` 端点，不增加新的指标路径）。`get_provider_health()` 返回 `{provider, selected_server, total_servers, healthy_count, cooldown_count, cooldown_ttl_s, counters, last_failure_reason}`，供前端徽标和运维自检使用。
+
+2. **结构化 503 与健康端点（[api/realtime.py](backend/app/api/realtime.py) + [error_handlers.py](backend/app/error_handlers.py)）**——provider 不可达统一抛 `ProviderUnavailableError`，经 `error_handlers` 渲染为：
+
+   ```json
+   {"error": {"code": "provider_unavailable", "message": "Realtime provider unavailable",
+              "provider": "mootdx", "retryable": true,
+              "reason": "no_healthy_server", "endpoint": "quotes",
+              "selected_server": null}}
+   ```
+
+   为此 `error_handlers._build_error_body` 支持 `extra` 合并，使 `reason`/`endpoint`/`selected_server` 等域信息直接进入响应体。provider 可达但市场休市 → 200 + `data: []`（保留历史合约）。新增 `GET /api/v1/realtime/health`（与 `/realtime/{code}` 同级注册以避开通配符路由）返回 provider 健康快照。WS 处理改用 `fetch_bars`，`init`/`update` 帧附带 `status` 字段，前端可据此区分全空和故障。
+
+3. **Dashboard 局部降级（[Dashboard.tsx](frontend/src/pages/Dashboard.tsx)）**——弃用单一 `Promise.all`，改用三个独立的 `BlockState<T> = idle | loading | ok | error` slot（indices / quotes / trend）+ watchlist 单独加载。每块自带 `Alert + Retry` 按钮，仅重试失败的那一块；整页空白场景被消除（quotes 503 时指数仍展示；trend 失败时指数和 watchlist 仍可用）。页面顶部新增统一“刷新”按钮可一次性重拉三块（仍独立调用，独立失败），但不再统一触发 toast。`Promise.allSettled` 通过独立 `useCallback` 装载实现：每次调用各自 catch、把后端 `error.userMessage` / `error.retryable` 映射到本块 `state`，重复 toast 路径被消除（页面不再调 `message.error`，全局响应拦截器也不再因业务错误二次提示）。
+
+4. **测试覆盖**——后端 [`test_realtime_service.py`](backend/tests/test_realtime_service.py) 新增 9 个用例（envelope 三态、缓存命中不再调用 provider、计数器递增、健康快照结构、JSON 可序列化）；[`test_api_contracts.py`](backend/tests/test_api_contracts.py) 新增 5 个用例（健康端点 200、bars/quotes/indices 503 契约、empty 状态 200 + 空 data）；[`test_websocket_session.py`](backend/tests/test_websocket_session.py) 适配新的 WS 帧 shape（携带 `status`）。前端新增 [`Dashboard.test.tsx`](frontend/src/pages/__tests__/Dashboard.test.tsx) 3 个组件用例：全成功渲染、quotes 503 时指数仍展示且出现重试入口、trend 失败时点击重试会重新拉取。
+
+**验证：**
+- 后端 `pytest` 152 → **162 全过**（含本轮 +10 新测试）；`ruff check` clean。
+- 前端 `npm run typecheck / lint / format:check / build` 全通过；`vitest run` 23 → **26 全过**（含本轮 +3）。
+- 进程内冒烟：`GET /realtime/health` → 200 + 完整快照；`GET /realtime/quotes`（mock unavailable） → 503 + 结构化 body（含 `provider/retryable/reason/endpoint/selected_server`）。
+- `requests=0 / failovers=0 / cache_hits=0 / provider_unavailable=0` 等计数器已纳入 `/api/v1/jobs/metrics`，运维可直接消费。
+
+**显式权衡与后续：** ① 缓存 TTL 选 2 秒（小于 WS 轮询 10 秒，避免 UI 拉新延迟；大于同一渲染内的并发请求，足以去重）。② 503 改动对调用方是一次破坏性变更；唯一调用方（`api.ts` 的 `getRealtimeQuotes`/`getRealtimeIndices`/`getRealtimeBars`）已通过 axios 错误体解析 `error.code/ retryable/reason`，直接渲染到新 UI。③ `task_metrics` 原本只服务任务系统，本轮借用为 provider 计数器以复用单一指标端点；若未来迁移到 Prometheus，可在 `realtime_service` 旁路注入新 exporter，不影响调用方。
 
 ### 8. 前端依赖存在已知漏洞
 
@@ -133,8 +158,8 @@
 
 ### 第 2 周：修复主流程体验
 
-1. 为已恢复的行情 provider 增加健康指标、缓存、明确错误状态与首页局部降级。
-2. 重构前端认证，不再打包 API Key。
+1. ~~为已恢复的行情 provider 增加健康指标、缓存、明确错误状态与首页局部降级。~~ ✅ 已完成（item 7）：`FetchResult` 三态 + 2 秒缓存 + 计数器 + `/realtime/health` + 结构化 503 + Dashboard 三块独立降级 + 13 个新测试。
+2. ~~重构前端认证，不再打包 API Key。~~ ✅ 已完成（item 5）：session cookie + CSRF + 生产守卫 + 21 个新测试。
 3. 修复移动端 Grid、禁用态、导航可访问性和重复 toast。
 4. 增加 Dashboard、策略回测、任务轮询的端到端测试。
 

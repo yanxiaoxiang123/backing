@@ -7,7 +7,8 @@ from pydantic import BaseModel
 
 from app.auth import AuthError, get_current_api_key, validate_api_key
 from app.config import settings
-from app.services.realtime_service import realtime_service
+from app.exceptions import ProviderUnavailableError
+from app.services.realtime_service import FetchResult, realtime_service
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -65,25 +66,77 @@ class RealtimeIndicesResponse(BaseModel):
     data: list[RealtimeIndex]
 
 
+def _raise_if_unavailable(result: FetchResult, *, endpoint: str) -> None:
+    """Convert an unavailable envelope into a structured 503 error.
+
+    The frontend uses ``retryable`` + ``reason`` to decide whether to
+    surface a retry button vs. a one-shot toast. ``ok`` and ``empty``
+    envelopes fall through (graceful degrade → 200 + empty data).
+    """
+    if result.status != "unavailable":
+        return
+    raise ProviderUnavailableError(
+        detail="Realtime provider unavailable",
+        provider=result.provider,
+        error_code="provider_unavailable",
+        extra={
+            "reason": result.reason,
+            "endpoint": endpoint,
+            "selected_server": (
+                {"host": result.selected_server[0], "port": result.selected_server[1]}
+                if result.selected_server
+                else None
+            ),
+        },
+    )
+
+
+@router.get('/realtime/health', response_model=dict)
+def get_realtime_health(_: str = Depends(get_current_api_key)) -> dict:
+    """Provider health snapshot: selected node, healthy pool size, counters.
+
+    Used by the Dashboard to render a "data feed" badge and by ops to
+    verify failover after a configuration change.
+    """
+    return realtime_service.get_provider_health()
+
+
 @router.get('/realtime/quotes', response_model=RealtimeQuotesResponse)
 def get_realtime_quotes(
     codes: str = Query(..., description="股票代码，逗号分隔，如 600036,000001,sh.600036"),
     _: str = Depends(get_current_api_key),
 ):
-    """批量获取股票实时行情（最新价格/涨跌幅）"""
+    """批量获取股票实时行情（最新价格/涨跌幅）
+
+    Provider 不可达时返回 503 + ``{code: provider_unavailable,
+    provider: mootdx, retryable: true, reason}``。Provider 可达但
+    markets closed / 无报价时返回 200 + ``data: []``。
+    """
     # Strip market prefix (sh./sz./bj.) as mootdx expects raw 6-digit codes
     symbol_list = [s.strip().split('.')[-1] if '.' in s else s for s in codes.split(',') if s.strip()]
-    data = realtime_service.get_realtime_quotes(symbol_list)
-    return RealtimeQuotesResponse(success=True, data=[RealtimeQuote(**item) for item in data])
+    result = realtime_service.fetch_quotes(symbol_list)
+    _raise_if_unavailable(result, endpoint="quotes")
+    return RealtimeQuotesResponse(
+        success=True,
+        data=[RealtimeQuote(**item) for item in result.data],
+    )
 
 
 @router.get('/realtime/indices', response_model=RealtimeIndicesResponse)
 def get_realtime_indices(
     _: str = Depends(get_current_api_key),
 ):
-    """获取主要指数实时行情"""
-    data = realtime_service.get_index_realtime()
-    return RealtimeIndicesResponse(success=True, data=[RealtimeIndex(**item) for item in data])
+    """获取主要指数实时行情。
+
+    与 ``/realtime/quotes`` 同等契约：provider 不可达 → 503；可达但
+    无数据 → 200 + 空 data。
+    """
+    result = realtime_service.fetch_indices()
+    _raise_if_unavailable(result, endpoint="indices")
+    return RealtimeIndicesResponse(
+        success=True,
+        data=[RealtimeIndex(**item) for item in result.data],
+    )
 
 
 @router.get('/realtime/{code}', response_model=RealtimeBarsResponse)
@@ -94,33 +147,32 @@ def get_realtime_bars(
 ):
     """获取股票实时K线数据（日/周/月）
 
-    mootdx 初始化失败时返回空 data 而不是 500, 避免前端展示 "Internal server error"。
+    Provider 不可达时返回 503 + 结构化错误体；Provider 可达但市场
+    关闭 / 无 K 线数据时返回 200 + ``data: []``，与历史合约一致。
     """
     # 去掉市场前缀 (sh.600036 -> 600036)
     symbol = code.split('.')[-1] if '.' in code else code
 
-    # period -> frequency 映射
-    freq_map = {'daily': 9, 'weekly': 5, 'monthly': 6}
-    frequency = freq_map.get(period, 9)
-
-    # offset: 日K 750(3年), 周K 104(2年), 月K 36(3年)
-    offset_map = {'daily': 750, 'weekly': 104, 'monthly': 36}
-    offset = offset_map.get(period, 750)
-
     try:
-        data = realtime_service.normalise_bars(
-            symbol=symbol, frequency=frequency, offset=offset,
-        )
+        result = realtime_service.fetch_bars(symbol, period)
     except Exception:
         logger.exception(
             "realtime bars fetch failed for %s (period=%s)", code, period,
         )
-        data = []
+        # Treat unhandled exceptions as provider outage (mirrors fetch_bars'
+        # own unavailable branch).
+        raise ProviderUnavailableError(
+            detail="Realtime provider unavailable",
+            provider="mootdx",
+            error_code="provider_unavailable",
+            extra={"endpoint": "bars", "code": code, "period": period},
+        )
 
+    _raise_if_unavailable(result, endpoint="bars")
     return RealtimeBarsResponse(
         success=True,
         code=code,
-        data=[RealtimeBar(**item) for item in data],
+        data=[RealtimeBar(**item) for item in result.data],
     )
 
 
@@ -160,29 +212,30 @@ async def ws_realtime_bars(
     await websocket.accept()
 
     symbol = code.split('.')[-1] if '.' in code else code
-    freq_map = {'daily': 9, 'weekly': 5, 'monthly': 6}
-    offset_map = {'daily': 750, 'weekly': 104, 'monthly': 36}
 
     try:
-        freq = freq_map.get(period, 9)
-        offset = offset_map.get(period, 750)
-
         # ---- 初始全量 ----
-        data = await asyncio.to_thread(
-            realtime_service.normalise_bars,
-            symbol=symbol, frequency=freq, offset=offset,
+        init_result = await asyncio.to_thread(
+            realtime_service.fetch_bars, symbol, period
         )
-        await websocket.send_json({"type": "init", "data": data})
+        await websocket.send_json({
+            "type": "init",
+            "data": init_result.data,
+            "status": init_result.status,
+        })
 
         # ---- 增量推送 ----
         while True:
             await asyncio.sleep(settings.REALTIME_WS_POLL_S)
-            tail = await asyncio.to_thread(
-                realtime_service.normalise_bars,
-                symbol=symbol, frequency=freq, offset=2,
+            tail_result = await asyncio.to_thread(
+                realtime_service.fetch_bars, symbol, period
             )
-            if tail:
-                await websocket.send_json({"type": "update", "data": tail})
+            if tail_result.data:
+                await websocket.send_json({
+                    "type": "update",
+                    "data": tail_result.data,
+                    "status": tail_result.status,
+                })
     except WebSocketDisconnect:
         logger.info("ws_realtime_bars disconnected: %s", code)
     except Exception:

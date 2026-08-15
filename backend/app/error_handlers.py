@@ -8,6 +8,7 @@ a summary line), and external-dependency errors carry ``provider`` and
 """
 
 import logging
+from typing import Any
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
@@ -25,6 +26,7 @@ def _build_error_body(
     detail: str | list | dict | None = None,
     provider: str | None = None,
     retryable: bool | None = None,
+    extra: dict[str, Any] | None = None,
 ) -> dict:
     """Return a consistent ``{ "error": { "code", "message" } }`` body."""
     body: dict = {"error": {"code": code, "message": message}}
@@ -34,6 +36,8 @@ def _build_error_body(
         body["error"]["provider"] = provider
     if retryable is not None:
         body["error"]["retryable"] = retryable
+    if extra:
+        body["error"].update(extra)
     return body
 
 
@@ -91,6 +95,7 @@ async def app_error_handler(request: Request, exc: AppError) -> JSONResponse:
     """Handle custom AppError subclasses."""
     provider = getattr(exc, "provider", None)
     retryable = exc.retryable
+    extra = getattr(exc, "extra", None)
     if exc.status_code >= 500:
         _log_error(
             request, exc.status_code, exc,
@@ -108,6 +113,7 @@ async def app_error_handler(request: Request, exc: AppError) -> JSONResponse:
             message=exc.detail,
             provider=provider if isinstance(exc, ExternalServiceError) else None,
             retryable=retryable if isinstance(exc, ExternalServiceError) else None,
+            extra=extra if isinstance(exc, ExternalServiceError) else None,
         ),
     )
 

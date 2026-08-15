@@ -166,10 +166,11 @@ PR 由 [`.github/workflows/ci.yml`](.github/workflows/ci.yml) 强制执行上述
 
 ### 实时行情
 
-- `GET /api/realtime/quotes?codes=600036,000001` - 批量股票行情
-- `GET /api/realtime/indices` - 主要指数行情
-- `GET /api/realtime/{code}?period=daily|weekly|monthly` - 股票K线数据
-- `WS /api/ws/realtime/{code}?api_key=xxx` - WebSocket 实时K线推送
+- `GET /api/realtime/quotes?codes=600036,000001` - 批量股票行情（provider 不可达时返回 503 + `provider_unavailable`）
+- `GET /api/realtime/indices` - 主要指数行情（同上）
+- `GET /api/realtime/{code}?period=daily|weekly|monthly` - 股票K线数据（可达但无数据 → 200 + `data: []`；provider 不可达 → 503）
+- `GET /api/realtime/health` - Provider 健康快照：选中节点、池规模、计数器（requests/failovers/cache_hits/provider_unavailable）
+- `WS /api/ws/realtime/{code}?api_key=xxx` - WebSocket 实时K线推送（init/update 帧附带 `status` 字段）
 
 ### 股票筛选器
 
