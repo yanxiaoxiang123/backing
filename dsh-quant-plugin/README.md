@@ -1,37 +1,50 @@
-# dsh-quant-plugin — DeepSeek Harness 量化插件（POC）
+# dsh-quant-plugin — DeepSeek Harness 量化插件
 
-> 固定 DSH commit：`47f9438`（`/Users/yan/Desktop/backing/deepseek-harness/`，不修改克隆本体）
-> 状态：**POC 骨架 + HTTP 直连验证通过**；DSH 运行时构建与插件装配列为后续切片（见 `docs/POC-REPORT.md`）
+> 固定 DSH commit：`47f9438`（`/Users/yan/Desktop/backing/deepseek-harness/`，不修改克隆本体，
+> 仅构建产物落克隆内 gitignored 目录）。状态：**运行时装配完成并 E2E 验证**（见 `docs/DSH-ASSEMBLY-REPORT.md`）。
 
-## 边界（规格 §3）
+## 边界（规格决策 2、26）
 
 - 插件只调用 FastAPI Tool Gateway / agent-runs API，**不直连数据库**。
-- 默认移除 Bash、编辑器与宿主文件工具；研究代码实验只能在隔离 Sandbox 执行。
+- 默认移除 Bash、编辑器与宿主文件工具；只暴露只读量化工具（approval 下单留在后端工作台审批）。
 - `session_id ↔ run_id` 映射由后端保存；run 事件可在后端 SSE 重放。
 
 ## 目录
 
 ```text
 dsh-quant-plugin/
-  profile/quant.cordis.yml   # 固定 profile（草案：禁 Bash/FS 编辑，预留工具装配）
-  skills/astock-research.md  # A 股研究 skill（上下文）
-  scripts/gateway_probe.py   # HTTP 直连探针：创建 run + 回放事件（已通过）
-  docs/POC-REPORT.md         # POC 结论与后续步骤
+  cordis/quant.cordis.yml            # 运行时 profile（对话 + 会话持久化 + quant.gateway）
+  cordis/plugins/quant-gateway/      # 量化工具消费者（相对路径 Cordis 插件，HTTP → 网关）
+  skills/astock-research.md          # A 股研究 skill（上下文）
+  scripts/gateway_probe.py           # HTTP 直连探针（回归）
+  scripts/sdk_demo.py                # SDK 对话演示（K 线查询 + 发起分析 run）
+  docs/POC-REPORT.md                 # 早期 POC 结论（HTTP 直连路径）
+  docs/DSH-ASSEMBLY-REPORT.md        # 装配报告与 E2E 证据
 ```
 
-## 启动路径（完整版，待运行时构建后）
+## 启动路径
 
-1. 构建 DSH runtime（`deepseek-harness/`：`pnpm install && pnpm run build`，产出
-   `dsh-jsonrpc-agent-pkg-macos-arm64`）。
+1. 构建 DSH runtime（`deepseek-harness/`：`pnpm install && pnpm run build`，再
+   `pnpm exec tsx scripts/build-exe-for-python-sdk.ts --skip-build --targets=node24-<平台>-<arch>`，
+   产出 `dsh-jsonrpc-agent-pkg-*` 并同步进 `python/sdk-runtime/.../runtime/`）。
 2. `pip install -e deepseek-harness/python/sdk -e deepseek-harness/python/sdk-runtime`。
-3. 启动后端：`cd backend && python main.py`（端口 8808，`X-API-Key` 认证）。
-4. 用 SDK 加载本 profile 运行对话任务；quant 工具经网关装配。
+3. 启动后端：`cd backend && python main.py`（端口 8808，`X-API-Key` 认证；含 `POST /api/v1/tools/invoke`）。
+4. 运行对话演示（环境变量注入密钥，不入库）：
 
-## 当前可验证路径（HTTP 直连）
-
-```sh
-cd backend && python main.py &        # 启动后端
-python dsh-quant-plugin/scripts/gateway_probe.py   # 创建 run → 回放事件
+```bash
+cd dsh-quant-plugin
+export QUANT_API_KEY=<后端 API_KEY>
+export DEEPSEEK_API_KEY=<模型 API_KEY>
+python scripts/sdk_demo.py "查询 sh.600000 最近 5 个交易日的日 K 线，并说明数据来源。"
+python scripts/sdk_demo.py "用 quant_run_analysis 发起：生成 ma_cross 策略并回测验证 sh.600000"
 ```
 
-验证命令与输出记录在 `docs/POC-REPORT.md`。
+5. dev 模式可用 `DSH_RUNTIME_MODE=node`（node carrier）代替 exe。
+
+## 演示工具
+
+| 工具 | 后端 | 说明 |
+|---|---|---|
+| `quant_kline` | `market.kline` | 日 K 线（证据五元组） |
+| `quant_financials` | `fundamental.financials` | 财报摘要 |
+| `quant_run_analysis` | `POST /agent-runs` | 自然语言 → Supervisor run（session↔run 映射） |

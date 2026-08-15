@@ -1,0 +1,35 @@
+# quant profile — DeepSeek 对话外壳（规格决策 2：DSH 只做外壳，工具经网关）
+#
+# 固定 commit 47f9438 运行时；移除了 bash / 子进程 / 宿主文件编辑；
+# 只保留对话、会话持久化与只读量化工具（quant.gateway → FastAPI Tool Gateway）。
+# 凭据经环境变量注入（QUANT_API_KEY / DEEPSEEK_API_KEY），本文件不含密钥。
+#
+# 启动方式见 dsh-quant-plugin/README.md；SDK 驱动脚本 scripts/sdk_demo.py。
+
+# Stdio JSON-RPC server entry；没有它 SDK 客户端没有通道。
+- id: sdk-jsonrpc-server
+  name: '@deepseek-ai/dsh-sdk-jsonrpc-server'
+
+# Agent spine；SDK server 按 sessionId 创建 agent。
+- id: agent-core
+  name: '@deepseek-ai/dsh-agent-spine-demo'
+  config:
+    workspaceContext:
+      maxBytes: 65536
+
+# DeepSeek 适配器；从环境解析 DEEPSEEK_API_KEY / DEEPSEEK_BASE_URL。
+- id: llm-deepseek
+  name: '@deepseek-ai/dsh-llm-deepseek'
+
+# JSONL 会话持久化。
+- id: sessions
+  name: '@deepseek-ai/dsh-session-persistence-jsonl'
+  config:
+    root: !!js process.env.DSH_SESSION_ROOT ?? './.sessions'
+
+- id: session-checkpoints
+  name: '@deepseek-ai/dsh-session-checkpoint-policy'
+
+# 量化工具消费者：HTTP → 后端类型化工具网关（相对路径插件，外部装配）。
+- id: quant-gateway
+  name: './plugins/quant-gateway/index.js'
