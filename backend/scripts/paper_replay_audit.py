@@ -17,7 +17,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # backend/ 入路�
 from app.agent_runtime.paper import service as paper_service
 from app.agent_runtime.paper.replay import replay_account
 from app.config import SessionLocal
-from app.models.paper_trading import PaperCashEvent, PaperFill, PaperOrder, PaperOrderEvent
+from app.models.paper_trading import (
+    PaperCashEvent,
+    PaperFill,
+    PaperOrder,
+    PaperOrderEvent,
+)
 
 
 def main() -> int:

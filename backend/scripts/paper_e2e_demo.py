@@ -41,7 +41,6 @@ def step(title: str, payload: dict[str, Any]) -> None:
 
 def ensure_next_day_bar() -> str | None:
     """若审批后下一交易日 bar 缺失（周末/同步滞后），注入演示 bar 并返回日期。"""
-    from datetime import datetime
 
     from sqlalchemy import create_engine
     from sqlalchemy.orm import sessionmaker
