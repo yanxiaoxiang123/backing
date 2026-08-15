@@ -112,10 +112,17 @@ def list_runs(
 @router.get("/agent-runs/{run_id}")
 def get_run(
     run_id: str,
+    include_steps: bool = Query(default=True, description="附带节点输出（工作台研究面板数据源）"),
     db: Session = Depends(get_db),
     _: str = Depends(get_current_api_key),
 ):
-    return _require_run(db, run_id)
+    """run 详情；``include_steps=false`` 时只返回 run 记录（兼容列表语义）。"""
+    run = _require_run(db, run_id)
+    if not include_steps:
+        return run
+    stores = create_stores(db)
+    run["steps"] = stores.steps.list_steps(run_id)
+    return run
 
 
 @router.get("/agent-runs/{run_id}/events")

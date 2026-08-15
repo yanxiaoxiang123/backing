@@ -129,6 +129,21 @@ def test_artifacts_empty_list(client):
     assert resp.json()["artifacts"] == []
 
 
+def test_run_detail_includes_step_outputs(client):
+    run_id = _create(client).json()["run_id"]
+    detail = client.get(f"/api/v1/agent-runs/{run_id}").json()
+    assert "steps" in detail
+    assert detail["steps"], "run 详情应包含节点"
+    supervisor = next(s for s in detail["steps"] if s["node"] == "supervisor")
+    assert supervisor["output_schema"] == "RunPlan"
+    assert supervisor["output_json"]["objective"]  # 结构化输出对前端可见
+    research = next(s for s in detail["steps"] if s["node"] == "research")
+    assert research["output_json"]["claims"]
+
+    slim = client.get(f"/api/v1/agent-runs/{run_id}?include_steps=false").json()
+    assert "steps" not in slim
+
+
 def test_unknown_run_404(client):
     assert client.get("/api/v1/agent-runs/nope").status_code == 404
     with client.stream("GET", "/api/v1/agent-runs/nope/events") as resp:
