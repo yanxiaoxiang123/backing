@@ -11,6 +11,7 @@ from sqlalchemy.engine import make_url
 from starlette.middleware.sessions import SessionMiddleware
 
 import app.services.strategy  # side-effect import: registers built-in strategies
+from app.agent_api.routes import router as agent_runtime_router
 from app.api.agent import router as agent_router
 from app.api.auth import router as auth_router
 from app.api.dl_prediction import router as dl_prediction_router
@@ -174,6 +175,7 @@ app.include_router(auth_router)
 app.include_router(realtime_router, prefix="/api/v1", tags=["realtime"])
 app.include_router(strategies_router)
 app.include_router(agent_router, prefix="/api/v1", tags=["agent"])
+app.include_router(agent_runtime_router, prefix="/api/v1", tags=["agent-runs"])
 app.include_router(dl_prediction_router, prefix="/api/v1/dl", tags=["dl"])
 app.include_router(watchlist_router)
 app.include_router(screener_agent_router, prefix="/api/v1", tags=["screener_agent"])

@@ -150,6 +150,9 @@ class RunExecutor:
         run = self.stores.runs.get_run(run_id)
         if run is None:
             raise KeyError(f"run {run_id} 不存在")
+        # 终态不可再执行（completed/cancelled/superseded）；failed/planned/running 可恢复
+        if run["status"] in ("cancelled", "completed", "superseded"):
+            return run
 
         budget = RunBudget.model_validate(run["budget_json"] or {})
         existing = {step["seq"]: step for step in self.stores.steps.list_steps(run_id)}
@@ -174,8 +177,6 @@ class RunExecutor:
             "running",
             started_at=started_at.isoformat() if not run.get("started_at") else None,
         )
-        if run.get("status") in ("cancelled", "completed", "superseded"):
-            return self.stores.runs.get_run(run_id)
 
         attempts = 0
         for idx, node in enumerate(nodes):
