@@ -8,6 +8,14 @@ from app.models.agent_runtime import (
 )
 from app.models.analysis import AnalysisRecord
 from app.models.models import BacktestResult, BacktestTrade, DailyKline, Stock, Strategy
+from app.models.paper_trading import (
+    PaperAccount,
+    PaperCashEvent,
+    PaperFill,
+    PaperOrder,
+    PaperOrderEvent,
+    PaperPosition,
+)
 
 __all__ = [
     "AgentRun",
@@ -18,6 +26,12 @@ __all__ = [
     "BacktestResult",
     "BacktestTrade",
     "DailyKline",
+    "PaperAccount",
+    "PaperCashEvent",
+    "PaperFill",
+    "PaperOrder",
+    "PaperOrderEvent",
+    "PaperPosition",
     "Stock",
     "Strategy",
     "ToolCallRecord",
