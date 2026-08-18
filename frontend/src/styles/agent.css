@@ -2,10 +2,11 @@
 
 .agent-workspace {
   display: grid;
-  grid-template-columns: 170px minmax(320px, 380px) 1fr;
+  grid-template-columns: 240px minmax(0, 1fr) minmax(360px, 1fr);
   gap: 12px;
   min-height: calc(100vh - 96px);
   padding-top: 80px; /* 浮动导航让位（与其他页面 .page-header 一致） */
+  align-items: stretch;
 }
 
 @media (max-width: 767px) {
@@ -22,6 +23,16 @@
   padding: 8px;
   background: var(--agent-panel-bg, #fafafa);
   border-radius: 8px;
+  align-self: start;
+}
+
+.agent-workspace-nav-title {
+  padding: 4px 12px 10px;
+  color: rgba(0, 0, 0, 0.45);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .agent-workspace-nav-item {
@@ -48,6 +59,7 @@
   border-radius: 8px;
   padding: 12px;
   min-height: calc(100vh - 96px);
+  min-width: 0;
 }
 
 .agent-workspace-research {
@@ -55,14 +67,26 @@
   border-radius: 8px;
   padding: 12px;
   min-height: calc(100vh - 96px);
+  min-width: 0;
+}
+
+.agent-conversation {
+  display: flex;
+  min-height: 100%;
+  flex-direction: column;
 }
 
 .agent-conversation-input {
   display: flex;
   flex-direction: column;
+  order: 3;
+  margin-top: auto;
+  padding-top: 12px;
+  border-top: 1px solid rgba(5, 5, 5, 0.08);
 }
 
 .agent-run-meta {
+  order: 1;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -118,6 +142,21 @@
 .agent-error-text {
   color: #cf1322;
   font-size: 12px;
+}
+
+.agent-conversation > .agent-timeline {
+  order: 2;
+  display: flex;
+  min-height: 220px;
+  align-items: flex-start;
+}
+
+.agent-conversation > .agent-timeline .agent-empty {
+  width: 100%;
+  margin: auto 0;
+  padding: 48px 16px;
+  border: 1px dashed rgba(5, 5, 5, 0.14);
+  border-radius: 8px;
 }
 
 .agent-evidence-list {

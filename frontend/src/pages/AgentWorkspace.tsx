@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useLocation } from 'react-router-dom'
 import { Alert, Descriptions, Empty, Tabs, Tag } from 'antd'
 import ReactECharts from 'echarts-for-react'
-import { AgentConversation } from '../components/agent/AgentConversation'
+import { ChatSidebar } from '../components/chat/ChatSidebar'
+import { ChatConversation } from '../components/chat/ChatConversation'
+import { ChatInput } from '../components/chat/ChatInput'
 import { EvidencePanel } from '../components/agent/EvidencePanel'
 import { BacktestPanel } from '../components/agent/BacktestPanel'
 import { RiskPanel } from '../components/agent/RiskPanel'
@@ -11,19 +12,12 @@ import { ArtifactViewer } from '../components/agent/ArtifactViewer'
 import { AttributionPanel } from '../components/agent/AttributionPanel'
 import { AlertsPanel } from '../components/agent/AlertsPanel'
 import { useAgentRun } from '../hooks/useAgentRun'
+import { useAgentChat } from '../hooks/useAgentChat'
 import { getStockKline } from '../services/api'
 import type { ApprovalRequest } from '../types/agent'
 import type { DailyKline } from '../types'
 import '../styles/agent.css'
-
-const navItems = [
-  { key: '/workspace', label: 'Agent 工作台' },
-  { key: '/stocks', label: '行情中心' },
-  { key: '/strategies', label: '策略研究' },
-  { key: '/backtest', label: '回测执行' },
-  { key: '/history', label: '回测历史' },
-  { key: '/watchlist', label: '自选股' },
-]
+import '../styles/chat.css'
 
 function KlineChart({ klines }: { klines: DailyKline[] }) {
   const option = useMemo(() => {
@@ -72,22 +66,21 @@ function KlineChart({ klines }: { klines: DailyKline[] }) {
 }
 
 export default function AgentWorkspace() {
-  const location = useLocation()
   const {
     run,
-    events,
-    streamState,
     artifacts,
     approvals,
     researchClaims,
     backtestData,
     riskData,
-    error,
+    error: runError,
+    attach,
     start,
-    cancel,
-    resume,
     decide,
   } = useAgentRun()
+  const chat = useAgentChat({
+    onRunLinked: (runId) => void attach(runId),
+  })
   const [klines, setKlines] = useState<DailyKline[]>([])
 
   const stockCode = useMemo(
@@ -113,6 +106,12 @@ export default function AgentWorkspace() {
     }
   }, [stockCode])
 
+  // 恢复/切换会话时，右栏自动跟随该会话最近一次量化 run
+  useEffect(() => {
+    const lastRunId = chat.currentThread?.last_run_id
+    if (lastRunId) void attach(lastRunId)
+  }, [chat.currentThread?.last_run_id, attach])
+
   const decideApproval = (
     approval: ApprovalRequest,
     decision: 'approved' | 'rejected',
@@ -122,29 +121,30 @@ export default function AgentWorkspace() {
 
   return (
     <div className="agent-workspace">
-      <aside className="agent-workspace-nav" aria-label="Agent 工作台导航">
-        {navItems.map((item) => (
-          <Link
-            key={item.key}
-            to={item.key}
-            className={`agent-workspace-nav-item${
-              location.pathname.startsWith(item.key) ? ' active' : ''
-            }`}
-          >
-            {item.label}
-          </Link>
-        ))}
+      <aside className="agent-workspace-chat-sidebar" aria-label="会话列表">
+        <ChatSidebar
+          threads={chat.threads}
+          currentThreadId={chat.currentThread?.thread_id ?? null}
+          onSelect={(threadId) => void chat.selectThread(threadId)}
+          onNew={() => void chat.newThread()}
+          onArchive={(threadId) => void chat.archive(threadId)}
+        />
       </aside>
 
       <section className="agent-workspace-conversation">
-        <AgentConversation
-          run={run}
-          events={events}
-          streamState={streamState}
-          error={error}
-          onStart={(objective) => void start(objective)}
-          onCancel={() => void cancel()}
-          onResume={() => void resume()}
+        <div className="chat-conversation-header">
+          {chat.currentThread?.title || '新对话'}
+        </div>
+        <ChatConversation
+          messages={chat.messages}
+          running={chat.running}
+          streamState={chat.streamState}
+          error={chat.error}
+        />
+        <ChatInput
+          running={chat.running}
+          onSend={(content) => void chat.send(content)}
+          onStop={() => void chat.stop()}
         />
       </section>
 
@@ -184,8 +184,11 @@ export default function AgentWorkspace() {
                     <Alert
                       type="info"
                       showIcon
-                      message="在左侧输入研究目标发起分析；K 线/结论数据将随事件流渲染"
+                      message="在左侧发起新对话；助手调用量化工具产生的 run 将自动展示在右侧"
                     />
+                  )}
+                  {runError && (
+                    <Alert type="error" showIcon message={runError} style={{ marginTop: 8 }} />
                   )}
                   {klines.length > 0 ? (
                     <KlineChart klines={klines} />

@@ -241,7 +241,7 @@ describe('useAgentChat', () => {
     expect(assistant?.status).toBe('cancelled')
   })
 
-  it('archiveCurrent 归档并从列表移除当前会话', async () => {
+  it('archive 归档并从列表移除会话；归档当前会话时清空', async () => {
     mocks.getThread.mockResolvedValue({
       thread: thread('t-1', { title: 'x' }),
       turns: [],
@@ -256,7 +256,7 @@ describe('useAgentChat', () => {
       await result.current.selectThread('t-1')
     })
     await act(async () => {
-      await result.current.archiveCurrent()
+      await result.current.archive('t-1')
     })
     expect(mocks.archiveThread).toHaveBeenCalledWith('t-1')
     expect(result.current.currentThread).toBeNull()

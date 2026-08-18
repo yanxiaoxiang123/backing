@@ -40,7 +40,7 @@ export interface UseAgentChatResult {
   newThread: () => Promise<string>
   send: (content: string) => Promise<void>
   stop: () => Promise<void>
-  archiveCurrent: () => Promise<void>
+  archive: (threadId: string) => Promise<void>
 }
 
 function newIdempotencyKey(): string {
@@ -265,19 +265,23 @@ export function useAgentChat(
     }
   }, [currentThread])
 
-  const archiveCurrent = useCallback(async (): Promise<void> => {
-    if (!currentThread) return
-    try {
-      await archiveThread(currentThread.thread_id)
-      setThreads((prev) => prev.filter((t) => t.thread_id !== currentThread.thread_id))
-      setCurrentThread(null)
-      setTurns([])
-      setParts({})
-      persistThreadId(null)
-    } catch (exc) {
-      setError(getApiErrorMessage(exc))
-    }
-  }, [currentThread, persistThreadId])
+  const archive = useCallback(
+    async (threadId: string): Promise<void> => {
+      try {
+        await archiveThread(threadId)
+        setThreads((prev) => prev.filter((t) => t.thread_id !== threadId))
+        if (currentThread?.thread_id === threadId) {
+          setCurrentThread(null)
+          setTurns([])
+          setParts({})
+          persistThreadId(null)
+        }
+      } catch (exc) {
+        setError(getApiErrorMessage(exc))
+      }
+    },
+    [currentThread, persistThreadId],
+  )
 
   // 刷新后从 URL 中的 thread_id 恢复；只消费一次。
   useEffect(() => {
@@ -339,6 +343,6 @@ export function useAgentChat(
     newThread,
     send,
     stop,
-    archiveCurrent,
+    archive,
   }
 }
