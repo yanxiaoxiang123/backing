@@ -14,6 +14,7 @@ import app.services.strategy  # side-effect import: registers built-in strategie
 from app.agent_api.paper import router as paper_router
 from app.agent_api.routes import router as agent_runtime_router
 from app.agent_api.tools import router as tools_router
+from app.agent_chat.api import router as agent_chat_router
 from app.api.agent import router as agent_router
 from app.api.auth import router as auth_router
 from app.api.dl_prediction import router as dl_prediction_router
@@ -118,6 +119,16 @@ async def lifespan(app: FastAPI):
     task_executor = get_task_executor()
     app.state.task_executor = task_executor
     task_executor.startup()
+    # Agent 聊天 Harness 服务（规格 D6/D7：单 worker FIFO；seam-first，fake 先行）
+    from app.agent_chat.seam import FakeHarnessChatSeam
+    from app.agent_chat.service import HarnessChatService
+
+    chat_service = HarnessChatService(
+        session_factory=SessionLocal,
+        seam=FakeHarnessChatSeam(session_factory=SessionLocal),
+    )
+    chat_service.startup()
+    app.state.harness_chat_service = chat_service
     # 模拟盘 soak 撮合循环（可配置；默认开启，间隔 60s）
     from app.agent_runtime.paper.soak import PaperSoakRunner
 
@@ -130,6 +141,7 @@ async def lifespan(app: FastAPI):
     yield
     # Shutdown
     soak.stop()
+    chat_service.shutdown()
     task_executor.shutdown()
     logger.info("Shutting down...")
 
@@ -188,6 +200,7 @@ app.include_router(realtime_router, prefix="/api/v1", tags=["realtime"])
 app.include_router(strategies_router)
 app.include_router(agent_router, prefix="/api/v1", tags=["agent"])
 app.include_router(agent_runtime_router, prefix="/api/v1", tags=["agent-runs"])
+app.include_router(agent_chat_router, prefix="/api/v1", tags=["agent-chats"])
 app.include_router(paper_router, prefix="/api/v1", tags=["paper"])
 app.include_router(tools_router, prefix="/api/v1", tags=["tools"])
 app.include_router(dl_prediction_router, prefix="/api/v1/dl", tags=["dl"])

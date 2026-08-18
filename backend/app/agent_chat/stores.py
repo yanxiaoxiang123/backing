@@ -220,7 +220,7 @@ class SqlChatEventStore:
         self, thread_id: str, *, after_id: int = 0, limit: int = 1000
     ) -> list[dict[str, Any]]:
         rows = (
-            self.session.query(AgentChatEvent)
+            self.session.query(AgentChatEvent, AgentChatTurn.id)
             .join(AgentChatTurn, AgentChatEvent.turn_id == AgentChatTurn.turn_id)
             .filter(AgentChatTurn.thread_id == thread_id)
             .filter(AgentChatEvent.id > after_id)
@@ -228,7 +228,12 @@ class SqlChatEventStore:
             .limit(limit)
             .all()
         )
-        return [_row_to_dict(r) for r in rows]
+        out = []
+        for row, turn_pk in rows:
+            item = _row_to_dict(row)
+            item["turn_pk"] = turn_pk
+            out.append(item)
+        return out
 
 
 def create_chat_stores(session: Session) -> ChatStores:

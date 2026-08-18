@@ -20,7 +20,7 @@ from typing import Any, Callable
 
 from sqlalchemy.orm import Session
 
-from app.agent_chat.seam import RUN_LINKED, HarnessChatSeam
+from app.agent_chat.seam import RUN_LINKED, TURN_DONE, ChatEvent, HarnessChatSeam
 from app.agent_chat.stores import ChatStores, create_chat_stores
 
 logger = logging.getLogger(__name__)
@@ -156,6 +156,7 @@ class HarnessChatService:
                 turn_id, "running", started_at=_now_iso()
             )
             seq_holder = [0]
+            done_holder = [False]
 
             def persist(event: Any) -> None:
                 seq_holder[0] += 1
@@ -171,10 +172,26 @@ class HarnessChatService:
                         stores.threads.update_thread(
                             turn["thread_id"], last_run_id=run_id
                         )
+                if event.type == TURN_DONE:
+                    done_holder[0] = True
 
             outcome = self._seam.run_turn(
                 session_id, turn["user_input"], turn_id=turn["id"], emit=persist
             )
+            # 无 turn.done 的终态（如取消/异常）补发合成终态事件，SSE 前端可靠收口
+            if not done_holder[0]:
+                persist(
+                    ChatEvent(
+                        TURN_DONE,
+                        turn["id"],
+                        {
+                            "status": outcome.status,
+                            "final_reply": outcome.final_reply,
+                            "end_reason": outcome.end_reason,
+                            "error": outcome.error,
+                        },
+                    )
+                )
             stores.turns.update_turn_status(
                 turn_id,
                 outcome.status,
