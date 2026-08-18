@@ -1,6 +1,6 @@
 # dsh-quant-plugin — DeepSeek Harness 量化插件
 
-> 固定 DSH commit：`47f9438`（`/Users/yan/Desktop/backing/deepseek-harness/`，不修改克隆本体，
+> 固定 DSH commit：`47f9438`（由 `scripts/bootstrap_deepseek_harness.sh` 拉取到本地 `../deepseek-harness/`，不修改克隆本体，
 > 仅构建产物落克隆内 gitignored 目录）。状态：**运行时装配完成并 E2E 验证**（见 `docs/DSH-ASSEMBLY-REPORT.md`）。
 
 ## 边界（规格决策 2、26）
@@ -24,11 +24,21 @@ dsh-quant-plugin/
 
 ## 启动路径
 
-1. 构建 DSH runtime（`deepseek-harness/`：`pnpm install && pnpm run build`，再
+1. 准备并构建 DSH runtime：
+
+```bash
+./scripts/bootstrap_deepseek_harness.sh
+cd ../deepseek-harness
+pnpm install --frozen-lockfile
+pnpm run build
+```
+
+   再
    `pnpm exec tsx scripts/build-exe-for-python-sdk.ts --skip-build --targets=node24-<平台>-<arch>`，
    产出 `dsh-jsonrpc-agent-pkg-*` 并同步进 `python/sdk-runtime/.../runtime/`）。
-2. `pip install -e deepseek-harness/python/sdk -e deepseek-harness/python/sdk-runtime`。
+2. `pip install -e ../deepseek-harness/python/sdk -e ../deepseek-harness/python/sdk-runtime`。
 3. 启动后端：`cd backend && python main.py`（端口 8808，`X-API-Key` 认证；含 `POST /api/v1/tools/invoke`）。
+   后端聊天会话写入 `DSH_SESSION_ROOT`（默认 `backend/data/dsh_sessions`，见 `backend/.env.example`）；应用聊天迁移：`cd backend && alembic upgrade head`。
 4. 运行对话演示（环境变量注入密钥，不入库）：
 
 ```bash
