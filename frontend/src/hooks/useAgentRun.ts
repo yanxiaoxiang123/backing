@@ -23,6 +23,7 @@ import {
   resumeRun,
   type StreamState,
 } from '../services/agentRuns'
+import { getApiErrorMessage } from '../services/api'
 
 export interface UseAgentRunResult {
   runId: string | null
@@ -39,6 +40,7 @@ export interface UseAgentRunResult {
     objective: string,
     strategyParams?: Record<string, number> | null,
   ) => Promise<string>
+  attach: (runId: string) => Promise<void>
   cancel: () => Promise<void>
   resume: () => Promise<void>
   decide: (
@@ -52,7 +54,12 @@ export interface UseAgentRunResult {
  * 页面刷新后由 run_id 恢复（任务 06 端点 + Last-Event-ID）。
  */
 export function useAgentRun(): UseAgentRunResult {
-  const [runId, setRunId] = useState<string | null>(null)
+  const initialRunId = useRef<string | null>(
+    typeof window === 'undefined'
+      ? null
+      : new URLSearchParams(window.location.search).get('run_id'),
+  )
+  const [runId, setRunId] = useState<string | null>(() => initialRunId.current)
   const [run, setRun] = useState<RunDetail | null>(null)
   const [events, setEvents] = useState<AgentRunEvent[]>([])
   const [streamState, setStreamState] = useState<StreamState>('idle')
@@ -60,6 +67,14 @@ export function useAgentRun(): UseAgentRunResult {
   const [approvals, setApprovals] = useState<ApprovalRequest[]>([])
   const [error, setError] = useState<string | null>(null)
   const streamRef = useRef<AgentRunStream | null>(null)
+
+  const persistRunId = useCallback((id: string | null) => {
+    if (typeof window === 'undefined') return
+    const url = new URL(window.location.href)
+    if (id) url.searchParams.set('run_id', id)
+    else url.searchParams.delete('run_id')
+    window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`)
+  }, [])
 
   const refresh = useCallback(async (id: string) => {
     try {
@@ -70,6 +85,23 @@ export function useAgentRun(): UseAgentRunResult {
     }
   }, [])
 
+  const connectStream = useCallback(
+    (id: string, lastEventId: number) => {
+      streamRef.current?.stop()
+      const stream = new AgentRunStream(id)
+      streamRef.current = stream
+      stream.onEvent = (event) => setEvents((prev) => [...prev, event])
+      stream.onDone = () => void refresh(id)
+      stream.onStateChange = (state, err) => {
+        setStreamState(state)
+        if (state === 'error')
+          setError(err instanceof Error ? err.message : String(err))
+      }
+      stream.start(lastEventId)
+    },
+    [refresh],
+  )
+
   const start = useCallback(
     async (
       objective: string,
@@ -77,26 +109,32 @@ export function useAgentRun(): UseAgentRunResult {
     ): Promise<string> => {
       const result = await createRun(objective, strategyParams)
       setRunId(result.run_id)
+      persistRunId(result.run_id)
       setEvents([])
       setArtifacts([])
       setApprovals([])
       setError(null)
 
-      streamRef.current?.stop()
-      const stream = new AgentRunStream(result.run_id)
-      streamRef.current = stream
-      stream.onEvent = (event) => setEvents((prev) => [...prev, event])
-      stream.onDone = () => void refresh(result.run_id)
-      stream.onStateChange = (state, err) => {
-        setStreamState(state)
-        if (state === 'error')
-          setError(err instanceof Error ? err.message : String(err))
-      }
-      stream.start(0)
+      connectStream(result.run_id, 0)
       void refresh(result.run_id)
       return result.run_id
     },
-    [refresh],
+    [connectStream, persistRunId, refresh],
+  )
+
+  const attach = useCallback(
+    async (id: string): Promise<void> => {
+      setRunId(id)
+      persistRunId(id)
+      setEvents([])
+      setArtifacts([])
+      setApprovals([])
+      setError(null)
+
+      connectStream(id, 0)
+      void refresh(id)
+    },
+    [connectStream, persistRunId, refresh],
   )
 
   const cancel = useCallback(async () => {
@@ -107,16 +145,19 @@ export function useAgentRun(): UseAgentRunResult {
 
   const resume = useCallback(async () => {
     if (!runId) return
-    streamRef.current?.stop()
     const record = await resumeRun(runId)
     setRun(record)
-    const stream = new AgentRunStream(runId)
-    streamRef.current = stream
-    stream.onEvent = (event) => setEvents((prev) => [...prev, event])
-    stream.onDone = () => void refresh(runId)
-    stream.onStateChange = setStreamState
-    stream.start(events.length)
-  }, [runId, refresh, events.length])
+    connectStream(runId, events.length)
+  }, [connectStream, events.length, runId])
+
+  // 刷新页面后从 URL 中的 run_id 恢复状态与 SSE；只消费一次，避免 start 后重复建流。
+  useEffect(() => {
+    const id = initialRunId.current
+    if (!id) return
+    initialRunId.current = null
+    void refresh(id)
+    connectStream(id, 0)
+  }, [connectStream, refresh])
 
   useEffect(() => {
     if (!runId) return
@@ -133,8 +174,8 @@ export function useAgentRun(): UseAgentRunResult {
       if (!runId) return
       try {
         await decideApproval(runId, approvalId, decision)
-      } catch {
-        // 失败由调用方展示
+      } catch (exc) {
+        setError(getApiErrorMessage(exc))
       }
       const fresh = await listApprovals(runId).catch(() => [])
       setApprovals(fresh)
@@ -196,6 +237,7 @@ export function useAgentRun(): UseAgentRunResult {
     riskData,
     error,
     start,
+    attach,
     cancel,
     resume,
     decide,
