@@ -263,6 +263,32 @@ describe('useAgentChat', () => {
     expect(result.current.threads.map((t) => t.thread_id)).toEqual(['t-2'])
   })
 
+  it('最新 turn 状态变化时刷新会话列表（左栏运行状态）', async () => {
+    mocks.createThread.mockResolvedValue(thread('t-1', { title: 'x' }))
+    mocks.getThread.mockResolvedValue({
+      thread: thread('t-1', { title: 'x' }),
+      turns: [],
+    })
+    mocks.submitTurn.mockResolvedValue(turn(1, 't-1', { status: 'queued' }))
+    const { result } = renderHook(() => useAgentChat())
+    const before = mocks.listThreads.mock.calls.length
+    await act(async () => {
+      await result.current.newThread()
+    })
+    await act(async () => {
+      await result.current.send('分析')
+    })
+    act(() => {
+      mocks.instances[0].emit({
+        seq: 1,
+        type: 'turn.done',
+        turn_id: 1,
+        payload: { status: 'completed', final_reply: 'ok' },
+      })
+    })
+    expect(mocks.listThreads.mock.calls.length).toBeGreaterThan(before)
+  })
+
   it('URL 中的 thread_id 恢复会话', async () => {
     window.history.replaceState({}, '', '/workspace?thread_id=t-9')
     mocks.getThread.mockResolvedValue({

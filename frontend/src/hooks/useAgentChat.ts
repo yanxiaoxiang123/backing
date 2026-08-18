@@ -298,6 +298,13 @@ export function useAgentChat(
     return () => streamRef.current?.stop()
   }, [])
 
+  // 左栏运行状态跟随最新 turn 生命周期刷新（queued/running → 完成/取消）
+  const latestTurnStatus = turns.length > 0 ? turns[turns.length - 1].status : null
+  useEffect(() => {
+    if (!latestTurnStatus) return
+    void refreshThreads()
+  }, [latestTurnStatus, refreshThreads])
+
   const messages = useMemo<ChatMessage[]>(() => {
     const msgs: ChatMessage[] = []
     for (const turn of turns) {
