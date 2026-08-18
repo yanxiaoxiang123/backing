@@ -11,9 +11,8 @@ import threading
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
 
 from app.agent_chat.api import router
 from app.agent_chat.seam import FakeHarnessChatSeam
@@ -46,12 +45,19 @@ class BlockingSeam:
 
 
 @pytest.fixture()
-def api():
+def api(tmp_path):
+    # 临时文件库：worker 线程与请求线程各自独立连接（StaticPool 共享连接会在
+    # 并发写时触发 session.refresh 竞态，详见 T4 修复记录）。
     engine = create_engine(
-        "sqlite://",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,  # 共享同一内存库（TestClient 跨请求/线程）
+        f"sqlite:///{tmp_path}/chat_api.db", connect_args={"timeout": 30}
     )
+
+    @event.listens_for(engine, "connect")
+    def _enable_fk(dbapi_conn, _rec):
+        cursor = dbapi_conn.cursor()
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.close()
+
     Base.metadata.create_all(bind=engine)
     TestingSession = sessionmaker(bind=engine, expire_on_commit=False)
 
