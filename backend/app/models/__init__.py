@@ -1,4 +1,5 @@
 # Models package
+from app.models.agent_chat import AgentChatEvent, AgentChatThread, AgentChatTurn
 from app.models.agent_runtime import (
     AgentRun,
     AgentStep,
@@ -19,6 +20,9 @@ from app.models.paper_trading import (
 )
 
 __all__ = [
+    "AgentChatEvent",
+    "AgentChatThread",
+    "AgentChatTurn",
     "AgentRun",
     "AgentStep",
     "AlertRecord",

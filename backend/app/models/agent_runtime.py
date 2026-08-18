@@ -38,8 +38,12 @@ class AgentRun(Base):
     objective = Column(Text, nullable=False)
     status = Column(String(20), nullable=False, default="planned")
     budget_json = Column(JSON, nullable=True)  # RunBudget 序列化
-    thread_id = Column(String(64), nullable=True)
+    thread_id = Column(String(64), nullable=True, index=True)  # T1: 补索引（D4），迁移 20260818_01 创建 ix_agent_runs_thread_id
     snapshot_id = Column(String(64), nullable=True)
+    # 研究/回测事实时间点；恢复运行时必须沿用，不能退回当前时间。
+    as_of = Column(DateTime, nullable=True)
+    execution_owner = Column(String(120), nullable=True)
+    lease_expires_at = Column(DateTime, nullable=True)
     model_version = Column(String(100), nullable=True)
     harness_version = Column(String(100), nullable=True)
     error = Column(Text, nullable=True)
