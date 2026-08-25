@@ -5,6 +5,7 @@ import type {
   ChatThreadDetail,
   ChatThreadList,
   ChatTurn,
+  ChatRuntimeStatus,
 } from '../types/chat'
 
 export type ChatStreamState = 'idle' | 'connecting' | 'active' | 'closed' | 'error'
@@ -28,6 +29,11 @@ export async function listThreads(
   const resp = await api.get<ChatThreadList>('/agent-chats', {
     params: { limit, offset },
   })
+  return resp.data
+}
+
+export async function getChatStatus(): Promise<ChatRuntimeStatus> {
+  const resp = await api.get<ChatRuntimeStatus>('/agent-chats/status')
   return resp.data
 }
 

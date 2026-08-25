@@ -21,7 +21,7 @@ from app.agent_runtime.paper import service as paper_service
 from app.auth import get_current_api_key
 from app.config import get_db
 from app.models.agent_runtime import ApprovalRecord
-from app.models.paper_trading import PaperCashEvent, PaperOrderEvent
+from app.models.paper_trading import PaperCashEvent, PaperOrder, PaperOrderEvent
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +34,8 @@ def _iso(value: Any) -> Any:
 
 class DecideRequest(BaseModel):
     decision: Literal["approved", "rejected"]
-    decided_by: str = "user"
+    # 兼容旧客户端字段；服务端始终使用认证主体，绝不信任客户端声明。
+    decided_by: str | None = None
 
 
 @router.post("/agent-runs/{run_id}/approvals/{approval_id}/decide")
@@ -43,12 +44,23 @@ def decide_approval(
     approval_id: int,
     body: DecideRequest,
     db: Session = Depends(get_db),
-    _: str = Depends(get_current_api_key),
+    principal: str = Depends(get_current_api_key),
 ) -> dict[str, Any]:
     """审批决策：批准/拒绝（联动模拟盘订单与事件；一次性窗口）。"""
+    approval = db.get(ApprovalRecord, approval_id)
+    if approval is not None and approval.run_id != run_id:
+        raise HTTPException(status_code=404, detail="审批不存在")
+    if approval is not None:
+        order = (
+            db.query(PaperOrder)
+            .filter(PaperOrder.approval_id == approval_id)
+            .one_or_none()
+        )
+        if order is not None and order.run_id != run_id:
+            raise HTTPException(status_code=404, detail="审批不存在")
     try:
         return paper_service.decide_approval(
-            db, approval_id, body.decision, decided_by=body.decided_by
+            db, approval_id, body.decision, decided_by=principal
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

@@ -6,7 +6,7 @@ import {
   generateSignals,
   runStrategyBacktest,
   submitOptimizeParameters,
-  getStockIndicators,
+  getRealtimeBars,
   compareStrategies,
   getApiErrorMessage,
 } from '../services/api'
@@ -105,6 +105,31 @@ function Strategies() {
     }
   }
 
+  const loadMootdxData = useCallback(async () => {
+    if (!stockCode || !dateRange[0] || !dateRange[1]) return []
+    const response = await getRealtimeBars(stockCode, 'daily', true)
+    const data = response.data.filter(
+      (bar) => bar.date >= dateRange[0] && bar.date <= dateRange[1],
+    )
+    setKlineData(data)
+    if (data.length === 0) {
+      throw new Error('mootdx 未返回所选区间的 K 线数据')
+    }
+    return data
+  }, [stockCode, dateRange])
+
+  // 与股票管理页使用同一 mootdx 行情源；选股或修改区间后立即刷新图表。
+  useEffect(() => {
+    if (!stockCode) {
+      setKlineData([])
+      return
+    }
+    loadMootdxData().catch((error) => {
+      setKlineData([])
+      logger.error(error)
+    })
+  }, [stockCode, dateRange, loadMootdxData])
+
   const handleGenerateSignals = useCallback(async () => {
     if (!selectedStrategy || !stockCode || !dateRange[0] || !dateRange[1]) {
       message.warning('请选择策略、股票和日期范围')
@@ -115,6 +140,7 @@ function Strategies() {
     setBacktestResult(null)
     setOptimizeResult(null)
     try {
+      await loadMootdxData()
       const response = await generateSignals({
         strategy_name: selectedStrategy,
         stock_code: stockCode,
@@ -125,22 +151,13 @@ function Strategies() {
       setSignals(response.data)
       setSignalStats(response.stats ?? null)
 
-      const klineResponse = await getStockIndicators(
-        stockCode,
-        'daily',
-        dateRange[0],
-        dateRange[1],
-      )
-      if (klineResponse.data) {
-        setKlineData(klineResponse.data)
-      }
     } catch (error) {
-      message.error('生成信号失败')
+      message.error(getApiErrorMessage(error))
       logger.error(error)
     } finally {
       setLoadingSignals(false)
     }
-  }, [selectedStrategy, stockCode, dateRange, parameters])
+  }, [selectedStrategy, stockCode, dateRange, parameters, loadMootdxData])
 
   const handleRunBacktest = useCallback(async () => {
     if (!selectedStrategy || !stockCode || !dateRange[0] || !dateRange[1]) {
@@ -150,6 +167,7 @@ function Strategies() {
 
     setLoadingBacktest(true)
     try {
+      await loadMootdxData()
       const response = await runStrategyBacktest({
         strategy_name: selectedStrategy,
         stock_code: stockCode,
@@ -161,12 +179,19 @@ function Strategies() {
       setBacktestResult(response)
       setSignals([])
     } catch (error) {
-      message.error('回测执行失败')
+      message.error(getApiErrorMessage(error))
       logger.error(error)
     } finally {
       setLoadingBacktest(false)
     }
-  }, [selectedStrategy, stockCode, dateRange, initialCapital, parameters])
+  }, [
+    selectedStrategy,
+    stockCode,
+    dateRange,
+    initialCapital,
+    parameters,
+    loadMootdxData,
+  ])
 
   const handleOptimize = useCallback(async () => {
     if (!selectedStrategy || !stockCode || !dateRange[0] || !dateRange[1]) {
@@ -176,6 +201,7 @@ function Strategies() {
 
     setLoadingOptimize(true)
     try {
+      await loadMootdxData()
       const strategy = strategies.find((s) => s.name === selectedStrategy)
       if (!strategy) return
 
@@ -225,7 +251,15 @@ function Strategies() {
     } finally {
       setLoadingOptimize(false)
     }
-  }, [selectedStrategy, stockCode, dateRange, initialCapital, strategies, waitForJob])
+  }, [
+    selectedStrategy,
+    stockCode,
+    dateRange,
+    initialCapital,
+    strategies,
+    waitForJob,
+    loadMootdxData,
+  ])
 
   const handleCompare = useCallback(async () => {
     if (!stockCode || !dateRange[0] || !dateRange[1]) {
@@ -235,6 +269,7 @@ function Strategies() {
     setLoadingCompare(true)
     setCompareResult(null)
     try {
+      await loadMootdxData()
       const response = await compareStrategies({
         stock_code: stockCode,
         start_date: dateRange[0],
@@ -249,7 +284,7 @@ function Strategies() {
     } finally {
       setLoadingCompare(false)
     }
-  }, [stockCode, dateRange, initialCapital])
+  }, [stockCode, dateRange, initialCapital, loadMootdxData])
 
   const getCurrentChartOption = useMemo(
     () => getChartOption(klineData, signals, backtestResult),

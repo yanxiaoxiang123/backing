@@ -4,16 +4,17 @@ import { SendOutlined, StopOutlined } from '@ant-design/icons'
 
 interface ChatInputProps {
   running: boolean
+  disabled?: boolean
   onSend: (content: string) => void
   onStop: () => void
 }
 
-export function ChatInput({ running, onSend, onStop }: ChatInputProps) {
+export function ChatInput({ running, disabled = false, onSend, onStop }: ChatInputProps) {
   const [value, setValue] = useState('')
 
   const submit = () => {
     const text = value.trim()
-    if (!text || running) return
+    if (!text || running || disabled) return
     onSend(text)
     setValue('')
   }
@@ -37,7 +38,7 @@ export function ChatInput({ running, onSend, onStop }: ChatInputProps) {
         aria-label="聊天输入"
         onChange={(e) => setValue(e.target.value)}
         onKeyDown={handleKeyDown}
-        disabled={running}
+        disabled={running || disabled}
       />
       {running ? (
         <Button
@@ -52,7 +53,7 @@ export function ChatInput({ running, onSend, onStop }: ChatInputProps) {
         <Button
           type="primary"
           icon={<SendOutlined />}
-          disabled={value.trim().length === 0}
+          disabled={disabled || value.trim().length === 0}
           onClick={submit}
           aria-label="发送消息"
         >

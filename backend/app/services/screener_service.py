@@ -1,6 +1,8 @@
 import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import datetime, time
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
+from zoneinfo import ZoneInfo
 
 import pandas as pd
 
@@ -11,6 +13,49 @@ if TYPE_CHECKING:
     from app.models.models import Stock
 
 logger = logging.getLogger(__name__)
+
+_SHANGHAI_TZ = ZoneInfo("Asia/Shanghai")
+_MARKET_CLOSE = time(15, 0)
+
+
+def completed_daily_bars(
+    df: pd.DataFrame, *, now: datetime | None = None
+) -> pd.DataFrame:
+    """Return daily bars that are safe for end-of-day screening.
+
+    mootdx may expose today's unfinished daily bar before the market opens and
+    during trading.  Before open its volume can be the float sentinel
+    ``5.877e-39``; during trading its partial volume is not comparable with a
+    20-day full-session average.  Both cases previously forced every stock's
+    volume ratio below the screener threshold.
+    """
+    if df.empty or "date" not in df.columns:
+        return df
+
+    current = now or datetime.now(_SHANGHAI_TZ)
+    if current.tzinfo is None:
+        current = current.replace(tzinfo=_SHANGHAI_TZ)
+    else:
+        current = current.astimezone(_SHANGHAI_TZ)
+
+    result = df.copy()
+    dates = pd.to_datetime(result["date"], errors="coerce").dt.date
+    latest_index = result.index[-1]
+    latest_date = dates.iloc[-1]
+    volume = (
+        pd.to_numeric(result["volume"], errors="coerce")
+        if "volume" in result.columns
+        else pd.Series(index=result.index, dtype=float)
+    )
+    latest_volume = volume.iloc[-1] if not volume.empty else None
+
+    is_unfinished_today = (
+        latest_date == current.date() and current.time() < _MARKET_CLOSE
+    )
+    is_placeholder = pd.isna(latest_volume) or float(latest_volume) < 1.0
+    if is_unfinished_today or is_placeholder:
+        result = result.drop(index=latest_index)
+    return result.reset_index(drop=True)
 
 
 class ScreenerService:
@@ -44,6 +89,9 @@ class ScreenerService:
                     return None
                 df = pd.DataFrame(bars)
                 df = df.rename(columns={'vol': 'volume'})
+                df = completed_daily_bars(df)
+                if len(df) < 30:
+                    return None
                 indicators = self._compute_indicators(df)
                 indicators['stock_code'] = stock.code
                 indicators['stock_name'] = stock.name

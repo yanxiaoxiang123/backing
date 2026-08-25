@@ -73,6 +73,13 @@ describe('ChatConversation', () => {
     expect(screen.getByText(/Deep diving/)).toBeInTheDocument()
   })
 
+  it('SSE 已连接但没有运行中 turn 时不显示 Deep diving', () => {
+    render(
+      <ChatConversation messages={[]} running={false} streamState="active" error={null} />,
+    )
+    expect(screen.queryByText(/Deep diving/)).not.toBeInTheDocument()
+  })
+
   it('失败消息展示错误', () => {
     const messages: ChatMessage[] = [
       message({ content: '失败', status: 'failed', error: '模型超时' }),

@@ -3,6 +3,8 @@ from unittest.mock import patch
 
 import pytest
 
+pytest.importorskip("langchain_google_genai")
+
 from tradingagents.llm_clients.google_client import GoogleClient
 
 

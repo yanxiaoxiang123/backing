@@ -130,7 +130,12 @@ class RunExecutor:
         self.stores = stores
         self.db = db
         self.cancel = cancel_token or CancelToken()
-        self.as_of = as_of
+        self.as_of = (
+            as_of
+            if as_of is None or as_of.tzinfo is not None
+            else as_of.replace(tzinfo=timezone.utc)
+        )
+        self.execution_owner = f"run-executor-{uuid.uuid4().hex}"
 
     def create_run(
         self,
@@ -139,10 +144,14 @@ class RunExecutor:
         budget: RunBudget | None = None,
         thread_id: str | None = None,
         snapshot_id: str | None = None,
+        as_of: datetime | None = None,
         model_version: str | None = None,
     ) -> str:
         run_id = uuid.uuid4().hex[:16]
         budget = budget or RunBudget()
+        run_as_of = as_of or datetime.now(timezone.utc)
+        if run_as_of.tzinfo is None:
+            run_as_of = run_as_of.replace(tzinfo=timezone.utc)
         self.stores.runs.create_run(
             run_id=run_id,
             objective=objective,
@@ -150,6 +159,7 @@ class RunExecutor:
             budget_json=budget.model_dump(mode="json"),
             thread_id=thread_id,
             snapshot_id=snapshot_id,
+            as_of=run_as_of.isoformat(),
             model_version=model_version,
         )
         return run_id
@@ -163,7 +173,22 @@ class RunExecutor:
         if run["status"] in ("cancelled", "completed", "superseded"):
             return run
 
+        if not self.stores.runs.claim_execution(run_id, self.execution_owner):
+            return self.stores.runs.get_run(run_id)
+        run = self.stores.runs.get_run(run_id)
+        if run is None:
+            raise KeyError(f"run {run_id} 不存在")
+
         budget = RunBudget.model_validate(run["budget_json"] or {})
+        # as_of 是 run 的事实属性；恢复时即使 executor 没有显式注入，也不能
+        # 使用当前时间重新查询未来数据。
+        if self.as_of is None and run.get("as_of"):
+            parsed_as_of = datetime.fromisoformat(run["as_of"])
+            self.as_of = (
+                parsed_as_of
+                if parsed_as_of.tzinfo is not None
+                else parsed_as_of.replace(tzinfo=timezone.utc)
+            )
         existing = {step["seq"]: step for step in self.stores.steps.list_steps(run_id)}
 
         completed_upto = max(
@@ -185,11 +210,14 @@ class RunExecutor:
             run_id,
             "running",
             started_at=started_at.isoformat() if not run.get("started_at") else None,
+            owner=self.execution_owner,
         )
 
         attempts = 0
         for idx, node in enumerate(nodes):
             seq = idx + 1
+            if not self.stores.runs.renew_execution_lease(run_id, self.execution_owner):
+                return self.stores.runs.get_run(run_id)
             step = existing.get(seq)
             # 已完成或已跳过的节点不重复执行（seq 幂等恢复）
             if seq < start_seq or (step is not None and step["status"] == "completed"):
@@ -219,6 +247,7 @@ class RunExecutor:
                     run_id,
                     "cancelled",
                     finished_at=_utcnow().isoformat(),
+                    owner=self.execution_owner,
                 )
                 self.cancel.clear(run_id)
                 return self.stores.runs.get_run(run_id)
@@ -279,6 +308,7 @@ class RunExecutor:
             run_id,
             "completed",
             finished_at=_utcnow().isoformat(),
+            owner=self.execution_owner,
         )
         return self.stores.runs.get_run(run_id)
 
@@ -288,5 +318,6 @@ class RunExecutor:
             "failed",
             error=reason,
             finished_at=_utcnow().isoformat(),
+            owner=self.execution_owner,
         )
         return self.stores.runs.get_run(run_id)

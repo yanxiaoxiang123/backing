@@ -4,6 +4,8 @@
 一次性撮合窗口（TTL）。
 """
 
+from datetime import date
+
 import pytest
 
 from app.agent_runtime.paper.rules import (
@@ -30,9 +32,21 @@ class TestPriceLimit:
         assert price_limit_pct("sz.300750") == 0.20
         assert price_limit_pct("sh.688981") == 0.20
 
-    def test_st_5(self):
-        assert price_limit_pct("sh.600000", stock_name="ST海航") == 0.05
-        assert price_limit_pct("sz.300750", stock_name="*ST某某") == 0.05
+    def test_st_main_board_10_after_rule_change(self):
+        assert price_limit_pct("sh.600000", stock_name="ST海航") == 0.10
+
+    def test_st_main_board_5_before_rule_change(self):
+        assert (
+            price_limit_pct(
+                "sh.600000",
+                stock_name="ST海航",
+                as_of=date(2026, 7, 5),
+            )
+            == 0.05
+        )
+
+    def test_st_growth_board_keeps_20(self):
+        assert price_limit_pct("sz.300750", stock_name="*ST某某") == 0.20
 
 
 class TestFees:

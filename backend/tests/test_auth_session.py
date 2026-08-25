@@ -98,6 +98,14 @@ class TestLoginFlow:
         assert resp.status_code == 200
         assert resp.json() == {"authenticated": True}
 
+    def test_login_can_replace_stale_session_without_csrf(self, client):
+        """旧会话残留时，用户仍能重新登录而不会被旧 CSRF 状态锁死。"""
+        first = client.post("/api/v1/auth/session", json={"api_key": "test-secret"})
+        assert first.status_code == 200
+        client.cookies.set("csrf_token", "stale-token")
+        resp = client.post("/api/v1/auth/session", json={"api_key": "test-secret"})
+        assert resp.status_code == 200
+
     def test_logout_clears_session(self, client):
         login = client.post("/api/v1/auth/session", json={"api_key": "test-secret"})
         token = login.cookies.get("csrf_token")

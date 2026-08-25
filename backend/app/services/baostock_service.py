@@ -394,16 +394,20 @@ class BaostockService:
             return 0, "No stocks found to sync"
 
         stock_code_list = [s.code for s in stocks]
-        latest_rows = (
-            db.query(DailyKline.stock_code, func.max(DailyKline.date))
+        coverage_rows = (
+            db.query(
+                DailyKline.stock_code,
+                func.min(DailyKline.date),
+                func.max(DailyKline.date),
+            )
             .filter(DailyKline.stock_code.in_(stock_code_list))
             .group_by(DailyKline.stock_code)
             .all()
         )
-        latest_dates = {
-            code: latest_date
-            for code, latest_date in latest_rows
-            if latest_date is not None
+        coverage = {
+            code: (earliest_date, latest_date)
+            for code, earliest_date, latest_date in coverage_rows
+            if earliest_date is not None and latest_date is not None
         }
 
         # Tuned for reduced DB round-trips and memory pressure.
@@ -438,52 +442,71 @@ class BaostockService:
                 return inserted
 
         for stock in stocks:
-            # Check if stock is already up to date (no DB operation needed)
-            latest_date = latest_dates.get(stock.code)
-            if latest_date:
-                next_date = latest_date + timedelta(days=1)
-            effective_date = (
-                max(start_date_obj, next_date) if latest_date else start_date_obj
-            )
+            # Fill both edges of the requested range.  The old implementation
+            # only appended after MAX(date), so a partially populated stock
+            # could never backfill older history needed by strategy research.
+            existing_range = coverage.get(stock.code)
+            missing_ranges: list[tuple[object, object]] = []
+            if existing_range is None:
+                missing_ranges.append((start_date_obj, end_date_obj))
+            else:
+                earliest_date, latest_date = existing_range
+                if start_date_obj < earliest_date:
+                    missing_ranges.append(
+                        (start_date_obj, min(end_date_obj, earliest_date - timedelta(days=1)))
+                    )
+                if end_date_obj > latest_date:
+                    missing_ranges.append(
+                        (max(start_date_obj, latest_date + timedelta(days=1)), end_date_obj)
+                    )
 
-            if effective_date > end_date_obj:
+            missing_ranges = [
+                (range_start, range_end)
+                for range_start, range_end in missing_ranges
+                if range_start <= range_end
+            ]
+            if not missing_ranges:
                 skipped_up_to_date += 1
                 continue
 
-            df = self.get_daily_kline(
-                stock.code, effective_date.strftime("%Y-%m-%d"), end_date
-            )
-
-            # Rate limiting — always wait after every API call
-            if rate_limit_seconds > 0:
-                time.sleep(rate_limit_seconds)
-
-            if df.empty:
-                continue
-
             try:
-                for row in df.itertuples(index=False):
-                    close_price = float(getattr(row, "close", 0) or 0)
-                    if close_price == 0:
+                stock_has_data = False
+                for range_start, range_end in missing_ranges:
+                    df = self.get_daily_kline(
+                        stock.code,
+                        range_start.strftime("%Y-%m-%d"),
+                        range_end.strftime("%Y-%m-%d"),
+                    )
+                    # Rate limiting — always wait after every provider call.
+                    if rate_limit_seconds > 0:
+                        time.sleep(rate_limit_seconds)
+                    if df.empty:
                         continue
 
-                    pending_rows.append(
-                        {
-                            "stock_code": stock.code,
-                            "date": datetime.strptime(row.date, "%Y-%m-%d").date(),
-                            "open": float(getattr(row, "open", 0) or 0),
-                            "high": float(getattr(row, "high", 0) or 0),
-                            "low": float(getattr(row, "low", 0) or 0),
-                            "close": close_price,
-                            "volume": float(getattr(row, "volume", 0) or 0),
-                            "amount": float(getattr(row, "amount", 0) or 0),
-                        }
-                    )
+                    stock_has_data = True
+                    for row in df.itertuples(index=False):
+                        close_price = float(getattr(row, "close", 0) or 0)
+                        if close_price == 0:
+                            continue
 
-                if len(pending_rows) >= batch_size:
-                    total_klines += flush_pending_rows()
+                        pending_rows.append(
+                            {
+                                "stock_code": stock.code,
+                                "date": datetime.strptime(row.date, "%Y-%m-%d").date(),
+                                "open": float(getattr(row, "open", 0) or 0),
+                                "high": float(getattr(row, "high", 0) or 0),
+                                "low": float(getattr(row, "low", 0) or 0),
+                                "close": close_price,
+                                "volume": float(getattr(row, "volume", 0) or 0),
+                                "amount": float(getattr(row, "amount", 0) or 0),
+                            }
+                        )
 
-                processed_stocks += 1
+                    if len(pending_rows) >= batch_size:
+                        total_klines += flush_pending_rows()
+
+                if stock_has_data:
+                    processed_stocks += 1
 
             except Exception as e:
                 logger.error(f"Error syncing {stock.code}: {e}")

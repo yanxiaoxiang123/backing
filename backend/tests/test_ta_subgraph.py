@@ -5,6 +5,7 @@
 """
 
 from datetime import date, datetime, timezone
+from typing import ClassVar
 
 import pytest
 from sqlalchemy import create_engine
@@ -20,9 +21,6 @@ from app.models.agent_runtime import AgentRun
 from app.models.models import DailyKline, Stock
 
 AS_OF = datetime(2026, 8, 14, 7, 0, tzinfo=timezone.utc)
-
-
-from typing import ClassVar
 
 
 class FakeTradingAgentsGraph:

@@ -83,13 +83,27 @@ export async function bootstrapAuth(): Promise<void> {
 
 /** 用 API key 换短期 HttpOnly session cookie（key 不落盘、不进 bundle）。 */
 export async function loginWithApiKey(apiKey: string): Promise<void> {
-  await axios.post('/api/v1/auth/session', { api_key: apiKey }, { baseURL: '' })
+  const csrfToken = readCsrfToken()
+  await axios.post(
+    '/api/v1/auth/session',
+    { api_key: apiKey },
+    csrfToken
+      ? { baseURL: '', headers: { 'X-CSRF-Token': csrfToken } }
+      : { baseURL: '' },
+  )
   setAuthState('authenticated')
 }
 
 export async function logout(): Promise<void> {
   try {
-    await axios.post('/api/v1/auth/logout', {}, { baseURL: '' })
+    const csrfToken = readCsrfToken()
+    await axios.post(
+      '/api/v1/auth/logout',
+      {},
+      csrfToken
+        ? { baseURL: '', headers: { 'X-CSRF-Token': csrfToken } }
+        : { baseURL: '' },
+    )
   } finally {
     setAuthState('unauthenticated')
   }
@@ -597,6 +611,7 @@ export async function compareStrategies(
 export async function getRealtimeBars(
   code: string,
   period: string = 'daily',
+  cacheForResearch = false,
 ): Promise<{
   success: boolean
   code: string
@@ -624,7 +639,12 @@ export async function getRealtimeBars(
       amount: number
       symbol: string
     }>
-  }>(`/realtime/${code}?period=${period}`)
+  }>(
+    `/realtime/${code}?${new URLSearchParams({
+      period,
+      cache_for_research: String(cacheForResearch),
+    })}`,
+  )
   return response.data
 }
 

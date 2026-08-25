@@ -5,6 +5,7 @@ import type {
   ChatThread,
   ChatTurn,
   ToolRow,
+  ChatRuntimeStatus,
 } from '../types/chat'
 import {
   ChatEventStream,
@@ -12,6 +13,7 @@ import {
   cancelTurn,
   createThread,
   getThread,
+  getChatStatus,
   listThreads,
   submitTurn,
   type ChatStreamState,
@@ -36,11 +38,13 @@ export interface UseAgentChatResult {
   streamState: ChatStreamState
   running: boolean
   error: string | null
+  runtimeStatus: ChatRuntimeStatus | null
   selectThread: (threadId: string) => Promise<void>
   newThread: () => Promise<string>
   send: (content: string) => Promise<void>
   stop: () => Promise<void>
   archive: (threadId: string) => Promise<void>
+  refreshStatus: () => Promise<void>
 }
 
 function newIdempotencyKey(): string {
@@ -72,7 +76,14 @@ export function useAgentChat(
   const [parts, setParts] = useState<Record<number, TurnParts>>({})
   const [streamState, setStreamState] = useState<ChatStreamState>('idle')
   const [error, setError] = useState<string | null>(null)
+  const [runtimeStatus, setRuntimeStatus] = useState<ChatRuntimeStatus | null>(null)
   const streamRef = useRef<ChatEventStream | null>(null)
+  // Fake/本地 Harness 可能在 submitTurn 的 202 响应返回前就完成整轮。
+  // 终态事件先到时 turns 中尚无对应行，先暂存补丁，REST 返回后再合并，
+  // 避免 completed 被随后到达的 queued 快照覆盖。
+  const terminalTurnPatchesRef = useRef<
+    Map<number, Partial<ChatTurn>>
+  >(new Map())
 
   const persistThreadId = useCallback((id: string | null) => {
     if (typeof window === 'undefined') return
@@ -113,7 +124,12 @@ export function useAgentChat(
           chunks: prev[turnId]?.chunks ?? [],
           tools: [
             ...(prev[turnId]?.tools ?? []),
-            { tool: String(payload['tool'] ?? ''), summary: '', runId: null },
+            {
+              tool: String(payload['tool'] ?? ''),
+              summary: '',
+              callId: String(payload['call_id'] ?? '') || null,
+              runId: null,
+            },
           ],
           runId: prev[turnId]?.runId ?? null,
         },
@@ -121,10 +137,14 @@ export function useAgentChat(
     } else if (event.type === 'tool_result') {
       setParts((prev) => {
         const tools = [...(prev[turnId]?.tools ?? [])]
-        const idx = tools
-          .map((t) => t.tool)
-          .lastIndexOf(String(payload['tool'] ?? ''))
-        const summary = String(payload['summary'] ?? payload['result'] ?? '')
+        const callId = String(payload['call_id'] ?? '')
+        const idx = callId
+          ? tools.map((t) => t.callId).lastIndexOf(callId)
+          : tools.map((t) => t.tool).lastIndexOf(String(payload['tool'] ?? ''))
+        const rawSummary = payload['summary'] ?? payload['result'] ?? ''
+        const summary = typeof rawSummary === 'string'
+          ? rawSummary
+          : JSON.stringify(rawSummary)
         if (idx >= 0) {
           tools[idx] = { ...tools[idx], summary }
           if (payload['run_id']) tools[idx] = { ...tools[idx], runId: String(payload['run_id']) }
@@ -150,24 +170,35 @@ export function useAgentChat(
           runId,
         },
       }))
-      if (runId) onRunLinkedRef.current?.(runId)
+      if (runId) {
+        setCurrentThread((prev) =>
+          prev ? { ...prev, last_run_id: runId } : prev,
+        )
+        setThreads((prev) =>
+          prev.map((thread) =>
+            thread.thread_id === currentThread?.thread_id
+              ? { ...thread, last_run_id: runId }
+              : thread,
+          ),
+        )
+        onRunLinkedRef.current?.(runId)
+      }
     } else if (event.type === 'turn.done') {
+      const patch: Partial<ChatTurn> = {
+        status: (payload['status'] as ChatTurn['status']) ?? 'completed',
+        final_reply: String(payload['final_reply'] ?? '') || null,
+        end_reason: String(payload['end_reason'] ?? '') || null,
+        error: String(payload['error'] ?? '') || null,
+      }
+      terminalTurnPatchesRef.current.set(turnId, patch)
       setTurns((prev) =>
         prev.map((turn) =>
-          turn.id === turnId
-            ? {
-                ...turn,
-                status: (payload['status'] as ChatTurn['status']) ?? turn.status,
-                final_reply:
-                  String(payload['final_reply'] ?? turn.final_reply ?? '') || null,
-                end_reason: String(payload['end_reason'] ?? '') || null,
-                error: String(payload['error'] ?? '') || null,
-              }
-            : turn,
+          turn.id === turnId ? { ...turn, ...patch } : turn,
         ),
       )
+      setCurrentThread((prev) => (prev ? { ...prev, status: 'idle' } : prev))
     }
-  }, [])
+  }, [currentThread?.thread_id])
 
   const connectStream = useCallback(
     (threadId: string, lastEventId: number) => {
@@ -201,6 +232,7 @@ export function useAgentChat(
         setCurrentThread(detail.thread)
         setTurns(detail.turns)
         setParts({})
+        terminalTurnPatchesRef.current.clear()
         setError(null)
         persistThreadId(threadId)
         connectStream(threadId, 0)
@@ -223,6 +255,10 @@ export function useAgentChat(
       const text = content.trim()
       if (!text) return
       try {
+        if (runtimeStatus && !runtimeStatus.available) {
+          setError('Agent 聊天当前不可用，请检查模型配置后重试')
+          return
+        }
         let thread = currentThread
         if (!thread) {
           const created = await createThread()
@@ -233,7 +269,15 @@ export function useAgentChat(
           connectStream(created.thread_id, 0)
         }
         const turn = await submitTurn(thread.thread_id, text, newIdempotencyKey())
-        setTurns((prev) => [...prev, turn])
+        const terminalPatch = terminalTurnPatchesRef.current.get(turn.id)
+        const mergedTurn = terminalPatch ? { ...turn, ...terminalPatch } : turn
+        setTurns((prev) => {
+          const index = prev.findIndex((item) => item.id === mergedTurn.id)
+          if (index < 0) return [...prev, mergedTurn]
+          const next = [...prev]
+          next[index] = { ...next[index], ...mergedTurn }
+          return next
+        })
         if (thread.title === '' || thread.title == null) {
           setCurrentThread((prev) =>
             prev ? { ...prev, title: text.slice(0, 36) } : prev,
@@ -250,7 +294,7 @@ export function useAgentChat(
         setError(getApiErrorMessage(exc))
       }
     },
-    [connectStream, currentThread, persistThreadId],
+    [connectStream, currentThread, persistThreadId, runtimeStatus],
   )
 
   const stop = useCallback(async (): Promise<void> => {
@@ -283,7 +327,19 @@ export function useAgentChat(
     [currentThread, persistThreadId],
   )
 
+  const refreshStatus = useCallback(async (): Promise<void> => {
+    try {
+      setRuntimeStatus(await getChatStatus())
+    } catch {
+      setRuntimeStatus(null)
+    }
+  }, [])
+
   // 刷新后从 URL 中的 thread_id 恢复；只消费一次。
+  useEffect(() => {
+    void refreshStatus()
+  }, [refreshStatus])
+
   useEffect(() => {
     const id = initialThreadId.current
     if (id) {
@@ -346,10 +402,12 @@ export function useAgentChat(
     streamState,
     running,
     error,
+    runtimeStatus,
     selectThread,
     newThread,
     send,
     stop,
     archive,
+    refreshStatus,
   }
 }

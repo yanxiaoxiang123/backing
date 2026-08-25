@@ -6,7 +6,7 @@ The primary application is split into `backend/` and `frontend/`. FastAPI routes
 
 The React/Vite client uses `frontend/src/pages/` for screens, `components/` for reusable UI, `services/api.ts` for API access, and `types/` and `utils/` for shared code.
 
-Agent 工作台聊天（2026-08-18 规格 `docs/specs/2026-08-18-agent-workspace-chat.md`）：后端 `backend/app/agent_chat/`（`seam.py` Harness 接缝 + fake、`service.py` 单 worker FIFO、`stores.py` chat 仓库、`api.py` `/api/v1/agent-chats` 路由），前端 `frontend/src/components/chat/` 聊天 UI 与 `frontend/src/hooks/useAgentChat.ts`。数据表 `agent_chat_threads/turns/events`（迁移 `20260818_01`），run 经 `agent_runs.thread_id` 关联会话。 `TradingAgents-astock/` is a separate Python package with its own tests, CLI, and web app. Design notes are under `docs/`; deployment files are under `deploy/`. Do not edit generated `logs/`.
+Agent 工作台聊天（2026-08-18 规格 `docs/specs/2026-08-18-agent-workspace-chat.md`）：后端 `backend/app/agent_chat/`（`runtime.py` 原生 ReAct runtime、`policy.py` 工具准入、`seam.py` 事件契约与 fake、`service.py` 单 worker FIFO、`stores.py` chat 仓库、`api.py` `/api/v1/agent-chats` 路由），前端 `frontend/src/components/chat/` 聊天 UI 与 `frontend/src/hooks/useAgentChat.ts`。数据表 `agent_chat_threads/turns/events`（迁移 `20260818_01`），run 经 `agent_runs.thread_id` 关联会话。 `TradingAgents-astock/` is a separate Python package with its own tests, CLI, and web app. Design notes are under `docs/`; deployment files are under `deploy/`. Do not edit generated `logs/`.
 
 ## Build, Test, and Development Commands
 
@@ -23,13 +23,13 @@ Agent 工作台聊天（2026-08-18 规格 `docs/specs/2026-08-18-agent-workspace
 - `cd frontend && npm test` runs the Vitest + Testing Library unit/component tests; add `npm run test:watch` for watch mode.
 - `cd TradingAgents-astock && pytest` runs the nested package suite.
 
-## Agent 聊天与 DeepSeek Harness
+## Agent 聊天与 backend native runtime
 
-- 聊天以 **seam-first** 构建：抽象 `HarnessChatSeam` + 确定性 `FakeHarnessChatSeam`（经 `agent_runtime` stores 真实创建 run 并发布 `run.linked`）；真实 `DeepSeekHarness` 适配器为后续切片（需运行时 + SDK + 密钥）。
-- 后端单 worker FIFO 串行执行 turn（`HarnessChatService`，lifespan 启停）；重启将 running 标 `interrupted`、queued 继续；`Idempotency-Key` 去重。
+- 聊天以 **native runtime** 构建：`NativeAgentChatRuntime` 直接使用 backend 的 DeepSeek/LangChain 客户端和类型化工具；`FakeHarnessChatSeam` 仅供测试/演示显式注入。
+- 后端单 worker FIFO 串行执行 turn（`HarnessChatService`，lifespan 启停）；重启将 running 标 `interrupted`、queued 继续；`Idempotency-Key` 去重；取消只作用于当前活动 thread。
 - SSE `/api/v1/agent-chats/{thread_id}/events` 支持 `Last-Event-ID` 重放，空闲约 1.5s 自动关闭（前端自动重连）。
-- 会话写入目录由 `DSH_SESSION_ROOT` 配置（默认 `backend/data/dsh_sessions`，见 `.env.example`）。
-- DSH 运行时装配（固定 commit、Cordis profile、editable SDK/runtime 安装命令、`DEEPSEEK_API_KEY`/`QUANT_API_KEY`）：见 `dsh-quant-plugin/README.md`。不修改 `deepseek-harness/` 上游源码。
+- 聊天上下文唯一事实源是 `agent_chat_threads/turns/events`；配置 `AGENT_CHAT_BACKEND=native|fake`、`AGENT_CHAT_MAX_STEPS`、`AGENT_CHAT_TIMEOUT_S` 与现有 `DEEPSEEK_*`。
+- `deepseek-harness/` 与 `dsh-quant-plugin/` 仅保留为历史设计参考，backend 运行时不得导入、复制或启动其中的代码。
 
 ## Coding Style & Naming Conventions
 

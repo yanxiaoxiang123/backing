@@ -13,6 +13,7 @@ import json
 import logging
 import threading
 import time
+from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -34,6 +35,8 @@ router = APIRouter()
 #: 进程内取消注册表（进程重启后以 run 状态为准）
 _cancel_tokens: dict[str, CancelToken] = {}
 _tokens_lock = threading.Lock()
+_execution_locks: dict[str, threading.Lock] = {}
+_execution_locks_guard = threading.Lock()
 
 
 def _cancel_token(run_id: str) -> CancelToken:
@@ -45,10 +48,19 @@ def _cancel_token(run_id: str) -> CancelToken:
         return token
 
 
+def _execution_lock(run_id: str) -> threading.Lock:
+    with _execution_locks_guard:
+        return _execution_locks.setdefault(run_id, threading.Lock())
+
+
 def _spawn_execution(run_id: str, objective: str, strategy_params: dict | None = None) -> None:
     """后台线程执行（threads 后端；生产可换独立 worker，见规格决策 6 备注）。"""
 
     def _run() -> None:
+        lock = _execution_lock(run_id)
+        if not lock.acquire(blocking=False):
+            logger.info("run %s already has an executor; skip duplicate spawn", run_id)
+            return
         session = SessionLocal()
         try:
             stores = create_stores(session)
@@ -61,6 +73,7 @@ def _spawn_execution(run_id: str, objective: str, strategy_params: dict | None =
             logger.exception("run %s 后台执行异常", run_id)
         finally:
             session.close()
+            lock.release()
 
     threading.Thread(target=_run, daemon=True, name=f"agent-run-{run_id}").start()
 
@@ -85,6 +98,7 @@ def create_run(
         budget=payload.budget,
         thread_id=payload.thread_id,
         snapshot_id=payload.snapshot_id,
+        as_of=payload.as_of,
     )
     token = _cancel_token(run_id)
     if payload.execute_inline:
@@ -179,10 +193,26 @@ def resume_run(
     _require_run(db, run_id)
     stores = create_stores(db)
     run = stores.runs.get_run(run_id)
+    if run["status"] == "running":
+        lease_raw = run.get("lease_expires_at")
+        lease_expires = datetime.fromisoformat(lease_raw) if lease_raw else None
+        if lease_expires is None or lease_expires.replace(tzinfo=timezone.utc) > datetime.now(timezone.utc):
+            raise HTTPException(status_code=409, detail="run 正在执行，不能重复恢复")
     objective = run["objective"]
-    executor = RunExecutor(stores, db=db, cancel_token=_cancel_token(run_id))
+    executor = RunExecutor(
+        stores,
+        db=db,
+        cancel_token=_cancel_token(run_id),
+        as_of=datetime.fromisoformat(run["as_of"]) if run.get("as_of") else None,
+    )
     if wait:
-        return executor.execute(run_id, default_pipeline(objective))
+        lock = _execution_lock(run_id)
+        if not lock.acquire(blocking=False):
+            raise HTTPException(status_code=409, detail="run 已被其他执行器占用")
+        try:
+            return executor.execute(run_id, default_pipeline(objective))
+        finally:
+            lock.release()
     _spawn_execution(run_id, objective)
     return stores.runs.get_run(run_id)
 

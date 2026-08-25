@@ -1,13 +1,10 @@
-"""Agent 聊天 Harness 接缝（规格决策 D1/D2）。
+"""Agent 聊天事件接缝（兼容现有服务与 fake 测试）。
 
-- ``HarnessChatSeam``：抽象接缝，真实 ``DeepSeekHarness`` 适配器与 fake 的公共接口。
+- ``HarnessChatSeam``：抽象接缝，原生 backend runtime 与 fake 的公共接口。
 - ``FakeHarnessChatSeam``：确定性 fake，产出 reasoning / assistant_chunk /
   tool_call / tool_result / run.linked / turn.done 事件；``quant_run_analysis``
   工具调用经 ``agent_runtime`` stores 真实创建 run（写 thread_id 关联会话）
   后发布 ``run.linked``，供右栏 attach。
-
-真实适配器延后：需构建 DSH 运行时 + ``pip install -e`` SDK + 密钥
-（dsh-quant-plugin/README.md 启动路径；Q1：quant_run_analysis 工具签名先以本文件为准）。
 """
 
 from __future__ import annotations
@@ -33,7 +30,10 @@ ERROR = "error"
 
 @dataclass
 class ChatEvent:
-    """可重放聊天事件。payload 键与前端契约对应：content/tool/args/summary/run_id/status/..."""
+    """可重放聊天事件。
+
+    payload 键与前端契约对应：content/tool/args/call_id/summary/run_id/status/...
+    """
 
     type: str
     turn_id: int
@@ -54,11 +54,10 @@ EmitFn = Callable[[ChatEvent], None]
 
 
 class HarnessChatSeam(Protocol):
-    """与真实 DeepSeekHarness 适配器共享的接缝接口。
+    """与原生 backend Agent runtime 共享的聊天接缝接口。
 
     ``run_turn`` 同步阻塞，通过 ``emit`` 回调按序产出事件；返回该轮终态。
-    ``stop`` 请求终止当前会话 turn（SDK 无单会话 cancel，真实适配器在服务层
-    终止并重建 runtime 等价物；fake 以取消标记模拟）。
+    ``stop`` 请求终止当前会话 turn；fake 以取消标记模拟。
     """
 
     def run_turn(

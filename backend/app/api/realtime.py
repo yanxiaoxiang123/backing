@@ -1,13 +1,16 @@
 import asyncio
 import logging
 from collections import defaultdict
+from datetime import date
 
 from fastapi import APIRouter, Depends, Query, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
+from sqlalchemy.orm import Session
 
 from app.auth import AuthError, get_current_api_key, validate_api_key
-from app.config import settings
+from app.config import get_db, settings
 from app.exceptions import ProviderUnavailableError
+from app.models.models import DailyKline, Stock
 from app.services.realtime_service import FetchResult, realtime_service
 
 logger = logging.getLogger(__name__)
@@ -91,6 +94,60 @@ def _raise_if_unavailable(result: FetchResult, *, endpoint: str) -> None:
     )
 
 
+def _cache_daily_bars_for_research(
+    db: Session, stock_code: str, bars: list[dict]
+) -> int:
+    """Upsert mootdx daily bars used by the strategy engine.
+
+    Realtime quotes remain read-only by default.  The strategy page opts into
+    this cache so its existing backtest/optimizer services all consume the
+    exact same mootdx snapshot shown in the chart.
+    """
+    stock = db.query(Stock).filter(Stock.code == stock_code).first()
+    if stock is None:
+        return 0
+
+    parsed: dict[date, dict] = {}
+    for bar in bars:
+        try:
+            bar_date = date.fromisoformat(str(bar.get("date", ""))[:10])
+            values = {
+                "open": float(bar.get("open", 0) or 0),
+                "high": float(bar.get("high", 0) or 0),
+                "low": float(bar.get("low", 0) or 0),
+                "close": float(bar.get("close", 0) or 0),
+                "volume": float(bar.get("volume", 0) or 0),
+                "amount": float(bar.get("amount", 0) or 0),
+            }
+        except (TypeError, ValueError):
+            continue
+        if values["close"] <= 0:
+            continue
+        parsed[bar_date] = values
+
+    if not parsed:
+        return 0
+
+    existing = {
+        item.date: item
+        for item in db.query(DailyKline)
+        .filter(
+            DailyKline.stock_code == stock_code,
+            DailyKline.date.in_(parsed.keys()),
+        )
+        .all()
+    }
+    for bar_date, values in parsed.items():
+        item = existing.get(bar_date)
+        if item is None:
+            db.add(DailyKline(stock_code=stock_code, date=bar_date, **values))
+        else:
+            for field, value in values.items():
+                setattr(item, field, value)
+    db.commit()
+    return len(parsed)
+
+
 @router.get('/realtime/health', response_model=dict)
 def get_realtime_health(_: str = Depends(get_current_api_key)) -> dict:
     """Provider health snapshot: selected node, healthy pool size, counters.
@@ -143,6 +200,8 @@ def get_realtime_indices(
 def get_realtime_bars(
     code: str,
     period: str = Query('daily', description="daily|weekly|monthly"),
+    cache_for_research: bool = Query(False),
+    db: Session = Depends(get_db),
     _: str = Depends(get_current_api_key),
 ):
     """获取股票实时K线数据（日/周/月）
@@ -169,6 +228,13 @@ def get_realtime_bars(
         )
 
     _raise_if_unavailable(result, endpoint="bars")
+    if cache_for_research and period == "daily" and result.data:
+        try:
+            _cache_daily_bars_for_research(db, code, result.data)
+        except Exception:
+            db.rollback()
+            logger.exception("failed to cache mootdx bars for strategy research: %s", code)
+            raise
     return RealtimeBarsResponse(
         success=True,
         code=code,

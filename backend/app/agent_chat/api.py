@@ -94,6 +94,15 @@ def list_chats(
     }
 
 
+@router.get("/agent-chats/status")
+def chat_status(
+    request: Request,
+    _: str = Depends(get_current_api_key),
+):
+    """Runtime readiness without exposing API keys or provider details."""
+    return _service(request).status()
+
+
 @router.get("/agent-chats/{thread_id}")
 def get_chat(
     thread_id: str,
@@ -142,8 +151,15 @@ def stream_events(
             last_id = int(raw)
         idle_polls = 0
         while True:
+            # StreamingResponse 的 generator 生命周期远长于普通请求。
+            # 每轮过期 identity map，强制读取 worker 在另一 Session 中写入的
+            # 最新 turn 状态；继续使用 Depends(get_db) 注入的 Session，
+            # 确保测试和部署可以替换数据库绑定。
+            db.expire_all()
             stores = create_chat_stores(db)
             events = stores.events.list_events(thread_id, after_id=last_id)
+            thread = stores.threads.get_thread(thread_id)
+            turns = stores.turns.list_turns(thread_id)
             for event in events:
                 idle_polls = 0
                 payload = dict(event["payload"])
@@ -157,11 +173,7 @@ def stream_events(
                 last_id = event["id"]
             # 空闲关闭：线程无 queued/running turn 且约 1.5s 无新事件则结束流。
             # 前端 ChatEventStream 断开后带 Last-Event-ID 自动重连（与 run SSE 同模式）。
-            thread = stores.threads.get_thread(thread_id)
-            turns = stores.turns.list_turns(thread_id)
-            has_active = any(
-                t["status"] in ("queued", "running") for t in turns
-            )
+            has_active = any(t["status"] in ("queued", "running") for t in turns)
             if thread is not None and not has_active:
                 idle_polls += 1
                 if idle_polls >= 3:
@@ -185,7 +197,10 @@ def cancel_turn(
     _: str = Depends(get_current_api_key),
 ):
     _require_thread(db, thread_id)
-    _service(request).stop_turn(thread_id)
+    try:
+        _service(request).stop_turn(thread_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
     turns = create_chat_stores(db).turns.list_turns(thread_id)
     if not turns:
         raise HTTPException(status_code=404, detail="该会话没有进行中的 turn")

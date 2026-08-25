@@ -309,14 +309,23 @@ def sync_kline(
     request: Request,
     stock_codes: List[str] = Body(None),
     strategy: str = Query("incremental"),
+    start_date: Optional[date] = Query(None),
+    end_date: Optional[date] = Query(None),
     db: Session = Depends(get_db),
     _: str = Depends(get_current_api_key),
 ):
     """Sync kline data from baostock"""
     try:
-        start_date = "2020-01-01" if strategy == "full" else None
+        requested_start = (
+            start_date.isoformat()
+            if start_date is not None
+            else ("2020-01-01" if strategy == "full" else None)
+        )
         count, message = baostock_service.sync_kline_data(
-            db, stock_codes=stock_codes, start_date=start_date
+            db,
+            stock_codes=stock_codes,
+            start_date=requested_start,
+            end_date=end_date.isoformat() if end_date is not None else None,
         )
     except Exception as exc:
         raise ExternalServiceError(

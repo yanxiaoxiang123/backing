@@ -41,4 +41,10 @@ describe('ChatInput', () => {
     await user.click(screen.getByRole('button', { name: /停止/ }))
     expect(onStop).toHaveBeenCalled()
   })
+
+  it('runtime 不可用时禁用输入', () => {
+    render(<ChatInput disabled running={false} onSend={vi.fn()} onStop={vi.fn()} />)
+    expect(screen.getByLabelText('聊天输入')).toBeDisabled()
+    expect(screen.getByRole('button', { name: /发送/ })).toBeDisabled()
+  })
 })

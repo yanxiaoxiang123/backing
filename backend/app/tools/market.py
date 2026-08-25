@@ -20,6 +20,8 @@ class MarketKlineParams(BaseModel):
 
 
 def _market_kline(params: MarketKlineParams, context: ToolContext) -> dict:
+    if context.as_of and params.end_date > context.as_of.date().isoformat():
+        raise ValueError("K 线结束日期晚于 run as_of，拒绝前视查询")
     df = baostock_service.get_daily_kline(
         params.stock_code, params.start_date, params.end_date
     )
@@ -28,7 +30,7 @@ def _market_kline(params: MarketKlineParams, context: ToolContext) -> dict:
     records = df.head(MAX_KLINE_ROWS).to_dict(orient="records")
     return {
         "source_id": f"kline:{params.stock_code}:{params.start_date}:{params.end_date}",
-        "as_of": datetime.now(timezone.utc),
+        "as_of": context.as_of or datetime.now(timezone.utc),
         "vendor": context.vendor,
         "stock_code": params.stock_code,
         "rows": len(records),
@@ -48,14 +50,17 @@ def _market_snapshot(params: MarketSnapshotParams, context: ToolContext) -> dict
     if context.db is None:
         raise ValueError("缺少数据库会话，无法获取快照")
     klines = indicator_service.get_kline_with_indicators(
-        context.db, params.stock_code, period=params.period
+        context.db,
+        params.stock_code,
+        period=params.period,
+        end_date=context.as_of.date() if context.as_of else None,
     )
     if not klines:
         raise ValueError("无行情快照数据")
     latest = klines[-1]
     return {
         "source_id": f"snapshot:{params.stock_code}:{params.period}",
-        "as_of": datetime.now(timezone.utc),
+        "as_of": context.as_of or datetime.now(timezone.utc),
         "vendor": context.vendor,
         "stock_code": params.stock_code,
         "period": params.period,
@@ -74,6 +79,8 @@ class MarketIndexKlineParams(BaseModel):
 def _market_index_kline(
     params: MarketIndexKlineParams, context: ToolContext
 ) -> dict:
+    if context.as_of and params.end_date > context.as_of.date().isoformat():
+        raise ValueError("指数 K 线结束日期晚于 run as_of，拒绝前视查询")
     from app.services import research_data
 
     entry = research_data.fetch_index_kline(

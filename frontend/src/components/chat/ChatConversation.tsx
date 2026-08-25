@@ -80,14 +80,12 @@ export function ChatConversation({
     if (el) el.scrollTop = el.scrollHeight
   }, [messages, running, pinned])
 
-  const active = streamState === 'active' || streamState === 'connecting'
-
   return (
-    <div className="chat-conversation">
+    <div className="chat-conversation" data-stream-state={streamState}>
       <div className="chat-scroll" ref={scrollRef} onScroll={handleScroll}>
         {messages.length === 0 && !running ? (
           <Empty
-            description="开始新对话：描述你想研究的股票或策略"
+            description="可以先问候，也可以查询行情，或明确描述股票与策略后发起回测"
             style={{ marginTop: 64 }}
           />
         ) : (
@@ -116,7 +114,7 @@ export function ChatConversation({
             )
           )
         )}
-        {running || active ? (
+        {running ? (
           <div className="chat-deep-diving" aria-live="polite">
             <span className="chat-deep-diving-dots">
               <i />

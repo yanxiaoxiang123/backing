@@ -1,5 +1,9 @@
 # Agent 股票量化系统升级方案
 
+> 实施状态（2026-08-24）：Agent 工作台已采用 backend 原生聊天 runtime。生产路径不依赖、不复制、不启动 `deepseek-harness/` 或 `dsh-quant-plugin/`；聊天使用 `langchain-openai`、现有 `agent_chat` 持久化、类型化 Tool Registry 与 `RunExecutor`。
+
+> 当前实现边界：普通聊天由确定性意图策略控制工具可见性；行情/财务工具在 backend 进程内调用 `DEFAULT_REGISTRY`；明确研究请求由 `RunExecutor` 创建并关联 `thread_id`。本文后续关于 DSH 的章节保留为历史调研，不代表生产启动要求。
+
 > 调研与设计日期：2026-08-14  
 > 适用范围：`backend/`、`frontend/`、`TradingAgents-astock/` 及后续数据与任务基础设施  
 > 产品定位：A 股投研、策略研究、回测和模拟交易系统；不直接把 LLM 输出视为投资建议或实盘指令。

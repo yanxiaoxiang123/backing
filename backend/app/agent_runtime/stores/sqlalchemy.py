@@ -3,9 +3,10 @@
 所有方法返回 JSON 安全 dict（datetime → isoformat），供 runtime/API 直接使用。
 """
 
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
+from sqlalchemy import and_, or_, update
 from sqlalchemy.orm import Session
 
 from app.models.agent_runtime import (
@@ -43,6 +44,8 @@ class SqlAlchemyRunStore:
             fields["started_at"] = _dt(fields["started_at"])
         if fields.get("finished_at") is not None:
             fields["finished_at"] = _dt(fields["finished_at"])
+        if fields.get("as_of") is not None:
+            fields["as_of"] = _dt(fields["as_of"])
         row = AgentRun(run_id=run_id, objective=objective, **fields)
         self.session.add(row)
         self.session.commit()
@@ -63,10 +66,12 @@ class SqlAlchemyRunStore:
         error: str | None = None,
         started_at: str | None = None,
         finished_at: str | None = None,
+        owner: str | None = None,
     ) -> bool:
-        row = (
-            self.session.query(AgentRun).filter(AgentRun.run_id == run_id).one_or_none()
-        )
+        query = self.session.query(AgentRun).filter(AgentRun.run_id == run_id)
+        if owner is not None:
+            query = query.filter(AgentRun.execution_owner == owner)
+        row = query.one_or_none()
         if row is None:
             return False
         row.status = status
@@ -76,8 +81,59 @@ class SqlAlchemyRunStore:
             row.started_at = datetime.fromisoformat(started_at)
         if finished_at is not None:
             row.finished_at = datetime.fromisoformat(finished_at)
+        if status in ("completed", "failed", "cancelled", "superseded"):
+            row.execution_owner = None
+            row.lease_expires_at = None
         self.session.commit()
         return True
+
+    def claim_execution(
+        self, run_id: str, owner: str, *, lease_seconds: int = 3600
+    ) -> bool:
+        """以数据库条件更新抢占 run，避免多进程 resume 重复执行。
+
+        只有未过期、且属于其他执行器的 running lease 会拒绝抢占；进程崩溃
+        后 lease 到期即可安全恢复。更新是单条条件 UPDATE，竞争者最多一个成功。
+        """
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        expires = now + timedelta(seconds=lease_seconds)
+        eligible = and_(
+            AgentRun.run_id == run_id,
+            AgentRun.status.notin_(("completed", "cancelled", "superseded")),
+            or_(
+                AgentRun.status != "running",
+                AgentRun.execution_owner == owner,
+                AgentRun.lease_expires_at.is_(None),
+                AgentRun.lease_expires_at <= now,
+            ),
+        )
+        result = self.session.execute(
+            update(AgentRun)
+            .where(eligible)
+            .values(
+                status="running",
+                execution_owner=owner,
+                lease_expires_at=expires,
+            )
+        )
+        self.session.commit()
+        return bool(result.rowcount)
+
+    def renew_execution_lease(
+        self, run_id: str, owner: str, *, lease_seconds: int = 3600
+    ) -> bool:
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        result = self.session.execute(
+            update(AgentRun)
+            .where(
+                AgentRun.run_id == run_id,
+                AgentRun.execution_owner == owner,
+                AgentRun.status == "running",
+            )
+            .values(lease_expires_at=now + timedelta(seconds=lease_seconds))
+        )
+        self.session.commit()
+        return bool(result.rowcount)
 
     def list_runs(
         self, *, status: str | None = None, limit: int = 50, offset: int = 0

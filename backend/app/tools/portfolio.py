@@ -76,7 +76,7 @@ def _portfolio_constraints(
     passed = all(r["passed"] for r in results)
     return {
         "source_id": "portfolio-constraints",
-        "as_of": datetime.now(timezone.utc),
+        "as_of": context.as_of or datetime.now(timezone.utc),
         "vendor": context.vendor,
         "passed": passed,
         "total_weight": round(total_weight, 4),

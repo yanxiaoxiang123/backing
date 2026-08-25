@@ -29,7 +29,7 @@ def _fundamental_stock_info(
         raise ValueError(f"未找到股票 {params.stock_code}")
     return {
         "source_id": f"stock:{row.code}",
-        "as_of": datetime.now(timezone.utc),
+        "as_of": context.as_of or datetime.now(timezone.utc),
         "vendor": context.vendor,
         "code": row.code,
         "name": row.name,
@@ -51,7 +51,7 @@ def _fundamental_financials(
     from app.services import research_data
 
     entry = research_data.fetch_financials_summary(
-        params.stock_code, periods=params.periods
+        params.stock_code, periods=params.periods, as_of=context.as_of
     )
     return {
         "source_id": entry["source_id"],

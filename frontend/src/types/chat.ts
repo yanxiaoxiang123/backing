@@ -55,10 +55,17 @@ export interface ChatThreadDetail {
   turns: ChatTurn[]
 }
 
+export interface ChatRuntimeStatus {
+  backend: 'native' | 'fake' | string
+  available: boolean
+  reason: string | null
+}
+
 // 归一化后的聊天消息（供聊天组件渲染）
 export interface ToolRow {
   tool: string
   summary: string
+  callId?: string | null
   runId?: string | null
 }
 

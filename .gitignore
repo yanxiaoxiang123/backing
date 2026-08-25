@@ -23,3 +23,6 @@ desktop-agent-quant-ui-preview.html
 
 # backend runtime data (research cache, artifact workspace, ta logs)
 backend/data/
+
+# optional local DeepSeek Harness checkout (large upstream repository)
+deepseek-harness/

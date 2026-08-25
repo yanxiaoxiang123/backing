@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 import logging
+from contextvars import ContextVar
 from typing import Any, Callable
 
 from app.tools.registry import DEFAULT_REGISTRY
@@ -44,20 +45,32 @@ _METHOD_SIGNATURES: dict[str, dict[str, Any]] = {
     },
 }
 
-#: 进程级当前 run 的网关上下文（TA 子图同步执行期间设置，用后清除）
-_state: dict[str, Any] = {"context": None}
+# 每个执行上下文独立保存 run/db，避免后台线程并发时串单。
+_context: ContextVar[Any | None] = ContextVar("ta_gateway_context", default=None)
+
+
+class _ContextStateProxy:
+    """向旧测试/诊断代码提供只读 ``_state['context']`` 兼容视图。"""
+
+    def __getitem__(self, key: str) -> Any:
+        if key != "context":
+            raise KeyError(key)
+        return _context.get()
+
+
+_state = _ContextStateProxy()
 
 
 def set_gateway_context(context: Any) -> None:
-    _state["context"] = context
+    _context.set(context)
 
 
 def clear_gateway_context() -> None:
-    _state["context"] = None
+    _context.set(None)
 
 
 def _require_context() -> Any:
-    context = _state.get("context")
+    context = _context.get()
     if context is None:
         raise ValueError("gateway vendor 未初始化（缺少 run 上下文）")
     return context

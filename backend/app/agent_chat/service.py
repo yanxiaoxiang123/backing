@@ -4,7 +4,7 @@
   只执行一个 turn，保障 SDK 生命周期、取消与 SQLite 写入安全）。
 - 运行中提交的消息进入队列；``Idempotency-Key`` 去重返回原 turn。
 - 重启恢复：running -> interrupted（不自动重复提交）；queued 继续执行。
-- cancel：调用 ``seam.stop(session_id)``，当前 turn 以 cancelled 收尾，队列保留。
+- cancel：仅调用当前活动 thread 的 ``seam.stop(session_id)``，当前 turn 以 cancelled 收尾，队列保留。
 - 事件（reasoning/assistant_chunk/tool_call/tool_result/run.linked/turn.done）
   按序落 ``agent_chat_events``，SSE 可按事件行 id 做 Last-Event-ID 重放。
 """
@@ -49,6 +49,9 @@ class HarnessChatService:
         self._queue: queue.Queue[str | None] = queue.Queue()
         self._worker: threading.Thread | None = None
         self._running = False
+        self._active_session_id: str | None = None
+        self._active_turn_id: str | None = None
+        self._active_lock = threading.Lock()
 
     def _stores(self) -> tuple[Session, ChatStores]:
         session = self._session_factory()
@@ -126,8 +129,18 @@ class HarnessChatService:
             session.close()
 
     def stop_turn(self, thread_id: str) -> None:
-        """请求取消当前 turn（SDK 无单会话 cancel，seam 层终止 runtime 等价物）。"""
+        """请求取消当前活动 turn；native runtime 使用协作式取消令牌。"""
+        with self._active_lock:
+            if self._active_session_id != thread_id:
+                raise ValueError("该会话当前没有正在执行的 turn")
         self._seam.stop(thread_id)
+
+    def status(self) -> dict[str, Any]:
+        """返回聊天 runtime 的脱敏可用状态。"""
+        value = getattr(self._seam, "status", None)
+        if isinstance(value, dict):
+            return dict(value)
+        return {"backend": "fake", "available": True, "reason": None}
 
     # ------------------------------------------------------------------ worker
     def _worker_loop(self) -> None:
@@ -155,6 +168,9 @@ class HarnessChatService:
             stores.turns.update_turn_status(
                 turn_id, "running", started_at=_now_iso()
             )
+            with self._active_lock:
+                self._active_session_id = session_id
+                self._active_turn_id = turn["turn_id"]
             seq_holder = [0]
             done_holder = [False]
 
@@ -202,6 +218,10 @@ class HarnessChatService:
             )
             stores.threads.update_thread(turn["thread_id"], status="idle")
         finally:
+            with self._active_lock:
+                if self._active_turn_id == turn_id:
+                    self._active_session_id = None
+                    self._active_turn_id = None
             session.close()
 
     def _mark_failed(self, turn_id: str) -> None:

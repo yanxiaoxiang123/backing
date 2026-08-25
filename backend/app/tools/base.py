@@ -7,6 +7,7 @@
 """
 
 from dataclasses import dataclass, field
+from datetime import datetime
 from enum import StrEnum
 from typing import Any, Callable
 
@@ -26,6 +27,8 @@ class ToolContext:
     db: Any = None  # SQLAlchemy Session | None
     stores: Any = None  # app.agent_runtime.stores.Stores | None（用于落 tool_calls 事实）
     run_id: str | None = None
+    # 运行事实时间点；内部工具按此时间点过滤数据，避免前视。
+    as_of: datetime | None = None
     granted_permissions: set[str] = field(default_factory=lambda: {"read"})
     vendor: str = "backend"
 

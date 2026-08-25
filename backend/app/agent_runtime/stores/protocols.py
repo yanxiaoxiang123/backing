@@ -20,11 +20,20 @@ class RunStore(Protocol):
         error: str | None = None,
         started_at: str | None = None,
         finished_at: str | None = None,
+        owner: str | None = None,
     ) -> bool: ...
 
     def list_runs(
         self, *, status: str | None = None, limit: int = 50, offset: int = 0
     ) -> list[dict[str, Any]]: ...
+
+    def claim_execution(
+        self, run_id: str, owner: str, *, lease_seconds: int = 3600
+    ) -> bool: ...
+
+    def renew_execution_lease(
+        self, run_id: str, owner: str, *, lease_seconds: int = 3600
+    ) -> bool: ...
 
 
 class StepStore(Protocol):

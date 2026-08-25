@@ -1,4 +1,8 @@
-# dsh-quant-plugin — DeepSeek Harness 量化插件
+# dsh-quant-plugin — DeepSeek Harness 量化插件（历史 POC）
+
+> 当前 backend Agent 工作台不再使用本目录。生产聊天 runtime 已迁移到
+> `backend/app/agent_chat/runtime.py`，不会导入、复制或启动 `deepseek-harness/`
+> 及本插件；以下内容仅用于历史 POC 复现。
 
 > 固定 DSH commit：`47f9438`（由 `scripts/bootstrap_deepseek_harness.sh` 拉取到本地 `../deepseek-harness/`，不修改克隆本体，
 > 仅构建产物落克隆内 gitignored 目录）。状态：**运行时装配完成并 E2E 验证**（见 `docs/DSH-ASSEMBLY-REPORT.md`）。
@@ -22,7 +26,7 @@ dsh-quant-plugin/
   docs/DSH-ASSEMBLY-REPORT.md        # 装配报告与 E2E 证据
 ```
 
-## 启动路径
+## 历史 POC 启动路径（不用于当前 backend）
 
 1. 准备并构建 DSH runtime：
 
@@ -37,8 +41,8 @@ pnpm run build
    `pnpm exec tsx scripts/build-exe-for-python-sdk.ts --skip-build --targets=node24-<平台>-<arch>`，
    产出 `dsh-jsonrpc-agent-pkg-*` 并同步进 `python/sdk-runtime/.../runtime/`）。
 2. `pip install -e ../deepseek-harness/python/sdk -e ../deepseek-harness/python/sdk-runtime`。
-3. 启动后端：`cd backend && python main.py`（端口 8808，`X-API-Key` 认证；含 `POST /api/v1/tools/invoke`）。
-   后端聊天会话写入 `DSH_SESSION_ROOT`（默认 `backend/data/dsh_sessions`，见 `backend/.env.example`）；应用聊天迁移：`cd backend && alembic upgrade head`。
+3. 启动旧 POC 后端：`cd backend && python main.py`（端口 8808，`X-API-Key` 认证；含 `POST /api/v1/tools/invoke`）。
+   当前生产 Agent 聊天不使用本 POC；请使用 `AGENT_CHAT_BACKEND=native`，上下文由 `agent_chat_threads/turns/events` 管理。
 4. 运行对话演示（环境变量注入密钥，不入库）：
 
 ```bash

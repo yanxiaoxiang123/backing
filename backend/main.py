@@ -119,13 +119,29 @@ async def lifespan(app: FastAPI):
     task_executor = get_task_executor()
     app.state.task_executor = task_executor
     task_executor.startup()
-    # Agent 聊天 Harness 服务（规格 D6/D7：单 worker FIFO；seam-first，fake 先行）
+    # Agent 聊天服务：后端原生 runtime；fake 仅供测试/演示显式启用。
+    from app.agent_chat.runtime import NativeAgentChatRuntime
     from app.agent_chat.seam import FakeHarnessChatSeam
     from app.agent_chat.service import HarnessChatService
 
+    if settings.AGENT_CHAT_BACKEND.lower() == "fake":
+        seam = FakeHarnessChatSeam(session_factory=SessionLocal)
+    elif settings.AGENT_CHAT_BACKEND.lower() == "native":
+        seam = NativeAgentChatRuntime(
+            session_factory=SessionLocal,
+            api_key=settings.DEEPSEEK_API_KEY,
+            base_url=settings.DEEPSEEK_BASE_URL,
+            model_name=settings.DEEPSEEK_MODEL,
+            max_steps=settings.AGENT_CHAT_MAX_STEPS,
+            timeout_s=settings.AGENT_CHAT_TIMEOUT_S,
+        )
+    else:
+        raise RuntimeError(
+            f"Unsupported AGENT_CHAT_BACKEND={settings.AGENT_CHAT_BACKEND!r}; use native or fake"
+        )
     chat_service = HarnessChatService(
         session_factory=SessionLocal,
-        seam=FakeHarnessChatSeam(session_factory=SessionLocal),
+        seam=seam,
     )
     chat_service.startup()
     app.state.harness_chat_service = chat_service

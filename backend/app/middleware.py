@@ -28,6 +28,7 @@ _SESSION_COOKIE = "session"
 _CSRF_COOKIE = "csrf_token"
 _CSRF_HEADER = "X-CSRF-Token"
 _STATE_CHANGING = {"POST", "PUT", "PATCH", "DELETE"}
+_CSRF_EXEMPT_PATHS = {"/api/v1/auth/session"}
 
 
 class CsrfMiddleware(BaseHTTPMiddleware):
@@ -37,6 +38,7 @@ class CsrfMiddleware(BaseHTTPMiddleware):
         if (
             request.method in _STATE_CHANGING
             and _SESSION_COOKIE in request.cookies
+            and request.url.path not in _CSRF_EXEMPT_PATHS
         ):
             token = request.headers.get(_CSRF_HEADER, "")
             cookie_token = request.cookies.get(_CSRF_COOKIE, "")

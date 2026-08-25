@@ -16,12 +16,25 @@ const API_KEY = process.env.QUANT_API_KEY ?? ''
 
 const auth = API_KEY ? { 'X-API-Key': API_KEY } : {}
 
-async function invokeGateway(path, body) {
-  const resp = await fetch(`${GATEWAY_URL}${path}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...auth },
-    body: JSON.stringify(body ?? {}),
-  })
+async function requestGateway(method, path, body, timeoutMs = 120000) {
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), timeoutMs)
+  let resp
+  try {
+    resp = await fetch(`${GATEWAY_URL}${path}`, {
+      method,
+      headers: { ...(body === undefined ? {} : { 'Content-Type': 'application/json' }), ...auth },
+      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+      signal: controller.signal,
+    })
+  } catch (error) {
+    if (error?.name === 'AbortError') {
+      throw new Error(`gateway timeout after ${timeoutMs}ms: ${method} ${path}`)
+    }
+    throw error
+  } finally {
+    clearTimeout(timeout)
+  }
   const text = await resp.text()
   let data
   try {
@@ -33,6 +46,14 @@ async function invokeGateway(path, body) {
     throw new Error(`gateway ${resp.status}: ${JSON.stringify(data)}`)
   }
   return data
+}
+
+async function invokeGateway(path, body) {
+  return await requestGateway('POST', path, body)
+}
+
+async function readGateway(path) {
+  return await requestGateway('GET', path, undefined, 15000)
 }
 
 const renderJson = (_args, value) => [{ type: 'text', text: JSON.stringify(value, null, 2) }]
@@ -69,7 +90,7 @@ async function createRunAndWait(objective, strategyParams) {
     execute_inline: true,
     ...(strategyParams ? { strategy_params: strategyParams } : {}),
   })
-  return await invokeGateway(`/agent-runs/${created.run_id}`, {})
+  return await readGateway(`/agent-runs/${created.run_id}`)
 }
 
 const tools = [

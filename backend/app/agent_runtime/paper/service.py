@@ -14,6 +14,7 @@ import logging
 import threading
 from datetime import date, datetime, time, timezone
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -44,6 +45,12 @@ _MATCH_LOCK = threading.Lock()
 
 DEFAULT_ACCOUNT_ID = "default"
 DEFAULT_INITIAL_CASH = 1_000_000.0
+CHINA_TZ = ZoneInfo("Asia/Shanghai")
+
+
+def _now_utc() -> datetime:
+    """可替换时钟：生产使用 UTC，测试可注入确定时间。"""
+    return datetime.now(timezone.utc)
 
 
 def ensure_account(db: Session) -> PaperAccount:
@@ -165,7 +172,8 @@ def decide_approval(
     if approval.status != "pending":
         raise ValueError(f"审批状态 {approval.status} 不可再决策")
 
-    decided_at = datetime.now(timezone.utc)
+    decided_at = _now_utc()
+    trade_day = decided_at.astimezone(CHINA_TZ).date()
     approval.status = decision
     approval.decided_by = decided_by
     approval.decided_at = decided_at
@@ -177,7 +185,7 @@ def decide_approval(
     )
     if order is not None:
         if decision == "approved":
-            target = _next_trading_day(db, order.stock_code, decided_at.date())
+            target = _next_trading_day(db, order.stock_code, trade_day)
             order.status = "approved"
             order.target_trade_date = target
             db.add(
@@ -191,8 +199,8 @@ def decide_approval(
             if target:
                 # 有效期（展示）：目标撮合日收盘
                 approval.expires_at = datetime.combine(
-                    date.fromisoformat(target), time(15, 0), tzinfo=timezone.utc
-                )
+                    date.fromisoformat(target), time(15, 0), tzinfo=CHINA_TZ
+                ).astimezone(timezone.utc)
         else:
             order.status = "rejected"
             db.add(
@@ -350,7 +358,11 @@ def _match_one(db: Session, account: PaperAccount, order: PaperOrder) -> str:
     stock = (
         db.query(Stock).filter(Stock.code == order.stock_code).one_or_none()
     )
-    limit_pct = price_limit_pct(order.stock_code, stock.name if stock else None)
+    limit_pct = price_limit_pct(
+        order.stock_code,
+        stock.name if stock else None,
+        as_of=date.fromisoformat(order.target_trade_date),
+    )
 
     pos = (
         db.query(PaperPosition)

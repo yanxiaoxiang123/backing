@@ -20,14 +20,17 @@ def _factor_indicators(params: FactorIndicatorsParams, context: ToolContext) -> 
     if context.db is None:
         raise ValueError("缺少数据库会话，无法计算指标")
     klines = indicator_service.get_kline_with_indicators(
-        context.db, params.stock_code, period=params.period
+        context.db,
+        params.stock_code,
+        period=params.period,
+        end_date=context.as_of.date() if context.as_of else None,
     )
     if not klines:
         raise ValueError("无 K 线数据，无法计算指标")
     trimmed = klines[-params.limit :]
     return {
         "source_id": f"factor:{params.stock_code}:{params.period}",
-        "as_of": datetime.now(timezone.utc),
+        "as_of": context.as_of or datetime.now(timezone.utc),
         "vendor": context.vendor,
         "stock_code": params.stock_code,
         "rows": len(trimmed),

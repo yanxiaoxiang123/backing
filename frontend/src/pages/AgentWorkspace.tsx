@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Alert, Descriptions, Empty, Tabs, Tag } from 'antd'
+import { Alert, Button, Descriptions, Empty, Tabs, Tag } from 'antd'
 import ReactECharts from 'echarts-for-react'
 import { ChatSidebar } from '../components/chat/ChatSidebar'
 import { ChatConversation } from '../components/chat/ChatConversation'
@@ -135,6 +135,20 @@ export default function AgentWorkspace() {
         <div className="chat-conversation-header">
           {chat.currentThread?.title || '新对话'}
         </div>
+        {!chat.runtimeStatus?.available && chat.runtimeStatus ? (
+          <Alert
+            type="warning"
+            showIcon
+            message="Agent 聊天暂不可用"
+            description="请配置 DEEPSEEK_API_KEY 并安装 backend/requirements.txt 中的依赖。行情与回测功能仍可继续使用。"
+            action={
+              <Button size="small" onClick={() => void chat.refreshStatus()}>
+                重新检测
+              </Button>
+            }
+            style={{ margin: '8px 12px 0' }}
+          />
+        ) : null}
         <ChatConversation
           messages={chat.messages}
           running={chat.running}
@@ -143,6 +157,7 @@ export default function AgentWorkspace() {
         />
         <ChatInput
           running={chat.running}
+          disabled={Boolean(chat.runtimeStatus && !chat.runtimeStatus.available)}
           onSend={(content) => void chat.send(content)}
           onStop={() => void chat.stop()}
         />

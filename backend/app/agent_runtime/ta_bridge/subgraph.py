@@ -133,6 +133,7 @@ def ta_research_node(stock_code: str, objective: str) -> RuntimeNode:
             stores=ctx.stores,
             run_id=ctx.run_id,
             granted_permissions={"read"},
+            as_of=ctx.as_of,
         )
         set_gateway_context(gateway)
         trade_date = (

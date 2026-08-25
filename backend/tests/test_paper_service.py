@@ -4,7 +4,7 @@
 窗口过期、数据未到 noop、幂等、重放一致性。
 """
 
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 
 import pytest
 from sqlalchemy import create_engine
@@ -32,6 +32,16 @@ def db():
     s = sessionmaker(bind=engine)()
     yield s
     s.close()
+
+
+@pytest.fixture(autouse=True)
+def freeze_paper_clock(monkeypatch):
+    """固定审批时钟，避免日历推进让窗口测试依赖真实系统日期。"""
+    monkeypatch.setattr(
+        paper_service,
+        "_now_utc",
+        lambda: datetime(2026, 8, 15, 7, 0, tzinfo=timezone.utc),
+    )
 
 
 def _seed(db, code="sh.600000", days=35, start=date(2026, 7, 15)):

@@ -8,7 +8,8 @@ A 股规则（2023-08-28 后费率）：
 - T+1：当日买入份额当日不可卖
 - 整手：买入必须为 100 股整数倍；卖出允许一次性清仓零股
 - 一字板：开=高=低=涨跌停价时不成交（买盘在涨停、卖盘在跌停）
-- 涨跌停幅度：主板 10%；创业板(300/301)/科创板(688/689) 20%；ST 5%
+- 涨跌停幅度：主板 10%；创业板(300/301)/科创板(688/689) 20%；主板 ST/*ST
+  在 2026-07-06 前为 5%，此后为 10%（按撮合日期重放）
 - 费用：佣金 0.025%（最低 5 元，双边）+ 卖出印花税 0.05% + 过户费 0.001%（双边）
 - 审批一次性窗口：仅对下一个撮合窗口有效，窗口过即失效
 """
@@ -16,6 +17,7 @@ A 股规则（2023-08-28 后费率）：
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import date
 
 # A 股费用常量（2023-08-28 后费率）
 COMMISSION_RATE = 0.00025  # 佣金 0.025%
@@ -54,14 +56,28 @@ class MatchDecision:
     fees: Fees | None = None
 
 
-def price_limit_pct(stock_code: str, stock_name: str | None = None) -> float:
-    """涨跌停幅度：主板 10%；创业板/科创板 20%；ST 5%（按名称前缀识别）。"""
+RISK_WARNING_MAIN_BOARD_10_PCT_FROM = date(2026, 7, 6)
+
+
+def price_limit_pct(
+    stock_code: str,
+    stock_name: str | None = None,
+    *,
+    as_of: date | None = None,
+) -> float:
+    """返回指定时点的 A 股涨跌停幅度。
+
+    2026-07-06 起，上交所/深交所主板风险警示股票（ST/*ST）由 5% 调整为
+    10%；创业板、科创板仍按 20% 板块规则执行。显式传入 ``as_of`` 才能
+    对历史回测重放当时的规则，未传入时使用当前日期。
+    """
     name = (stock_name or "").upper()
-    if "ST" in name:
-        return 0.05
     code = stock_code.split(".")[-1]
     if code.startswith(("300", "301", "688", "689")):
         return 0.20
+    if "ST" in name:
+        effective_date = as_of or date.today()
+        return 0.10 if effective_date >= RISK_WARNING_MAIN_BOARD_10_PCT_FROM else 0.05
     return 0.10
 
 

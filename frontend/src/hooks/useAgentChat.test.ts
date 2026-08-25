@@ -34,6 +34,7 @@ const mocks = vi.hoisted(() => {
     submitTurn: vi.fn(),
     cancelTurn: vi.fn(),
     archiveThread: vi.fn(),
+    getChatStatus: vi.fn().mockResolvedValue({ backend: 'fake', available: true, reason: null }),
     getApiErrorMessage: vi.fn((e: unknown) => String(e)),
   }
 })
@@ -46,6 +47,7 @@ vi.mock('../services/agentChats', () => ({
   submitTurn: mocks.submitTurn,
   cancelTurn: mocks.cancelTurn,
   archiveThread: mocks.archiveThread,
+  getChatStatus: mocks.getChatStatus,
 }))
 
 vi.mock('../services/api', () => ({
@@ -90,6 +92,7 @@ describe('useAgentChat', () => {
     mocks.submitTurn.mockReset()
     mocks.cancelTurn.mockReset()
     mocks.archiveThread.mockReset()
+    mocks.getChatStatus.mockResolvedValue({ backend: 'fake', available: true, reason: null })
     window.history.replaceState({}, '', '/workspace')
   })
 
@@ -214,11 +217,64 @@ describe('useAgentChat', () => {
     expect(assistant?.content).toBe('正在分析')
     expect(assistant?.reasoning).toBe('思考中…')
     expect(assistant?.tools).toEqual([
-      { tool: 'quant_run_analysis', summary: 'run 创建', runId: 'run-77' },
+      { tool: 'quant_run_analysis', summary: 'run 创建', callId: null, runId: 'run-77' },
     ])
     expect(assistant?.runId).toBe('run-77')
     expect(assistant?.status).toBe('completed')
     expect(onRunLinked).toHaveBeenCalledWith('run-77')
+  })
+
+  it('turn.done 早于 submitTurn 响应到达时保留终态', async () => {
+    mocks.createThread.mockResolvedValue(thread('t-fast', { title: '' }))
+    mocks.getThread.mockResolvedValue({
+      thread: thread('t-fast', { title: '' }),
+      turns: [],
+    })
+    let resolveSubmit!: (value: ReturnType<typeof turn>) => void
+    mocks.submitTurn.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveSubmit = resolve
+        }),
+    )
+    const { result } = renderHook(() => useAgentChat())
+    await act(async () => {
+      await result.current.newThread()
+    })
+
+    let sending!: Promise<void>
+    act(() => {
+      sending = result.current.send('你好')
+    })
+    act(() => {
+      mocks.instances[0].emit({
+        seq: 1,
+        type: 'assistant_chunk',
+        turn_id: 1,
+        payload: { content: '你好，我是量化助手。' },
+      })
+      mocks.instances[0].emit({
+        seq: 2,
+        type: 'turn.done',
+        turn_id: 1,
+        payload: {
+          status: 'completed',
+          final_reply: '你好，我是量化助手。',
+          end_reason: 'completed',
+        },
+      })
+    })
+    await act(async () => {
+      resolveSubmit(turn(1, 't-fast', { content: '你好', status: 'queued' }))
+      await sending
+    })
+
+    expect(result.current.running).toBe(false)
+    expect(result.current.messages[1]).toMatchObject({
+      role: 'assistant',
+      status: 'completed',
+      content: '你好，我是量化助手。',
+    })
   })
 
   it('stop 调用 cancel 并更新 turn 状态为 cancelled', async () => {

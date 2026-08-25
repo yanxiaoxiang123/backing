@@ -39,12 +39,18 @@ class Settings(BaseSettings):
 
     # Agent 配置
     DEEPSEEK_API_KEY: str | None = None
+    DEEPSEEK_BASE_URL: str = "https://api.deepseek.com/v1"
+    DEEPSEEK_MODEL: str = "deepseek-chat"
     TAVILY_API_KEY: str | None = None
     AGENT_ORCHESTRATOR_MODE: str = "standard"
     AGENT_MAX_STEPS: int = 6
     AGENT_ORCHESTRATOR_TIMEOUT_S: int = 600
     AGENT_MEMORY_ENABLED: bool = False
     AGENT_RISK_OVERRIDE: bool = True
+    # Native backend chat runtime. fake is reserved for tests/demo only.
+    AGENT_CHAT_BACKEND: str = "native"
+    AGENT_CHAT_MAX_STEPS: int = 6
+    AGENT_CHAT_TIMEOUT_S: float = 600.0
 
     # 代理配置
     USE_PROXY: bool = False

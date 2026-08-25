@@ -4,7 +4,7 @@
 （确定性引擎），LLM 不参与数字计算（规格第四节）。
 """
 
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from typing import Any
 
 from app.agent_runtime.runtime import (
@@ -22,14 +22,21 @@ from app.services.backtest_executor import BacktestExecutor
 from app.services.indicator_service import indicator_service
 
 
-def _last_bar(db: Any, stock_code: str) -> dict[str, Any] | None:
-    klines = indicator_service.get_kline_with_indicators(db, stock_code, period="daily")
+def _last_bar(
+    db: Any, stock_code: str, as_of: datetime | None = None
+) -> dict[str, Any] | None:
+    klines = indicator_service.get_kline_with_indicators(
+        db,
+        stock_code,
+        period="daily",
+        end_date=as_of.date() if as_of else None,
+    )
     return klines[-1] if klines else None
 
 
 def data_qa_node(stock_code: str) -> RuntimeNode:
     def run(ctx: NodeContext) -> dict[str, Any]:
-        bar = _last_bar(ctx.db, stock_code)
+        bar = _last_bar(ctx.db, stock_code, ctx.as_of)
         checks: list[QualityCheck] = []
         if bar is None:
             checks.append(
@@ -71,12 +78,13 @@ def research_node(stock_code: str) -> RuntimeNode:
             stores=ctx.stores,
             run_id=ctx.run_id,
             granted_permissions={"read"},
+            as_of=ctx.as_of,
         )
         now = ctx.as_of or datetime.now(timezone.utc)
         as_of_date = now.strftime("%Y-%m-%d")
 
         # --- 技术面：K 线 + 因子（既有确定性路径） ---
-        bar = _last_bar(ctx.db, stock_code)
+        bar = _last_bar(ctx.db, stock_code, now)
         record_tool_call(ctx, "factor.indicators", {"stock_code": stock_code, "limit": 30})
         if bar is None:
             claims.append(
@@ -263,7 +271,7 @@ def backtest_critic_node(
             "short_period": int(p.get("short_period", 5)),
             "long_period": int(p.get("long_period", 20)),
         }
-        end = date.today()
+        end = (ctx.as_of.date() if ctx.as_of else date.today())
         start = end.replace(year=end.year - 1)
         record_tool_call(
             ctx,
@@ -316,16 +324,52 @@ def backtest_critic_node(
             return {"output": verdict.model_dump(mode="json"), "output_schema": "BacktestVerdict"}
 
         metrics = result.metrics
+        observed_dates = [item.date for item in result.portfolio_values]
+        lookahead_passed = bool(observed_dates) and max(observed_dates) <= end
+        lookahead_detail = (
+            "所有回测观测日均不晚于 run as_of"
+            if lookahead_passed
+            else "回测结果缺少有效观测日或包含 as_of 之后数据"
+        )
+
+        # 同一确定性策略在未见过的后 30% 日期上独立重放，不能把整段回测
+        # 的指标冒充样本外结果。数据不足时明确失败，禁止评测门禁误放行。
+        oos_start = start + timedelta(days=max(1, int((end - start).days * 0.7)))
+        oos_result = None
+        try:
+            oos_result = BacktestExecutor(ctx.db).execute(
+                strategy_name="ma_cross",
+                stock_code=stock_code,
+                start_date=min(oos_start, end),
+                end_date=end,
+                parameters=parameters,
+            )
+        except ValueError:
+            oos_result = None
+        oos_passed = bool(oos_result and oos_result.portfolio_values)
         checks = [
-            BacktestCheck(name="lookahead", passed=True, detail="引擎无前视（按日线顺序撮合）"),
-            BacktestCheck(name="out_of_sample", passed=True, detail="引擎按声明参数执行"),
+            BacktestCheck(name="lookahead", passed=lookahead_passed, detail=lookahead_detail),
+            BacktestCheck(
+                name="out_of_sample",
+                passed=oos_passed,
+                detail=(
+                    f"独立样本外区间 {min(oos_start, end)} 至 {end}"
+                    if oos_passed
+                    else "样本外区间无足够行情数据，拒绝推广"
+                ),
+            ),
         ]
         # 引擎返回百分比（total_return=12.5 表示 12.5%，max_drawdown=18.0 表示 18%），
         # 领域契约用小数（0.12 / -0.18）：统一换算
         total_return = float(metrics.total_return) / 100
         annual_return = float(metrics.annual_return) / 100
         max_drawdown_pct = -float(metrics.max_drawdown) / 100
-        passed = total_return > 0 and max_drawdown_pct > -0.5
+        passed = all(check.passed for check in checks) and total_return > 0 and max_drawdown_pct > -0.5
+        reasons = [
+            "收益为正、回撤可控且通过时点/样本外门禁"
+            if passed
+            else "收益、回撤或时点/样本外门禁未达标"
+        ]
         verdict = BacktestVerdict(
             run_id=ctx.run_id,
             strategy=StrategySpec(name="ma_cross_demo", signal="ma_cross"),
@@ -337,13 +381,15 @@ def backtest_critic_node(
                 total_return=total_return,
                 annual_return=annual_return,
                 max_drawdown_pct=max_drawdown_pct,
-                sharpe_out_of_sample=float(metrics.sharpe_ratio or 0.0),
+                sharpe_out_of_sample=float(
+                    oos_result.metrics.sharpe_ratio if oos_result else 0.0
+                ),
                 turnover_annual=0.0,
                 total_cost_bps=0.0,
             ),
             checks=checks,
             passed=passed,
-            reasons=["收益为正且回撤可控" if passed else "收益非正或回撤过大"],
+            reasons=reasons,
             produced_by="backtest_critic",
         )
         from app.agent_runtime.artifacts import emit_artifact
@@ -392,6 +438,7 @@ def portfolio_risk_node(stock_code: str) -> RuntimeNode:
                 stores=ctx.stores,
                 run_id=ctx.run_id,
                 granted_permissions={"read", "approval"},
+                as_of=ctx.as_of,
             )
             env = DEFAULT_REGISTRY.invoke(
                 "execution.paper.propose_order",

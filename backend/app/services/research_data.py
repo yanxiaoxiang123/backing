@@ -17,6 +17,7 @@ import logging
 import os
 import sqlite3
 import threading
+from datetime import date as date_type
 from datetime import datetime, timezone
 from typing import Any
 
@@ -70,6 +71,58 @@ def _normalize_code(stock_code: str) -> str:
 
 def _as_of() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def _as_of_value(value: datetime | date_type | str | None) -> datetime | None:
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+    if isinstance(value, date_type):
+        return datetime.combine(value, datetime.min.time(), tzinfo=timezone.utc)
+    parsed = datetime.fromisoformat(value)
+    return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
+
+
+def _historical(value: datetime | date_type | str | None) -> bool:
+    point = _as_of_value(value)
+    return point is not None and (datetime.now(timezone.utc) - point).total_seconds() > 300
+
+
+def _record_time(record: dict[str, Any], fields: tuple[str, ...]) -> datetime | None:
+    for field in fields:
+        value = record.get(field)
+        if value in (None, ""):
+            continue
+        try:
+            text = str(value).replace("/", "-")
+            if len(text) == 10:
+                text += "T00:00:00+00:00"
+            parsed = datetime.fromisoformat(text)
+            return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
+        except ValueError:
+            continue
+    return None
+
+
+def _filter_point_in_time(
+    records: list[dict[str, Any]],
+    as_of: datetime | date_type | str | None,
+    fields: tuple[str, ...],
+) -> list[dict[str, Any]]:
+    """历史查询只接受带可得时间的记录，缺元数据时拒绝潜在前视。"""
+    if not _historical(as_of):
+        return records
+    point = _as_of_value(as_of)
+    assert point is not None
+    times = [_record_time(record, fields) for record in records]
+    if not any(times):
+        raise ValueError("数据源缺少可得时间字段，无法执行历史时间点查询")
+    return [
+        record
+        for record, record_time in zip(records, times)
+        if record_time is not None and record_time <= point
+    ]
 
 
 def _params_hash(params: dict[str, Any]) -> str:
@@ -170,10 +223,19 @@ def _clean_news_records(df: pd.DataFrame, limit: int) -> list[dict[str, Any]]:
     return cleaned
 
 
-def fetch_stock_news(stock_code: str, limit: int = 10) -> dict[str, Any]:
+def fetch_stock_news(
+    stock_code: str,
+    limit: int = 10,
+    *,
+    as_of: datetime | date_type | str | None = None,
+) -> dict[str, Any]:
     """个股新闻（akshare stock_news_em）。返回证据五元组 dict。"""
     tool = "event.news"
-    params = {"stock_code": stock_code, "limit": limit}
+    params = {
+        "stock_code": stock_code,
+        "limit": limit,
+        "as_of": str(as_of) if as_of else None,
+    }
     fixture = _fixture_for(tool, params)
     if fixture is not None:
         return fixture
@@ -187,15 +249,20 @@ def fetch_stock_news(stock_code: str, limit: int = 10) -> dict[str, Any]:
         raise ValueError(f"新闻获取失败（{code}）: {exc}") from exc
     if df is None or df.empty:
         raise ValueError(f"无新闻数据: {code}")
+    news = _filter_point_in_time(
+        _clean_news_records(df, limit),
+        as_of,
+        ("发布时间", "发布日期", "新闻时间", "时间"),
+    )
     payload = {
         "stock_code": stock_code,
-        "rows": len(df.head(limit)),
-        "news": _clean_news_records(df, limit),
+        "rows": len(news),
+        "news": news,
     }
     entry = {
         "payload": payload,
         "source_id": f"news:{code}",
-        "as_of": _as_of(),
+        "as_of": _as_of_value(as_of).isoformat() if as_of else _as_of(),
         "vendor": "akshare",
         "data_version": DATA_VERSION,
     }
@@ -203,10 +270,15 @@ def fetch_stock_news(stock_code: str, limit: int = 10) -> dict[str, Any]:
     return entry
 
 
-def fetch_announcements(stock_code: str, date: str) -> dict[str, Any]:
+def fetch_announcements(
+    stock_code: str,
+    date: str,
+    *,
+    as_of: datetime | date_type | str | None = None,
+) -> dict[str, Any]:
     """指定日期的个股公告（akshare stock_notice_report）。"""
     tool = "event.announcement"
-    params = {"stock_code": stock_code, "date": date}
+    params = {"stock_code": stock_code, "date": date, "as_of": str(as_of) if as_of else None}
     fixture = _fixture_for(tool, params)
     if fixture is not None:
         return fixture
@@ -221,16 +293,21 @@ def fetch_announcements(stock_code: str, date: str) -> dict[str, Any]:
         raise ValueError(f"公告获取失败（{code} {date}）: {exc}") from exc
     if df is None or df.empty:
         raise ValueError(f"无公告数据: {code} {date}")
+    announcements = _filter_point_in_time(
+        df.to_dict(orient="records"),
+        as_of,
+        ("公告日期", "发布日期", "披露日期", "数据可得时间"),
+    )
     payload = {
         "stock_code": stock_code,
         "date": date,
-        "rows": len(df),
-        "announcements": df.to_dict(orient="records"),
+        "rows": len(announcements),
+        "announcements": announcements,
     }
     entry = {
         "payload": payload,
         "source_id": f"notice:{code}:{date}",
-        "as_of": _as_of(),
+        "as_of": _as_of_value(as_of).isoformat() if as_of else _as_of(),
         "vendor": "akshare",
         "data_version": DATA_VERSION,
     }
@@ -238,10 +315,19 @@ def fetch_announcements(stock_code: str, date: str) -> dict[str, Any]:
     return entry
 
 
-def fetch_financials_summary(stock_code: str, periods: int = 5) -> dict[str, Any]:
+def fetch_financials_summary(
+    stock_code: str,
+    periods: int = 5,
+    *,
+    as_of: datetime | date_type | str | None = None,
+) -> dict[str, Any]:
     """财报摘要（akshare stock_financial_abstract），取最近 periods 个报告期。"""
     tool = "fundamental.financials"
-    params = {"stock_code": stock_code, "periods": periods}
+    params = {
+        "stock_code": stock_code,
+        "periods": periods,
+        "as_of": str(as_of) if as_of else None,
+    }
     fixture = _fixture_for(tool, params)
     if fixture is not None:
         return fixture
@@ -255,15 +341,20 @@ def fetch_financials_summary(stock_code: str, periods: int = 5) -> dict[str, Any
         raise ValueError(f"财报摘要获取失败（{code}）: {exc}") from exc
     if df is None or df.empty:
         raise ValueError(f"无财报摘要数据: {code}")
+    financial_records = _filter_point_in_time(
+        df.to_dict(orient="records"),
+        as_of,
+        ("公告日期", "发布日期", "披露日期", "数据可得时间"),
+    )[:periods]
     payload = {
         "stock_code": stock_code,
-        "rows": len(df.head(periods)),
-        "financials": df.head(periods).to_dict(orient="records"),
+        "rows": len(financial_records),
+        "financials": financial_records,
     }
     entry = {
         "payload": payload,
         "source_id": f"financials:{code}",
-        "as_of": _as_of(),
+        "as_of": _as_of_value(as_of).isoformat() if as_of else _as_of(),
         "vendor": "akshare",
         "data_version": DATA_VERSION,
     }

@@ -23,6 +23,7 @@ from app.config import get_db
 from app.limiter import limiter
 from app.models.models import Stock
 from app.services.realtime_service import realtime_service
+from app.services.screener_service import completed_daily_bars
 from app.services.strategy.factors import TechnicalFactors
 
 logger = logging.getLogger(__name__)
@@ -375,6 +376,9 @@ def run_screener(
 
         df = pd.DataFrame(bars)
         df = df.rename(columns={'vol': 'volume'})
+        df = completed_daily_bars(df)
+        if len(df) < 20:
+            return None
 
         indicators = _compute_indicators(df, req.conditions, stock.code)
         if not indicators:

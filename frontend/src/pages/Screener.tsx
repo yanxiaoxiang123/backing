@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Card, Button, Progress, Tag, message, Row, Col } from 'antd'
+import { Card, Button, Progress, Tag, message, Row, Col, Empty } from 'antd'
 import {
   PlayCircleOutlined,
   CheckCircleOutlined,
@@ -45,11 +45,14 @@ function Screener() {
   const [jobId, setJobId] = useState<string | null>(null)
   const [results, setResults] = useState<StockResult[]>([])
   const [totalScanned, setTotalScanned] = useState(0)
+  const [completed, setCompleted] = useState(false)
 
   const handleRun = async () => {
     try {
       setRunning(true)
+      setCompleted(false)
       setResults([])
+      setTotalScanned(0)
       setProgress(0)
       setStage('initializing')
       setMessageText('正在提交选股任务...')
@@ -77,14 +80,18 @@ function Screener() {
         const job = await getScreenerStatus(jobId)
 
         if (job.status === 'completed') {
+          const nextResults = job.result?.results ?? []
           setStage('completed')
           setProgress(100)
-          if (job.result?.results) {
-            setResults(job.result.results)
-            setTotalScanned(job.result.total_scanned || 0)
-          }
+          setResults(nextResults)
+          setTotalScanned(job.result?.total_scanned ?? 0)
+          setCompleted(true)
           setRunning(false)
-          message.success('选股完成！')
+          if (nextResults.length > 0) {
+            message.success(`选股完成，找到 ${nextResults.length} 只股票`)
+          } else {
+            message.info('扫描完成，本轮没有股票符合筛选条件')
+          }
           break
         }
 
@@ -238,7 +245,7 @@ function Screener() {
       </div>
 
       {/* 初始状态 */}
-      {!running && results.length === 0 && (
+      {!running && !completed && (
         <Card style={{ textAlign: 'center', padding: '40px 0' }}>
           <Button
             type="primary"
@@ -289,7 +296,7 @@ function Screener() {
       )}
 
       {/* 结果展示 */}
-      {results.length > 0 && (
+      {completed && !running && (
         <div>
           <Card style={{ marginBottom: 16, background: 'var(--color-canvas-lifted)' }}>
             <div
@@ -298,20 +305,36 @@ function Screener() {
               <CheckCircleOutlined
                 style={{ color: 'var(--color-success)', fontSize: 20 }}
               />
-              <span style={{ fontSize: 16, fontWeight: 600 }}>AI 精选 TOP 5</span>
+              <span style={{ fontSize: 16, fontWeight: 600 }}>
+                {results.length > 0 ? 'AI 精选 TOP 5' : '全市场扫描完成'}
+              </span>
             </div>
             <div style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>
-              共扫描 {totalScanned} 只股票，符合条件的 TOP 5 深度分析结果
+              共扫描 {totalScanned} 只有效股票
+              {results.length > 0
+                ? `，展示 ${results.length} 只深度分析结果`
+                : '，本轮没有股票同时满足筛选条件'}
             </div>
           </Card>
 
-          {results.map((stock) => renderResultCard(stock))}
+          {results.length > 0 ? (
+            results.map((stock) => renderResultCard(stock))
+          ) : (
+            <Card>
+              <Empty
+                description="当前市场没有股票同时满足均线多头、MACD 红柱和放量条件"
+                image={Empty.PRESENTED_IMAGE_SIMPLE}
+              />
+            </Card>
+          )}
 
           <Button
             type="default"
             icon={<ReloadOutlined />}
             onClick={() => {
               setResults([])
+              setCompleted(false)
+              setTotalScanned(0)
               setRunning(false)
             }}
             style={{ marginTop: 16 }}

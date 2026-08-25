@@ -18,7 +18,9 @@ class EventNewsParams(BaseModel):
 
 
 def _event_news(params: EventNewsParams, context: ToolContext) -> dict:
-    entry = research_data.fetch_stock_news(params.stock_code, limit=params.limit)
+    entry = research_data.fetch_stock_news(
+        params.stock_code, limit=params.limit, as_of=context.as_of
+    )
     return {
         "source_id": entry["source_id"],
         "as_of": entry["as_of"],
@@ -43,7 +45,11 @@ class EventAnnouncementParams(BaseModel):
 def _event_announcement(
     params: EventAnnouncementParams, context: ToolContext
 ) -> dict:
-    entry = research_data.fetch_announcements(params.stock_code, params.date)
+    if context.as_of and params.date > context.as_of.date().isoformat():
+        raise ValueError("公告日期晚于 run as_of，拒绝前视查询")
+    entry = research_data.fetch_announcements(
+        params.stock_code, params.date, as_of=context.as_of
+    )
     return {
         "source_id": entry["source_id"],
         "as_of": entry["as_of"],

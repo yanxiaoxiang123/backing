@@ -2,7 +2,6 @@
 
 import logging
 import threading
-from datetime import date
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Request
@@ -184,11 +183,12 @@ def submit_screener_job(
     request: Request,
     _: str = Depends(get_current_api_key),
 ):
-    """提交选股任务，返回 job_id（幂等键：每天一个 screener 任务）"""
-    job = get_task_executor().submit(
-        job_type="screener",
-        job_key=f"screener:{date.today().isoformat()}",
-    )
+    """提交一次新的选股任务并返回 job_id。
+
+    前端在任务运行期间不会重复提交；完成后的“重新选股”必须创建新任务，
+    不能复用当天较早的行情与筛选结果。
+    """
+    job = get_task_executor().submit(job_type="screener")
     return ScreenerSubmitResponse(job_id=job.id)
 
 
