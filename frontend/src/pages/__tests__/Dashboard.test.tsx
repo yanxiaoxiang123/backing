@@ -15,6 +15,7 @@ vi.mock('../../services/api', async () => {
     getRealtimeIndices: vi.fn(),
     getWatchlist: vi.fn(),
     getRealtimeBars: vi.fn(),
+    getDashboardSummary: vi.fn(),
   }
 })
 
@@ -31,12 +32,14 @@ import {
   getRealtimeIndices,
   getWatchlist,
   getRealtimeBars,
+  getDashboardSummary,
 } from '../../services/api'
 
 const mockedQuotes = vi.mocked(getRealtimeQuotes)
 const mockedIndices = vi.mocked(getRealtimeIndices)
 const mockedWatchlist = vi.mocked(getWatchlist)
 const mockedBars = vi.mocked(getRealtimeBars)
+const mockedDashboardSummary = vi.mocked(getDashboardSummary)
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -44,6 +47,7 @@ beforeEach(() => {
   mockedQuotes.mockReset()
   mockedIndices.mockReset()
   mockedBars.mockReset()
+  mockedDashboardSummary.mockReset()
   mockedWatchlist.mockResolvedValue({
     items: [
       {
@@ -110,6 +114,16 @@ beforeEach(() => {
         symbol: '600036',
       },
     ],
+  })
+  mockedDashboardSummary.mockResolvedValue({
+    as_of: '2026-08-14T09:30:00Z',
+    market_stats: { up: 0, down: 0, flat: 0, total: 0 },
+    indices: [],
+    trend: { name: '', dates: [], values: [] },
+    watchlist: [],
+    research_queue: [],
+    recent_activity: [],
+    alerts: [],
   })
 })
 
@@ -217,5 +231,17 @@ describe('Dashboard partial degrade', () => {
     await userEvent.click(retryButtons[0])
 
     await waitFor(() => expect(mockedBars).toHaveBeenCalledTimes(2))
+  })
+
+  it('研究摘要失败时仅降级动态模块，不影响行情概览', async () => {
+    mockedDashboardSummary.mockRejectedValueOnce(new Error('研究摘要暂不可用'))
+
+    renderDashboard()
+
+    await waitFor(() => expect(screen.getByText('上证指数')).toBeInTheDocument())
+    expect(screen.getAllByText('研究摘要暂不可用')).toHaveLength(2)
+    expect(
+      screen.getAllByRole('button', { name: /重试/ }).length,
+    ).toBeGreaterThanOrEqual(2)
   })
 })

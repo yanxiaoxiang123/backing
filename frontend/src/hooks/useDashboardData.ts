@@ -1,5 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
+  getDashboardSummary,
   getRealtimeBars,
   getRealtimeIndices,
   getRealtimeQuotes,
@@ -12,6 +13,7 @@ export const dashboardKeys = {
   indices: () => [...dashboardKeys.all, 'indices'] as const,
   quotes: (codes: string[]) => [...dashboardKeys.all, 'quotes', codes] as const,
   trend: (code: string) => [...dashboardKeys.all, 'trend', code] as const,
+  briefing: () => [...dashboardKeys.all, 'briefing'] as const,
 }
 
 export function useDashboardWatchlist() {
@@ -41,6 +43,15 @@ export function useDashboardTrend(code: string | undefined) {
     queryKey: dashboardKeys.trend(code || 'none'),
     queryFn: () => getRealtimeBars(code as string, 'daily'),
     enabled: Boolean(code),
+  })
+}
+
+export function useDashboardBriefing() {
+  return useQuery({
+    queryKey: dashboardKeys.briefing(),
+    queryFn: getDashboardSummary,
+    retry: false,
+    staleTime: 60_000,
   })
 }
 

@@ -85,6 +85,41 @@
   grid-template-columns: minmax(0, 1.7fr) minmax(240px, 0.9fr);
   gap: var(--research-gap);
 }
+.research-feed-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--research-gap);
+}
+.research-feed-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.research-feed-list button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border: 0;
+  border-bottom: 1px solid var(--color-border);
+  background: transparent;
+  color: inherit;
+  padding: 12px 0;
+  text-align: left;
+  cursor: pointer;
+}
+.research-feed-list button:hover strong {
+  color: var(--color-accent-blue);
+}
+.research-feed-list button span:first-child {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.research-feed-list small {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+}
 .research-panel--accent {
   background: linear-gradient(
     145deg,
@@ -202,7 +237,8 @@
   }
   .research-index-grid,
   .research-discovery-grid,
-  .research-chart-grid {
+  .research-chart-grid,
+  .research-feed-grid {
     grid-template-columns: 1fr;
   }
   .research-index-card {

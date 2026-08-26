@@ -10,6 +10,7 @@ import {
 import ReactECharts from 'echarts-for-react'
 import { useNavigate } from 'react-router-dom'
 import {
+  useDashboardBriefing,
   useDashboardIndices,
   useDashboardQuotes,
   useDashboardTrend,
@@ -115,6 +116,7 @@ function Dashboard() {
   const quotesQuery = useDashboardQuotes(watchlistCodes)
   const activeCode = selectedCode || watchlistCodes[0]
   const trendQuery = useDashboardTrend(activeCode)
+  const briefingQuery = useDashboardBriefing()
 
   const names = useMemo(
     () =>
@@ -394,6 +396,67 @@ function Dashboard() {
           <Button onClick={() => navigate('/workspace')} block>
             打开 AI 工作台
           </Button>
+        </div>
+      </section>
+
+      <section className="research-section research-feed-grid" aria-label="研究动态">
+        <div className="research-panel">
+          <div className="eyebrow">RECENT RESEARCH</div>
+          <h2>最近研究</h2>
+          {briefingQuery.isError ? (
+            <ErrorBlock
+              message={getApiErrorMessage(briefingQuery.error)}
+              onRetry={() => void briefingQuery.refetch()}
+            />
+          ) : briefingQuery.isLoading ? (
+            <Skeleton active paragraph={{ rows: 4 }} />
+          ) : briefingQuery.data?.recent_activity?.length ? (
+            <div className="research-feed-list">
+              {briefingQuery.data.recent_activity.slice(0, 5).map((item) => (
+                <button key={item.id} onClick={() => item.href && navigate(item.href)}>
+                  <span>
+                    <strong>{item.title}</strong>
+                    <small>{item.kind}</small>
+                  </span>
+                  <span>→</span>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <Empty
+              image={Empty.PRESENTED_IMAGE_SIMPLE}
+              description="完成一次筛选或 AI 研究后，会出现在这里"
+            />
+          )}
+        </div>
+        <div className="research-panel">
+          <div className="eyebrow">ALERTS</div>
+          <h2>提醒</h2>
+          {briefingQuery.isError ? (
+            <ErrorBlock
+              message={getApiErrorMessage(briefingQuery.error)}
+              onRetry={() => void briefingQuery.refetch()}
+            />
+          ) : briefingQuery.isLoading ? (
+            <Skeleton active paragraph={{ rows: 4 }} />
+          ) : briefingQuery.data?.alerts?.length ? (
+            <div className="research-feed-list">
+              {briefingQuery.data.alerts.slice(0, 5).map((alert) => (
+                <button
+                  key={String(alert.id)}
+                  onClick={() => alert.href && navigate(alert.href)}
+                >
+                  <span>
+                    <strong>{alert.title}</strong>
+                    <small>{alert.severity || 'info'}</small>
+                  </span>
+                  <span>→</span>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无新的提醒" />
+          )}
         </div>
       </section>
     </div>
