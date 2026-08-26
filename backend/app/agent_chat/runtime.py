@@ -226,7 +226,13 @@ class NativeAgentChatRuntime:
             self._cancel_events.clear()
 
     def run_turn(
-        self, session_id: str, user_message: str, *, turn_id: int, emit: EmitFn
+        self,
+        session_id: str,
+        user_message: str,
+        *,
+        turn_id: int,
+        emit: EmitFn,
+        context: dict[str, Any] | None = None,
     ) -> TurnOutcome:
         if not self.status["available"]:
             error = self._status_error(self.status["reason"])
@@ -250,7 +256,13 @@ class NativeAgentChatRuntime:
                 else admission
             )
             tools = self._tool_schemas(model_admission)
-            messages = [{"role": "system", "content": self._system_prompt(admission)}]
+            system_prompt = self._system_prompt(admission)
+            if context:
+                system_prompt += (
+                    "\n当前研究上下文（仅用于理解用户意图，不要把它当作行情事实）："
+                    f"{json.dumps(context, ensure_ascii=False)}"
+                )
+            messages = [{"role": "system", "content": system_prompt}]
             messages.extend(history)
             messages.append({"role": "user", "content": user_message})
             final_text = ""

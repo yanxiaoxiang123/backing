@@ -6,6 +6,7 @@ import type {
   ChatThreadList,
   ChatTurn,
   ChatRuntimeStatus,
+  PageContext,
 } from '../types/chat'
 
 export type ChatStreamState = 'idle' | 'connecting' | 'active' | 'closed' | 'error'
@@ -22,10 +23,7 @@ export async function createThread(): Promise<ChatThread> {
   return resp.data
 }
 
-export async function listThreads(
-  limit = 50,
-  offset = 0,
-): Promise<ChatThreadList> {
+export async function listThreads(limit = 50, offset = 0): Promise<ChatThreadList> {
   const resp = await api.get<ChatThreadList>('/agent-chats', {
     params: { limit, offset },
   })
@@ -46,19 +44,18 @@ export async function submitTurn(
   threadId: string,
   content: string,
   idempotencyKey: string,
+  context?: PageContext,
 ): Promise<ChatTurn> {
   const resp = await api.post<SubmitTurnResult>(
     `/agent-chats/${threadId}/turns`,
-    { content },
+    { content, ...(context ? { context } : {}) },
     { headers: { 'Idempotency-Key': idempotencyKey } },
   )
   return resp.data.turn
 }
 
 export async function cancelTurn(threadId: string): Promise<ChatTurn> {
-  const resp = await api.post<{ turn: ChatTurn }>(
-    `/agent-chats/${threadId}/cancel`,
-  )
+  const resp = await api.post<{ turn: ChatTurn }>(`/agent-chats/${threadId}/cancel`)
   return resp.data.turn
 }
 

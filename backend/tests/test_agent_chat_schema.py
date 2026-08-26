@@ -90,6 +90,7 @@ def test_upgrade_creates_chat_tables_with_d4_shape(db_url) -> None:
         assert {
             "thread_id",
             "user_input",
+            "context_json",
             "status",
             "final_reply",
             "finish_reason",

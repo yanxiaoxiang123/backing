@@ -61,7 +61,13 @@ class HarnessChatSeam(Protocol):
     """
 
     def run_turn(
-        self, session_id: str, user_message: str, *, turn_id: int, emit: EmitFn
+        self,
+        session_id: str,
+        user_message: str,
+        *,
+        turn_id: int,
+        emit: EmitFn,
+        context: dict[str, Any] | None = None,
     ) -> TurnOutcome: ...
 
     def stop(self, session_id: str) -> None: ...
@@ -92,7 +98,13 @@ class FakeHarnessChatSeam:
         self._cancelled.clear()
 
     def run_turn(
-        self, session_id: str, user_message: str, *, turn_id: int, emit: EmitFn
+        self,
+        session_id: str,
+        user_message: str,
+        *,
+        turn_id: int,
+        emit: EmitFn,
+        context: dict[str, Any] | None = None,
     ) -> TurnOutcome:
         emit(
             ChatEvent(

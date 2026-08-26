@@ -108,6 +108,7 @@ class HarnessChatService:
         thread_id: str,
         content: str,
         idempotency_key: str | None = None,
+        context: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         session, stores = self._stores()
         try:
@@ -119,6 +120,7 @@ class HarnessChatService:
                 turn_id=_new_turn_id(),
                 thread_id=thread_id,
                 user_input=content,
+                context_json=context,
                 status="queued",
                 idempotency_key=idempotency_key,
             )
@@ -191,9 +193,10 @@ class HarnessChatService:
                 if event.type == TURN_DONE:
                     done_holder[0] = True
 
-            outcome = self._seam.run_turn(
-                session_id, turn["user_input"], turn_id=turn["id"], emit=persist
-            )
+            seam_kwargs: dict[str, Any] = {"turn_id": turn["id"], "emit": persist}
+            if turn.get("context_json"):
+                seam_kwargs["context"] = turn["context_json"]
+            outcome = self._seam.run_turn(session_id, turn["user_input"], **seam_kwargs)
             # 无 turn.done 的终态（如取消/异常）补发合成终态事件，SSE 前端可靠收口
             if not done_holder[0]:
                 persist(

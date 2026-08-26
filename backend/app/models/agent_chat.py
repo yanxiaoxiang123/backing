@@ -76,6 +76,7 @@ class AgentChatTurn(Base):
         index=True,
     )
     user_input = Column(Text, nullable=False)
+    context_json = Column(JSON, nullable=True)
     status = Column(String(20), nullable=False, default="queued")
     final_reply = Column(Text, nullable=True)  # 助手最终 Markdown 回复
     finish_reason = Column(String(50), nullable=True)  # stop/tool_calls/error/...

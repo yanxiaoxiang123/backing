@@ -29,8 +29,15 @@ from app.config import get_db
 router = APIRouter()
 
 
+class PageContext(BaseModel):
+    route: str = Field(max_length=500)
+    entity_type: str | None = Field(default=None, max_length=50)
+    entity_id: str | None = Field(default=None, max_length=120)
+
+
 class SubmitTurnRequest(BaseModel):
     content: str = Field(min_length=1, max_length=8000)
+    context: PageContext | None = None
 
 
 def _iso(value: Any) -> Optional[str]:
@@ -130,7 +137,10 @@ def submit_turn(
     _require_thread(db, thread_id)
     idempotency_key = request.headers.get("Idempotency-Key")
     turn = _service(request).submit_turn(
-        thread_id, payload.content, idempotency_key=idempotency_key
+        thread_id,
+        payload.content,
+        idempotency_key=idempotency_key,
+        context=payload.context.model_dump() if payload.context else None,
     )
     return {"turn": _turn_response(turn)}
 

@@ -1,12 +1,7 @@
 // Agent 聊天前端类型（与 docs/specs/2026-08-18-agent-workspace-chat.md D4/D8 契约对应）
 
 export type ChatTurnStatus =
-  | 'queued'
-  | 'running'
-  | 'completed'
-  | 'failed'
-  | 'cancelled'
-  | 'interrupted'
+  'queued' | 'running' | 'completed' | 'failed' | 'cancelled' | 'interrupted'
 
 export interface ChatThread {
   thread_id: string
@@ -59,6 +54,12 @@ export interface ChatRuntimeStatus {
   backend: 'native' | 'fake' | string
   available: boolean
   reason: string | null
+}
+
+export interface PageContext {
+  route: string
+  entity_type?: string
+  entity_id?: string
 }
 
 // 归一化后的聊天消息（供聊天组件渲染）
