@@ -2,6 +2,7 @@
    1. CSS Custom Properties (Design Tokens)
    ============================================ */
 :root {
+  color-scheme: light;
   /* Primary Surfaces */
   --color-canvas: #f3f0ee; /* Page background - warm putty cream */
   --color-canvas-lifted: #fcfbfa; /* Card backgrounds - elevated surfaces */
@@ -44,6 +45,11 @@
   /* Borders */
   --color-border: rgba(0, 0, 0, 0.06);
   --color-border-medium: rgba(0, 0, 0, 0.12);
+  --color-border-strong: rgba(0, 0, 0, 0.2);
+  --color-surface-subtle: #f7f5f3;
+  --color-surface-muted: #eeebe8;
+  --color-accent-blue: #145bd7;
+  --color-accent-blue-light: rgba(20, 91, 215, 0.1);
 
   /* Shadows */
   --shadow-nav: rgba(0, 0, 0, 0.04) 0px 4px 24px 0px;
@@ -53,7 +59,7 @@
   /* Border Radius Scale */
   --radius-sm: 6px;
   --radius-btn: 20px;
-  --radius-card: 40px;
+  --radius-card: 18px;
   --radius-pill: 999px;
 
   /* Spacing Scale */
@@ -81,4 +87,26 @@
   --transition-fast: 0.15s ease;
   --transition-normal: 0.25s ease;
   --transition-slow: 0.4s ease;
+  --content-max-width: 1440px;
+  --nav-height: 56px;
+  --panel-padding: 20px;
+  --focus-ring: 0 0 0 3px rgba(20, 91, 215, 0.22);
+}
+
+[data-theme='dark'] {
+  color-scheme: dark;
+  --color-canvas: #151515;
+  --color-canvas-lifted: #202020;
+  --color-white: #252525;
+  --color-ink: #f5f3f0;
+  --color-charcoal: #d7d3ce;
+  --color-text-primary: #f5f3f0;
+  --color-text-secondary: #aaa59f;
+  --color-text-tertiary: #77716b;
+  --color-border: rgba(255, 255, 255, 0.1);
+  --color-border-medium: rgba(255, 255, 255, 0.18);
+  --color-surface-subtle: #282625;
+  --color-surface-muted: #302d2a;
+  --shadow-nav: rgba(0, 0, 0, 0.3) 0 8px 28px;
+  --shadow-card: rgba(0, 0, 0, 0.24) 0 16px 36px;
 }

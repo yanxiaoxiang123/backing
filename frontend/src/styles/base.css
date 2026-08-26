@@ -35,6 +35,18 @@ a:hover {
   text-decoration: underline;
 }
 
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
 /* ============================================
    12. Utilities
    ============================================ */

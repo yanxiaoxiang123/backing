@@ -15,6 +15,7 @@
     "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\""
   },
   "dependencies": {
+    "@tanstack/react-query": "^5.102.4",
     "antd": "^5.12.8",
     "axios": "^1.6.5",
     "dayjs": "^1.11.10",

@@ -1,4 +1,12 @@
-import { Routes, Route, Navigate, NavLink, Link, useNavigate } from 'react-router-dom'
+import {
+  Routes,
+  Route,
+  Navigate,
+  NavLink,
+  Link,
+  useLocation,
+  useNavigate,
+} from 'react-router-dom'
 import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import {
   SearchOutlined,
@@ -8,19 +16,20 @@ import {
 } from '@ant-design/icons'
 import { Modal } from 'antd'
 
-import Dashboard from './pages/Dashboard'
-import StockList from './pages/StockList'
-import StockChart from './pages/StockChart'
-import BacktestHistory from './pages/BacktestHistory'
-import Strategies from './pages/Strategies'
-import AgentAnalysis from './pages/AgentAnalysis'
-import DLPrediction from './pages/DLPrediction'
-import Watchlist from './pages/Watchlist'
 import ErrorBoundary from './components/ErrorBoundary'
 import StockSearch from './components/StockSearch'
-import Login from './pages/Login'
-import Screener from './pages/Screener'
+import { ResearchCopilot } from './components/research/ResearchCopilot'
 const AgentWorkspace = lazy(() => import('./pages/AgentWorkspace'))
+const Dashboard = lazy(() => import('./pages/Dashboard'))
+const StockList = lazy(() => import('./pages/StockList'))
+const StockChart = lazy(() => import('./pages/StockChart'))
+const BacktestHistory = lazy(() => import('./pages/BacktestHistory'))
+const Strategies = lazy(() => import('./pages/Strategies'))
+const AgentAnalysis = lazy(() => import('./pages/AgentAnalysis'))
+const DLPrediction = lazy(() => import('./pages/DLPrediction'))
+const Watchlist = lazy(() => import('./pages/Watchlist'))
+const Login = lazy(() => import('./pages/Login'))
+const Screener = lazy(() => import('./pages/Screener'))
 import {
   bootstrapAuth,
   getAuthState,
@@ -43,6 +52,7 @@ const navItems = [
 
 function App() {
   const navigate = useNavigate()
+  const location = useLocation()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
   const [authState, setAuthState] = useState<AuthState>(getAuthState())
@@ -60,6 +70,7 @@ function App() {
   useEffect(() => {
     if (!mobileMenuOpen) return
     const overlay = overlayRef.current
+    const toggle = toggleRef.current
     overlay?.querySelector<HTMLButtonElement>('.nav-mobile-close')?.focus()
 
     const onKeyDown = (e: KeyboardEvent) => {
@@ -85,7 +96,7 @@ function App() {
     document.addEventListener('keydown', onKeyDown)
     return () => {
       document.removeEventListener('keydown', onKeyDown)
-      toggleRef.current?.focus()
+      toggle?.focus()
     }
   }, [mobileMenuOpen])
 
@@ -100,10 +111,12 @@ function App() {
   // 未认证：只渲染登录页
   if (authState === 'unauthenticated') {
     return (
-      <Routes>
-        <Route path="/login" element={<Login />} />
-        <Route path="*" element={<Navigate to="/login" replace />} />
-      </Routes>
+      <Suspense fallback={<div className="route-loading">加载登录页…</div>}>
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route path="*" element={<Navigate to="/login" replace />} />
+        </Routes>
+      </Suspense>
     )
   }
 
@@ -118,6 +131,7 @@ function App() {
   }
 
   const closeMobileMenu = () => setMobileMenuOpen(false)
+  const stockMatch = location.pathname.match(/^\/stocks\/([^/]+)/)
 
   return (
     <div className="app-layout">
@@ -150,6 +164,14 @@ function App() {
           >
             <SearchOutlined />
           </button>
+
+          <ResearchCopilot
+            context={{
+              route: location.pathname,
+              entity_type: stockMatch ? 'stock' : 'page',
+              entity_id: stockMatch?.[1],
+            }}
+          />
 
           {/* Logout */}
           <button
@@ -223,28 +245,30 @@ function App() {
       {/* Main Content */}
       <main className="app-content">
         <ErrorBoundary name="App">
-          <Routes>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/stocks" element={<StockList />} />
-            <Route path="/stocks/:code" element={<StockChart />} />
-            <Route path="/watchlist" element={<Watchlist />} />
-            <Route path="/screener" element={<Screener />} />
-            <Route path="/strategies" element={<Strategies />} />
-            <Route path="/dl-prediction" element={<DLPrediction />} />
-            <Route path="/backtest" element={<Navigate to="/strategies" replace />} />
-            <Route path="/history" element={<BacktestHistory />} />
-            <Route path="/agent" element={<AgentAnalysis />} />
-            <Route
-              path="/workspace"
-              element={
-                <Suspense fallback={<div className="auth-loading">加载工作台…</div>}>
-                  <AgentWorkspace />
-                </Suspense>
-              }
-            />
-            <Route path="/login" element={<Navigate to="/" replace />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
+          <Suspense fallback={<div className="route-loading">加载页面…</div>}>
+            <Routes>
+              <Route path="/" element={<Dashboard />} />
+              <Route path="/stocks" element={<StockList />} />
+              <Route path="/stocks/:code" element={<StockChart />} />
+              <Route path="/watchlist" element={<Watchlist />} />
+              <Route path="/screener" element={<Screener />} />
+              <Route path="/strategies" element={<Strategies />} />
+              <Route path="/dl-prediction" element={<DLPrediction />} />
+              <Route path="/backtest" element={<Navigate to="/strategies" replace />} />
+              <Route path="/history" element={<BacktestHistory />} />
+              <Route path="/agent" element={<AgentAnalysis />} />
+              <Route
+                path="/workspace"
+                element={
+                  <Suspense fallback={<div className="auth-loading">加载工作台…</div>}>
+                    <AgentWorkspace />
+                  </Suspense>
+                }
+              />
+              <Route path="/login" element={<Navigate to="/" replace />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </Suspense>
         </ErrorBoundary>
       </main>
     </div>
