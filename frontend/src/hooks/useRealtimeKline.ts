@@ -53,24 +53,32 @@ export function useRealtimeKline(code: string | undefined, period: PeriodType) {
     if (!code) {
       setData([])
       setLoading(false)
+      setConnected(false)
+      setFallback(false)
       return
     }
 
     let cancelled = false
+    let snapshotRequest: Promise<void> | null = null
     const loadFallback = async () => {
+      if (snapshotRequest) return snapshotRequest
       setFallback(true)
       setLoading(true)
-      try {
-        const response = await getRealtimeBars(code, period)
-        if (!cancelled) {
-          setData(response.data.map(normalizeBar))
-          setError(null)
+      snapshotRequest = (async () => {
+        try {
+          const response = await getRealtimeBars(code, period)
+          if (!cancelled) {
+            setData((current) => mergeRealtimeBars(current, response.data))
+            setError(null)
+          }
+        } catch {
+          if (!cancelled) setError('加载 K 线数据失败')
+        } finally {
+          snapshotRequest = null
+          if (!cancelled) setLoading(false)
         }
-      } catch {
-        if (!cancelled) setError('加载 K 线数据失败')
-      } finally {
-        if (!cancelled) setLoading(false)
-      }
+      })()
+      return snapshotRequest
     }
     const connect = () => {
       if (cancelled) return
@@ -82,13 +90,16 @@ export function useRealtimeKline(code: string | undefined, period: PeriodType) {
       socket.onopen = () => {
         retryCountRef.current = 0
         setConnected(true)
+        setFallback(false)
       }
       socket.onmessage = (event) => {
         try {
           const message = JSON.parse(event.data) as RealtimeMessage
           const bars = message.data ?? []
           if (message.type === 'init') {
-            setData(bars.map(normalizeBar))
+            if (bars.length) {
+              setData((current) => mergeRealtimeBars(current, bars))
+            }
             setLoading(false)
             setError(null)
           } else if (message.type === 'update' && bars.length) {
@@ -112,9 +123,13 @@ export function useRealtimeKline(code: string | undefined, period: PeriodType) {
         }
       }
     }
+    setData([])
     setLoading(true)
+    setConnected(false)
     setFallback(false)
     setError(null)
+    retryCountRef.current = 0
+    void loadFallback()
     connect()
     return () => {
       cancelled = true

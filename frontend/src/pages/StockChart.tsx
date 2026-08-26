@@ -12,7 +12,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { getStockOverview, addToWatchlist, removeFromWatchlist } from '../services/api'
 import { useRealtimeKline } from '../hooks/useRealtimeKline'
-import type { KlineIndicator } from '../types'
+import type { DashboardStock, KlineIndicator } from '../types'
 import { stockKeys } from '../hooks/useStockOverview'
 
 type PeriodType = 'daily' | 'weekly' | 'monthly'
@@ -75,7 +75,25 @@ function StockChart() {
   })
   const kline = useRealtimeKline(code, period)
   const overview = overviewQuery.data
-  const quote = overview?.quote
+  const quote = useMemo<DashboardStock | null>(() => {
+    if (overview?.quote) return overview.quote
+    const latest = kline.data[kline.data.length - 1]
+    if (!latest) return null
+    const previous = kline.data[kline.data.length - 2]
+    const change = previous ? latest.close - previous.close : 0
+    const changePercent = previous?.close ? (change / previous.close) * 100 : 0
+    return {
+      id: 0,
+      code: overview?.stock.code || code || '',
+      name: overview?.stock.name || code || '',
+      current_price: latest.close,
+      high: latest.high,
+      low: latest.low,
+      volume: latest.volume,
+      change,
+      change_percent: changePercent,
+    }
+  }, [code, kline.data, overview?.quote, overview?.stock.code, overview?.stock.name])
   const positive = (quote?.change_percent ?? 0) >= 0
 
   const option = useMemo(() => chartOption(kline.data), [kline.data])

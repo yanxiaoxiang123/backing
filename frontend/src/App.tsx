@@ -233,7 +233,7 @@ function App() {
         title="搜索股票"
         footer={null}
         width={480}
-        destroyOnClose
+        destroyOnHidden
       >
         <StockSearch
           autoFocus

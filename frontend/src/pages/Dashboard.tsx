@@ -118,30 +118,37 @@ function Dashboard() {
   const trendQuery = useDashboardTrend(activeCode)
   const briefingQuery = useDashboardBriefing()
 
-  const names = useMemo(
-    () =>
-      new Map(
-        watchlistItems.map((item) => [
-          item.stock_code,
-          item.stock_name || item.stock_code,
-        ]),
-      ),
-    [watchlistItems],
-  )
+  const identities = useMemo(() => {
+    const items = new Map<string, { code: string; name: string }>()
+    watchlistItems.forEach((item) => {
+      const codeParts = item.stock_code.split('.')
+      const rawCode = codeParts[codeParts.length - 1] || item.stock_code
+      const identity = {
+        code: item.stock_code,
+        name: item.stock_name || item.stock_code,
+      }
+      items.set(item.stock_code, identity)
+      items.set(rawCode, identity)
+    })
+    return items
+  }, [watchlistItems])
   const stocks = useMemo<DashboardStock[]>(
     () =>
-      (quotesQuery.data?.data ?? []).map((quote) => ({
-        id: 0,
-        code: quote.symbol,
-        name: names.get(quote.symbol) || quote.symbol,
-        current_price: quote.close,
-        high: quote.high,
-        low: quote.low,
-        volume: quote.volume,
-        change: quote.change,
-        change_percent: quote.change_percent,
-      })),
-    [names, quotesQuery.data],
+      (quotesQuery.data?.data ?? []).map((quote) => {
+        const identity = identities.get(quote.symbol)
+        return {
+          id: 0,
+          code: identity?.code || quote.symbol,
+          name: identity?.name || quote.symbol,
+          current_price: quote.close,
+          high: quote.high,
+          low: quote.low,
+          volume: quote.volume,
+          change: quote.change,
+          change_percent: quote.change_percent,
+        }
+      }),
+    [identities, quotesQuery.data],
   )
   const trendOption = useMemo(() => {
     const bars = trendQuery.data?.data ?? []
@@ -337,7 +344,9 @@ function Dashboard() {
               <div className="eyebrow">PRICE ACTION</div>
               <h2 id="trend-title">
                 <LineChartOutlined />{' '}
-                {activeCode ? names.get(activeCode) || activeCode : '走势预览'}
+                {activeCode
+                  ? identities.get(activeCode)?.name || activeCode
+                  : '走势预览'}
               </h2>
             </div>
             <Select
