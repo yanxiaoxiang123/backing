@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Any, Dict, List
+from datetime import datetime, timezone
 
 from sqlalchemy import case, func
 from sqlalchemy.orm import Session
@@ -51,6 +52,7 @@ class DashboardService:
         flat = len(watchlist_data) - up - down
 
         return {
+            "as_of": datetime.now(timezone.utc).isoformat(),
             "market_stats": {
                 "up": up,
                 "down": down,
@@ -60,6 +62,18 @@ class DashboardService:
             "indices": indices,
             "trend": trend,
             "watchlist": watchlist_data,
+            "research_queue": [
+                {
+                    "code": item["code"],
+                    "name": item["name"],
+                    "reason": "自选股异动" if item["change_percent"] >= 0 else "关注回撤",
+                    "change_percent": item["change_percent"],
+                    "href": f"/stocks/{item['code']}",
+                }
+                for item in watchlist_data[:5]
+            ],
+            "recent_activity": [],
+            "alerts": [],
         }
 
     def _get_watchlist_data(self, watchlist_codes: List[str]) -> List[Dict[str, Any]]:

@@ -24,7 +24,7 @@ from app.exceptions import (
     ValidationError,
 )
 from app.limiter import limiter
-from app.models.models import BacktestResult, DailyKline, Stock
+from app.models.models import DEFAULT_USER_ID, BacktestResult, DailyKline, Stock, WatchlistItem
 from app.schemas.schemas import (
     BacktestListResponse,
     BacktestRequest,
@@ -197,6 +197,64 @@ def get_stock(
     if not stock:
         raise HTTPException(status_code=404, detail="Stock not found")
     return stock
+
+
+@router.get("/stocks/{code}/overview")
+@limiter.limit("60/minute")
+def get_stock_overview(
+    request: Request,
+    code: str,
+    db: Session = Depends(get_db),
+    _: str = Depends(get_current_api_key),
+):
+    """Return the compact decision-research context for one stock."""
+    _validate_stock_code(code)
+    stock = db.query(Stock).filter(Stock.code == code).first()
+    if not stock:
+        raise HTTPException(status_code=404, detail="Stock not found")
+
+    bars = (
+        db.query(DailyKline)
+        .filter(DailyKline.stock_code == code)
+        .order_by(DailyKline.date.desc())
+        .limit(2)
+        .all()
+    )
+    latest = bars[0] if bars else None
+    previous = bars[1] if len(bars) > 1 else latest
+    previous_close = float(previous.close) if previous else 0.0
+    latest_close = float(latest.close) if latest else 0.0
+    change = latest_close - previous_close
+    change_percent = (change / previous_close * 100) if previous_close else 0.0
+    watchlisted = (
+        db.query(WatchlistItem.id)
+        .filter(
+            WatchlistItem.user_id == DEFAULT_USER_ID,
+            WatchlistItem.stock_code == code,
+        )
+        .first()
+        is not None
+    )
+    quote = None
+    if latest:
+        quote = {
+            "id": 0,
+            "code": code,
+            "name": stock.name,
+            "current_price": round(latest_close, 2),
+            "high": round(float(latest.high), 2),
+            "low": round(float(latest.low), 2),
+            "volume": int(latest.volume),
+            "change": round(change, 2),
+            "change_percent": round(change_percent, 2),
+        }
+    return {
+        "stock": stock,
+        "quote": quote,
+        "watchlisted": watchlisted,
+        "technical": {"updated_at": latest.date.isoformat() if latest else None},
+        "recent_analysis": [],
+    }
 
 
 @router.get("/stocks/{code}/indicators")

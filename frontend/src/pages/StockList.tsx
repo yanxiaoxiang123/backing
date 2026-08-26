@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Table, Button, message, Modal, Form, Input, Select } from 'antd'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { SyncOutlined, LineChartOutlined, SearchOutlined } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
 import {
@@ -13,40 +14,23 @@ import type { Stock } from '../types'
 
 function StockList() {
   const navigate = useNavigate()
-  const [loading, setLoading] = useState(false)
-  const [total, setTotal] = useState(0)
+  const queryClient = useQueryClient()
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(20)
   const [syncing, setSyncing] = useState(false)
   const [syncModalVisible, setSyncModalVisible] = useState(false)
   const [searchText, setSearchText] = useState('')
-  const [filteredStocks, setFilteredStocks] = useState<Stock[]>([])
+  const stocksQuery = useQuery({
+    queryKey: ['stocks', page, pageSize, searchText],
+    queryFn: () =>
+      getStocks(undefined, (page - 1) * pageSize, pageSize, searchText || undefined),
+  })
+  const filteredStocks: Stock[] = stocksQuery.data?.items ?? []
+  const total = stocksQuery.data?.total ?? 0
 
   useEffect(() => {
     setPage(1)
   }, [searchText])
-
-  useEffect(() => {
-    loadStocks()
-  }, [page, pageSize, searchText])
-
-  const loadStocks = async () => {
-    setLoading(true)
-    try {
-      const data = await getStocks(
-        undefined,
-        (page - 1) * pageSize,
-        pageSize,
-        searchText || undefined,
-      )
-      setFilteredStocks(data.items)
-      setTotal(data.total)
-    } catch (error) {
-      message.error(getApiErrorMessage(error))
-    } finally {
-      setLoading(false)
-    }
-  }
 
   // 统一任务轮询（5 分钟超时；卸载自动取消）
   const { waitForJob } = useJobPolling({ timeoutMs: 300000 })
@@ -59,7 +43,7 @@ function StockList() {
         submission.job_id,
       )
       message.success(result.message || `同步完成: ${result.stocks_synced} 只股票`)
-      loadStocks()
+      await queryClient.invalidateQueries({ queryKey: ['stocks'] })
     } catch (error) {
       message.error(getApiErrorMessage(error))
     } finally {
@@ -216,7 +200,7 @@ function StockList() {
           columns={columns}
           dataSource={filteredStocks}
           rowKey="id"
-          loading={loading}
+          loading={stocksQuery.isLoading || stocksQuery.isFetching}
           onRow={(record) => ({
             onClick: () => handleViewChart(record),
             style: { cursor: 'pointer' },

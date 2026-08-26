@@ -19,6 +19,7 @@ import type {
   MarketAnalyzeRequest,
   MarketAnalyzeResponse,
   DashboardSummary,
+  StockOverview,
   JobStatus,
   JobSubmission,
   WatchlistItem,
@@ -268,6 +269,11 @@ export async function getStockIndicators(
 
 export async function getDashboardSummary(): Promise<DashboardSummary> {
   const response = await api.get<DashboardSummary>('/dashboard')
+  return response.data
+}
+
+export async function getStockOverview(code: string): Promise<StockOverview> {
+  const response = await api.get<StockOverview>(`/stocks/${code}/overview`)
   return response.data
 }
 
@@ -600,16 +606,12 @@ export interface ScreenerJobRecord {
   updated_at?: string
 }
 
-export async function getScreenerStatus(
-  jobId: string,
-): Promise<ScreenerJobRecord> {
+export async function getScreenerStatus(jobId: string): Promise<ScreenerJobRecord> {
   const response = await api.get(`/screener/${jobId}`)
   return response.data
 }
 
-export async function getScreenerHistory(
-  limit = 20,
-): Promise<ScreenerJobRecord[]> {
+export async function getScreenerHistory(limit = 20): Promise<ScreenerJobRecord[]> {
   const response = await api.get<ScreenerJobRecord[]>('/screener/history', {
     params: { limit },
   })
@@ -666,38 +668,46 @@ export async function getRealtimeBars(
 }
 
 // Realtime Quotes API
+export interface RealtimeQuote {
+  symbol: string
+  open: number
+  high: number
+  low: number
+  close: number
+  volume: number
+  amount: number
+  change: number
+  change_percent: number
+  prev_close: number
+}
+
 export async function getRealtimeQuotes(codes: string[]): Promise<{
   success: boolean
-  data: Array<{
-    symbol: string
-    open: number
-    high: number
-    low: number
-    close: number
-    volume: number
-    amount: number
-    change: number
-    change_percent: number
-    prev_close: number
-  }>
+  data: RealtimeQuote[]
 }> {
-  const response = await api.get<any>(`/realtime/quotes?codes=${codes.join(',')}`)
+  const response = await api.get<{ success: boolean; data: RealtimeQuote[] }>(
+    `/realtime/quotes?codes=${codes.join(',')}`,
+  )
   return response.data
 }
 
 // Realtime Indices API
+export interface RealtimeIndex {
+  symbol: string
+  name: string
+  close: number
+  change: number
+  change_percent: number
+  prev_close: number
+}
+
 export async function getRealtimeIndices(): Promise<{
   success: boolean
-  data: Array<{
-    symbol: string
-    name: string
-    close: number
-    change: number
-    change_percent: number
-    prev_close: number
-  }>
+  data: RealtimeIndex[]
 }> {
-  const response = await api.get<any>('/realtime/indices')
+  const response = await api.get<{ success: boolean; data: RealtimeIndex[] }>(
+    '/realtime/indices',
+  )
   return response.data
 }
 

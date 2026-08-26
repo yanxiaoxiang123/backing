@@ -374,6 +374,7 @@ export interface DashboardStock {
 }
 
 export interface DashboardSummary {
+  as_of?: string
   market_stats: {
     up: number
     down: number
@@ -383,6 +384,46 @@ export interface DashboardSummary {
   indices: DashboardIndex[]
   trend: DashboardTrend
   watchlist: DashboardStock[]
+  research_queue?: ResearchQueueItem[]
+  recent_activity?: ResearchActivity[]
+  alerts?: ResearchAlert[]
+}
+
+export interface ResearchQueueItem {
+  code: string
+  name: string
+  reason: string
+  change_percent?: number
+  href?: string
+}
+
+export interface ResearchActivity {
+  id: string
+  title: string
+  kind: 'screener' | 'analysis' | 'backtest' | 'chat' | 'alert' | string
+  created_at?: string | null
+  href?: string
+}
+
+export interface ResearchAlert {
+  id: string | number
+  title: string
+  severity?: 'info' | 'warning' | 'error'
+  created_at?: string | null
+  href?: string
+}
+
+export interface StockOverview {
+  stock: Stock
+  quote?: DashboardStock | null
+  watchlisted: boolean
+  technical?: {
+    signal?: string | null
+    ma20?: number | null
+    rsi14?: number | null
+    updated_at?: string | null
+  } | null
+  recent_analysis?: ResearchActivity[]
 }
 
 export interface WatchlistItem {

@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { Table, Button, message, Spin, Empty, Popconfirm, Card } from 'antd'
+import { useMemo, useState } from 'react'
+import { Alert, Table, Button, message, Spin, Empty, Popconfirm, Card } from 'antd'
 import {
   DeleteOutlined,
   PlusOutlined,
@@ -12,60 +12,48 @@ import {
   removeFromWatchlist,
   getRealtimeQuotes,
 } from '../services/api'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import StockSearch from '../components/StockSearch'
 import type { WatchlistItem, DashboardStock } from '../types'
 
 function Watchlist() {
-  const [loading, setLoading] = useState(true)
   const [updating, setUpdating] = useState(false)
-  const [watchlist, setWatchlist] = useState<WatchlistItem[]>([])
-  const [stockPriceMap, setStockPriceMap] = useState<Record<string, DashboardStock>>({})
   const [selectedStockCode, setSelectedStockCode] = useState<string | null>(null)
   const [selectedStockName, setSelectedStockName] = useState<string>('')
-
-  useEffect(() => {
-    loadWatchlistWithPrices()
-  }, [])
-
-  const loadWatchlistWithPrices = async () => {
-    try {
-      setLoading(true)
-      const watchlistData = await getWatchlist()
-      setWatchlist(watchlistData.items)
-
-      const codes = watchlistData.items.map((item: WatchlistItem) => item.stock_code)
-      if (codes.length === 0) {
-        setLoading(false)
-        return
+  const queryClient = useQueryClient()
+  const watchlistQuery = useQuery({ queryKey: ['watchlist'], queryFn: getWatchlist })
+  const watchlist = useMemo(
+    () => watchlistQuery.data?.items ?? [],
+    [watchlistQuery.data],
+  )
+  const codes = useMemo(() => watchlist.map((item) => item.stock_code), [watchlist])
+  const quotesQuery = useQuery({
+    queryKey: ['watchlist', 'quotes', codes],
+    queryFn: () => getRealtimeQuotes(codes),
+    enabled: codes.length > 0,
+  })
+  const stockPriceMap = useMemo<Record<string, DashboardStock>>(() => {
+    const map: Record<string, DashboardStock> = {}
+    for (const quote of quotesQuery.data?.data ?? []) {
+      map[quote.symbol] = {
+        id: 0,
+        code: quote.symbol,
+        name: '',
+        current_price: quote.close,
+        high: quote.high,
+        low: quote.low,
+        volume: quote.volume,
+        change: quote.change,
+        change_percent: quote.change_percent,
       }
-
-      const quotes = await getRealtimeQuotes(codes)
-      const priceMap: Record<string, DashboardStock> = {}
-      for (const q of quotes.data) {
-        priceMap[q.symbol] = {
-          id: 0,
-          code: q.symbol,
-          name: '',
-          current_price: q.close,
-          high: q.high,
-          low: q.low,
-          volume: q.volume,
-          change: q.change,
-          change_percent: q.change_percent,
-        }
-      }
-      setStockPriceMap(priceMap)
-    } catch {
-      message.error('加载自选股失败')
-    } finally {
-      setLoading(false)
     }
-  }
+    return map
+  }, [quotesQuery.data])
 
   const handleUpdate = async () => {
     try {
       setUpdating(true)
-      await loadWatchlistWithPrices()
+      await queryClient.invalidateQueries({ queryKey: ['watchlist'] })
       message.success('自选股数据已更新')
     } catch {
       message.error('更新失败')
@@ -85,10 +73,13 @@ function Watchlist() {
       message.success(`已添加 ${selectedStockName || selectedStockCode} 到自选股`)
       setSelectedStockCode(null)
       setSelectedStockName('')
-      loadWatchlistWithPrices()
-    } catch (error: any) {
-      if (error.response?.status === 400) {
-        message.warning(error.response.data.detail || '该股票已在自选股中')
+      await queryClient.invalidateQueries({ queryKey: ['watchlist'] })
+    } catch (error: unknown) {
+      const response = (
+        error as { response?: { status?: number; data?: { detail?: string } } }
+      ).response
+      if (response?.status === 400) {
+        message.warning(response.data?.detail || '该股票已在自选股中')
       } else {
         message.error('添加失败')
       }
@@ -99,7 +90,7 @@ function Watchlist() {
     try {
       await removeFromWatchlist(stockCode)
       message.success('已从自选股移除')
-      loadWatchlistWithPrices()
+      await queryClient.invalidateQueries({ queryKey: ['watchlist'] })
     } catch {
       message.error('移除失败')
     }
@@ -125,7 +116,7 @@ function Watchlist() {
       title: '最新价',
       key: 'current_price',
       width: 100,
-      render: (_: any, record: WatchlistItem) => {
+      render: (_: unknown, record: WatchlistItem) => {
         const priceData = stockPriceMap[record.stock_code]
         if (!priceData) return '-'
         return (
@@ -137,7 +128,7 @@ function Watchlist() {
       title: '涨跌额',
       key: 'change',
       width: 100,
-      render: (_: any, record: WatchlistItem) => {
+      render: (_: unknown, record: WatchlistItem) => {
         const priceData = stockPriceMap[record.stock_code]
         if (!priceData) return '-'
         const color =
@@ -158,7 +149,7 @@ function Watchlist() {
       title: '涨跌幅',
       key: 'change_percent',
       width: 100,
-      render: (_: any, record: WatchlistItem) => {
+      render: (_: unknown, record: WatchlistItem) => {
         const priceData = stockPriceMap[record.stock_code]
         if (!priceData) return '-'
         const color =
@@ -186,7 +177,7 @@ function Watchlist() {
       title: '操作',
       key: 'action',
       width: 100,
-      render: (_: any, record: WatchlistItem) => (
+      render: (_: unknown, record: WatchlistItem) => (
         <Popconfirm
           title="确定要从自选股中移除吗？"
           onConfirm={() => handleRemoveStock(record.stock_code)}
@@ -265,10 +256,17 @@ function Watchlist() {
           </Button>
         </div>
 
-        {loading ? (
+        {watchlistQuery.isLoading ? (
           <div style={{ textAlign: 'center', padding: 'var(--space-xl)' }}>
             <Spin size="large" />
           </div>
+        ) : watchlistQuery.isError ? (
+          <Alert
+            type="error"
+            showIcon
+            message="加载自选股失败"
+            action={<Button onClick={() => void watchlistQuery.refetch()}>重试</Button>}
+          />
         ) : watchlist.length === 0 ? (
           <Empty
             description="暂无自选股，请在上方搜索添加"
