@@ -93,6 +93,16 @@ class TestIdempotencyKey:
         b = job_store.create("sync_stocks")
         assert a.id != b.id
 
+    def test_list_recent_can_filter_by_job_type(self, db):
+        job_store.create("sync_stocks")
+        first = job_store.create("screener")
+        second = job_store.create("screener")
+
+        jobs = job_store.list_recent(job_type="screener")
+
+        assert {job.id for job in jobs} == {first.id, second.id}
+        assert all(job.job_type == "screener" for job in jobs)
+
 
 # ---------------------------------------------------------------------------
 # 认领 / 租约
@@ -177,6 +187,16 @@ def _wait_runner(job_id, payload):
     time.sleep(0.3)
 
 
+@register_runner("test_self_failed")
+def _self_failed_runner(job_id, payload):
+    job_store.update(job_id, status="failed", error="handled failure")
+
+
+@register_runner("test_self_completed")
+def _self_completed_runner(job_id, payload):
+    job_store.update(job_id, status="completed", result={"value": 42})
+
+
 class TestLifecycle:
     def test_completed(self, db):
         job = job_store.create("test_ok")
@@ -194,6 +214,24 @@ class TestLifecycle:
         record = job_store.get(job.id)
         assert record.status == "failed"
         assert "boom" in (record.error or "")
+
+    def test_runner_persisted_failure_is_not_overwritten_as_completed(self, db):
+        job = job_store.create("test_self_failed")
+        job_store.claim_due()
+
+        assert run_claimed_job(job.id) == "failed"
+        record = job_store.get(job.id)
+        assert record.status == "failed"
+        assert record.error == "handled failure"
+
+    def test_runner_persisted_result_is_preserved(self, db):
+        job = job_store.create("test_self_completed")
+        job_store.claim_due()
+
+        assert run_claimed_job(job.id) == "completed"
+        record = job_store.get(job.id)
+        assert record.status == "completed"
+        assert record.result == {"value": 42}
 
     def test_retry_then_succeed(self, db):
         attempts = {"n": 0}

@@ -8,13 +8,21 @@ function pct(v: number | undefined | null): string {
 }
 
 /** 盘后归因面板（US-3.3）：组合相对 sh.000300 的收益分解。 */
-export function AttributionPanel() {
+export function AttributionPanel({ runId }: { runId: string | null }) {
   const [data, setData] = useState<AttributionData | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
 
   useEffect(() => {
     let cancelled = false
-    void getAttribution()
+    setData(null)
+    if (!runId) {
+      setLoading(false)
+      return () => {
+        cancelled = true
+      }
+    }
+    setLoading(true)
+    void getAttribution(runId)
       .then((d) => {
         if (!cancelled) setData(d)
       })
@@ -27,10 +35,11 @@ export function AttributionPanel() {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [runId])
 
   if (loading) return <Spin />
-  if (!data) return <Empty description="暂无归因数据（模拟盘尚无成交）" />
+  if (!runId) return <Empty description="请先运行一次股票研究" />
+  if (!data) return <Empty description="当前 Run 暂无归因数据（模拟盘尚无成交）" />
 
   return (
     <div>

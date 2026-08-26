@@ -15,7 +15,12 @@ from dataclasses import dataclass, field
 from typing import Any, Callable, Protocol
 
 from app.agent_api.pipelines import default_pipeline
-from app.agent_chat.policy import ToolAdmission, ToolScope, TurnToolPolicy
+from app.agent_chat.policy import (
+    ToolAdmission,
+    ToolScope,
+    TurnToolPolicy,
+    stock_reference,
+)
 from app.agent_chat.seam import (
     ASSISTANT_CHUNK,
     ERROR,
@@ -234,7 +239,17 @@ class NativeAgentChatRuntime:
         try:
             history, history_text = self._history(session_id, turn_id)
             admission = self._policy.classify(user_message, history_text)
-            tools = self._tool_schemas(admission)
+            # An explicit analysis request must always produce the structured
+            # run consumed by the research pane.  Leaving this tool choice to
+            # the model made otherwise-successful analysis replies impossible
+            # to attach on the right-hand side.
+            auto_run = admission.allow_analysis
+            model_admission = (
+                ToolAdmission(ToolScope.READ, "analysis_run_already_created")
+                if auto_run
+                else admission
+            )
+            tools = self._tool_schemas(model_admission)
             messages = [{"role": "system", "content": self._system_prompt(admission)}]
             messages.extend(history)
             messages.append({"role": "user", "content": user_message})
@@ -243,6 +258,23 @@ class NativeAgentChatRuntime:
             deadline.daemon = True
             deadline.start()
             try:
+                if auto_run:
+                    target = stock_reference(user_message) or stock_reference(history_text)
+                    objective = user_message.strip()
+                    if target and not stock_reference(user_message):
+                        objective = f"{objective}（股票：{target}）"
+                    call = NativeToolCall(
+                        call_id=f"auto-analysis-{turn_id}",
+                        name="quant_run_analysis",
+                        arguments={"objective": objective},
+                    )
+                    self._emit_tool_call(emit, turn_id, call)
+                    result = self._execute_tool(
+                        session_id, call, admission, cancel_event
+                    )
+                    self._emit_tool_result(emit, turn_id, call, result)
+                    messages.extend(self._tool_exchange_messages(call, result))
+
                 for step in range(self._max_steps):
                     if cancel_event.is_set():
                         raise _Cancelled()
@@ -283,31 +315,11 @@ class NativeAgentChatRuntime:
                         }
                     )
                     for call in response.tool_calls:
-                        emit(
-                            ChatEvent(
-                                TOOL_CALL,
-                                turn_id,
-                                {
-                                    "call_id": call.call_id,
-                                    "tool": call.name,
-                                    "args": call.arguments,
-                                },
-                            )
-                        )
+                        self._emit_tool_call(emit, turn_id, call)
                         result = self._execute_tool(
-                            session_id, call, admission, cancel_event
+                            session_id, call, model_admission, cancel_event
                         )
-                        payload = {
-                            "call_id": call.call_id,
-                            "tool": call.name,
-                            "summary": self._summary(call.name, result),
-                            "result": result,
-                        }
-                        if isinstance(result, dict) and result.get("run_id"):
-                            payload["run_id"] = result["run_id"]
-                        emit(ChatEvent(TOOL_RESULT, turn_id, payload))
-                        if payload.get("run_id"):
-                            emit(ChatEvent(RUN_LINKED, turn_id, {"run_id": payload["run_id"]}))
+                        self._emit_tool_result(emit, turn_id, call, result)
                         messages.append(
                             {
                                 "role": "tool",
@@ -331,6 +343,68 @@ class NativeAgentChatRuntime:
             with self._cancel_lock:
                 self._cancel_events.pop(session_id, None)
 
+    @staticmethod
+    def _emit_tool_call(
+        emit: EmitFn,
+        turn_id: int,
+        call: NativeToolCall,
+    ) -> None:
+        emit(
+            ChatEvent(
+                TOOL_CALL,
+                turn_id,
+                {"call_id": call.call_id, "tool": call.name, "args": call.arguments},
+            )
+        )
+
+    def _emit_tool_result(
+        self,
+        emit: EmitFn,
+        turn_id: int,
+        call: NativeToolCall,
+        result: Any,
+    ) -> None:
+        payload = {
+            "call_id": call.call_id,
+            "tool": call.name,
+            "summary": self._summary(call.name, result),
+            "result": result,
+        }
+        if isinstance(result, dict) and result.get("run_id"):
+            payload["run_id"] = result["run_id"]
+        emit(ChatEvent(TOOL_RESULT, turn_id, payload))
+        if payload.get("run_id"):
+            emit(ChatEvent(RUN_LINKED, turn_id, {"run_id": payload["run_id"]}))
+
+    @staticmethod
+    def _tool_exchange_messages(
+        call: NativeToolCall, result: Any
+    ) -> list[dict[str, Any]]:
+        return [
+            {
+                "role": "assistant",
+                "content": "",
+                "tool_calls": [
+                    {
+                        "id": call.call_id,
+                        "type": "function",
+                        "function": {
+                            "name": call.name,
+                            "arguments": json.dumps(
+                                call.arguments, ensure_ascii=False
+                            ),
+                        },
+                    }
+                ],
+            },
+            {
+                "role": "tool",
+                "tool_call_id": call.call_id,
+                "name": call.name,
+                "content": _json_text(result),
+            },
+        ]
+
     def _status_error(self, reason: str | None) -> str:
         return {
             "missing_api_key": "Agent 聊天未配置 DEEPSEEK_API_KEY",
@@ -351,6 +425,12 @@ class NativeAgentChatRuntime:
                     continue
                 messages.append({"role": "user", "content": turn["user_input"]})
                 text_parts.append(turn["user_input"])
+                # A failed turn may contain an orphan tool_call whose result
+                # could not be persisted.  Replaying that partial protocol
+                # makes the next OpenAI-compatible request invalid.  Preserve
+                # the user's intent, but only replay tools from completed turns.
+                if turn["status"] == "failed":
+                    continue
                 tool_events = sorted(
                     (event for event in events if event["turn_pk"] == turn["id"]),
                     key=lambda item: item["seq"],

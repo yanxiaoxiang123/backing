@@ -17,7 +17,15 @@ export function BacktestPanel({ data, objective, onRerun }: BacktestPanelProps) 
   const [longPeriod, setLongPeriod] = useState(20)
 
   if (!data) {
-    return <Empty description="尚无回测结果" />
+    return (
+      <Empty
+        description={
+          objective
+            ? '本次研究未执行回测；请在对话中指定策略和回测目标'
+            : '尚无回测结果'
+        }
+      />
+    )
   }
   return (
     <div>

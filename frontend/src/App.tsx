@@ -11,7 +11,6 @@ import { Modal } from 'antd'
 import Dashboard from './pages/Dashboard'
 import StockList from './pages/StockList'
 import StockChart from './pages/StockChart'
-import Backtest from './pages/Backtest'
 import BacktestHistory from './pages/BacktestHistory'
 import Strategies from './pages/Strategies'
 import AgentAnalysis from './pages/AgentAnalysis'
@@ -37,7 +36,6 @@ const navItems = [
   { key: '/screener', label: '股票筛选' },
   { key: '/strategies', label: '策略研究' },
   { key: '/dl-prediction', label: 'DL预测' },
-  { key: '/backtest', label: '回测执行' },
   { key: '/history', label: '回测历史' },
   { key: '/agent', label: 'AI分析' },
   { key: '/workspace', label: 'Agent工作台' },
@@ -233,7 +231,7 @@ function App() {
             <Route path="/screener" element={<Screener />} />
             <Route path="/strategies" element={<Strategies />} />
             <Route path="/dl-prediction" element={<DLPrediction />} />
-            <Route path="/backtest" element={<Backtest />} />
+            <Route path="/backtest" element={<Navigate to="/strategies" replace />} />
             <Route path="/history" element={<BacktestHistory />} />
             <Route path="/agent" element={<AgentAnalysis />} />
             <Route

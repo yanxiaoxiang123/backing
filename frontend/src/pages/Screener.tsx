@@ -1,11 +1,18 @@
-import { useState } from 'react'
-import { Card, Button, Progress, Tag, message, Row, Col, Empty } from 'antd'
+import { useCallback, useEffect, useState } from 'react'
+import { Card, Button, Progress, Tag, message, Row, Col, Empty, Select } from 'antd'
 import {
   PlayCircleOutlined,
   CheckCircleOutlined,
+  HistoryOutlined,
   ReloadOutlined,
 } from '@ant-design/icons'
-import { submitScreener, getScreenerStatus, cancelJob } from '../services/api'
+import {
+  submitScreener,
+  getScreenerStatus,
+  getScreenerHistory,
+  cancelJob,
+  type ScreenerJobRecord,
+} from '../services/api'
 
 interface StockResult {
   stock_code: string
@@ -46,11 +53,53 @@ function Screener() {
   const [results, setResults] = useState<StockResult[]>([])
   const [totalScanned, setTotalScanned] = useState(0)
   const [completed, setCompleted] = useState(false)
+  const [history, setHistory] = useState<ScreenerJobRecord[]>([])
+  const [selectedHistoryId, setSelectedHistoryId] = useState<string>()
+
+  const applyCompletedJob = useCallback(
+    (job: ScreenerJobRecord, notify = false) => {
+      const nextResults = (job.result?.results ?? []) as StockResult[]
+      setJobId(job.id)
+      setSelectedHistoryId(job.id)
+      setStage('completed')
+      setProgress(100)
+      setResults(nextResults)
+      setTotalScanned(job.result?.total_scanned ?? 0)
+      setCompleted(true)
+      setRunning(false)
+      if (notify) {
+        if (nextResults.length > 0) {
+          message.success(`选股完成，找到 ${nextResults.length} 只股票`)
+        } else {
+          message.info('扫描完成，本轮没有股票符合筛选条件')
+        }
+      }
+    },
+    [],
+  )
+
+  const refreshHistory = useCallback(async (restoreLatest = false) => {
+    const records = await getScreenerHistory()
+    setHistory(records)
+    if (restoreLatest) {
+      const latestCompleted = records.find(
+        (record) => record.status === 'completed' && record.result,
+      )
+      if (latestCompleted) applyCompletedJob(latestCompleted)
+    }
+  }, [applyCompletedJob])
+
+  useEffect(() => {
+    refreshHistory(true).catch(() => {
+      // 历史加载失败不阻塞新的筛选任务。
+    })
+  }, [refreshHistory])
 
   const handleRun = async () => {
     try {
       setRunning(true)
       setCompleted(false)
+      setSelectedHistoryId(undefined)
       setResults([])
       setTotalScanned(0)
       setProgress(0)
@@ -80,18 +129,8 @@ function Screener() {
         const job = await getScreenerStatus(jobId)
 
         if (job.status === 'completed') {
-          const nextResults = job.result?.results ?? []
-          setStage('completed')
-          setProgress(100)
-          setResults(nextResults)
-          setTotalScanned(job.result?.total_scanned ?? 0)
-          setCompleted(true)
-          setRunning(false)
-          if (nextResults.length > 0) {
-            message.success(`选股完成，找到 ${nextResults.length} 只股票`)
-          } else {
-            message.info('扫描完成，本轮没有股票符合筛选条件')
-          }
+          applyCompletedJob(job, true)
+          refreshHistory().catch(() => {})
           break
         }
 
@@ -130,6 +169,26 @@ function Screener() {
       }
     }
     setRunning(false)
+  }
+
+  const handleHistoryChange = (historyId: string) => {
+    const record = history.find((item) => item.id === historyId)
+    if (record?.status === 'completed' && record.result) {
+      applyCompletedJob(record)
+    }
+  }
+
+  const formatHistoryTime = (value?: string) => {
+    if (!value) return '未知时间'
+    const isoValue = /(?:Z|[+-]\d\d:\d\d)$/.test(value) ? value : `${value}Z`
+    return new Intl.DateTimeFormat('zh-CN', {
+      timeZone: 'Asia/Shanghai',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    }).format(new Date(isoValue))
   }
 
   const getSignalColor = (signal?: string) => {
@@ -240,8 +299,30 @@ function Screener() {
   return (
     <div className="fade-in">
       <div className="page-header">
-        <h1 className="page-title">AI 量化选股</h1>
-        <p className="page-subtitle">基于多维度筛选 + AI 深度分析，智能推荐 A 股</p>
+        <div className="flex flex-between" style={{ gap: 16, flexWrap: 'wrap' }}>
+          <div>
+            <h1 className="page-title">AI 量化选股</h1>
+            <p className="page-subtitle">
+              基于多维度筛选 + AI 深度分析，智能推荐 A 股
+            </p>
+          </div>
+          {history.some((record) => record.status === 'completed') && (
+            <Select
+              aria-label="筛选记录"
+              value={selectedHistoryId}
+              placeholder="筛选记录"
+              suffixIcon={<HistoryOutlined />}
+              onChange={handleHistoryChange}
+              style={{ width: 260 }}
+              options={history
+                .filter((record) => record.status === 'completed' && record.result)
+                .map((record) => ({
+                  value: record.id,
+                  label: `${formatHistoryTime(record.created_at)} · ${record.result?.results.length ?? 0} 只`,
+                }))}
+            />
+          )}
+        </div>
       </div>
 
       {/* 初始状态 */}
@@ -335,6 +416,7 @@ function Screener() {
               setResults([])
               setCompleted(false)
               setTotalScanned(0)
+              setSelectedHistoryId(undefined)
               setRunning(false)
             }}
             style={{ marginTop: 16 }}

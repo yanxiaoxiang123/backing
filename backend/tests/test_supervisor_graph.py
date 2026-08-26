@@ -14,6 +14,7 @@ import app.services.strategy  # noqa: F401
 from app.agent_runtime.graphs import (
     RuleBasedSupervisor,
     build_supervisor_pipeline,
+    extract_stock_code,
     guard,
 )
 from app.agent_runtime.runtime import RunExecutor, SimpleNode
@@ -67,6 +68,10 @@ def test_rule_based_routing_basic():
     assert "portfolio_risk" in nodes
     assert "strategy_engineer" not in nodes
     assert "backtest_critic" not in nodes
+
+
+def test_extract_stock_code_without_leading_space():
+    assert extract_stock_code("分析sz.000002") == "sz.000002"
 
 
 def test_rule_based_routing_with_strategy_and_backtest():

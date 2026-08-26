@@ -29,7 +29,10 @@ _ANALYSIS = re.compile(
     r"(?:分析|研究|回测|策略|选股|预测|信号|ma[_ -]?cross|收益|风险|组合|优化|验证)",
     re.IGNORECASE,
 )
-_STOCK = re.compile(r"(?:\b(?:sh|sz|bj)\.\d{6}\b|\b\d{6}\b|上证|深证|创业板|科创板)", re.IGNORECASE)
+_STOCK = re.compile(
+    r"(?:(?<![A-Za-z0-9_])(?:sh|sz|bj)\.\d{6}(?!\d)|(?<!\d)\d{6}(?!\d)|上证|深证|创业板|科创板)",
+    re.IGNORECASE,
+)
 
 
 @dataclass(frozen=True)
@@ -67,8 +70,10 @@ class TurnToolPolicy:
 def stock_reference(text: str) -> str | None:
     """Return a normalized A-share reference when one is present."""
 
-    match = re.search(r"\b(sh|sz|bj)\.(\d{6})\b", text, re.IGNORECASE)
+    match = re.search(
+        r"(?<![A-Za-z0-9_])(sh|sz|bj)\.(\d{6})(?!\d)", text, re.IGNORECASE
+    )
     if match:
         return f"{match.group(1).lower()}.{match.group(2)}"
-    match = re.search(r"\b(\d{6})\b", text)
+    match = re.search(r"(?<!\d)(\d{6})(?!\d)", text)
     return match.group(1) if match else None

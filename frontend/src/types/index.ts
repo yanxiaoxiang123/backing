@@ -32,6 +32,7 @@ export interface BacktestTrade {
 export interface BacktestResult {
   id: number
   strategy_id: number
+  strategy_name?: string
   stock_code: string
   start_date: string
   end_date: string
@@ -43,17 +44,22 @@ export interface BacktestResult {
   max_drawdown?: number
   win_rate?: number
   total_trades: number
+  parameters?: Record<string, number | string | boolean> | null
+  portfolio_values?: PortfolioValue[] | null
   created_at: string
   trades: BacktestTrade[]
 }
 
 export interface BacktestListItem {
   id: number
+  strategy_name?: string
   stock_code: string
   start_date: string
   end_date: string
   total_return: number
   total_trades: number
+  parameters?: Record<string, number | string | boolean> | null
+  portfolio_values?: PortfolioValue[] | null
   created_at: string
 }
 
@@ -188,6 +194,7 @@ export interface PortfolioValue {
 
 export interface StrategyBacktestResponse {
   success: boolean
+  result_id: number
   strategy_name: string
   stock_code: string
   start_date: string
@@ -197,6 +204,7 @@ export interface StrategyBacktestResponse {
   trades: BacktestTradeItem[]
   metrics: BacktestMetrics
   portfolio_values?: PortfolioValue[]
+  parameters?: Record<string, number | string | boolean> | null
 }
 
 export interface OptimizeResultItem {

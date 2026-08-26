@@ -31,6 +31,11 @@ def _size_bytes(data: Any) -> int:
     return len(json.dumps(data, ensure_ascii=False, default=str))
 
 
+def _json_safe(data: Any) -> Any:
+    """Normalize tool output before it enters JSON columns or SSE payloads."""
+    return json.loads(json.dumps(data, ensure_ascii=False, default=str))
+
+
 class ToolRegistry:
     def __init__(self, tools: Iterable[Tool]):
         self._tools: dict[str, Tool] = {tool.name: tool for tool in tools}
@@ -120,6 +125,8 @@ class ToolRegistry:
                 },
                 status="failed",
             )
+
+        data = _json_safe(data)
 
         # 输出大小限制
         if _size_bytes(data) > tool.max_output_bytes:

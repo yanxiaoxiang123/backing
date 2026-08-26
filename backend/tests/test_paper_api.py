@@ -130,6 +130,39 @@ def test_account_and_orders_endpoints(client):
     assert "cash_events" in events.json()
 
 
+def test_attribution_forwards_run_id(client, monkeypatch):
+    captured = {}
+
+    def fake_report(_db, start, end, *, benchmark_series, run_id):
+        captured.update(start=start, end=end, run_id=run_id)
+        return {"run_id": run_id, "benchmark_available": bool(benchmark_series)}
+
+    monkeypatch.setattr(
+        "app.services.research_data.fetch_index_kline",
+        lambda *_args: {"payload": {"kline": [{"close": 100}, {"close": 101}]}},
+    )
+    monkeypatch.setattr(
+        "app.agent_api.paper.paper_service.attribution_report", fake_report
+    )
+
+    response = client.get(
+        "/api/v1/paper/attribution",
+        params={
+            "run_id": "run-target",
+            "start_date": "2026-08-01",
+            "end_date": "2026-08-05",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["run_id"] == "run-target"
+    assert captured == {
+        "start": "2026-08-01",
+        "end": "2026-08-05",
+        "run_id": "run-target",
+    }
+
+
 def test_no_auth_rejected(no_auth_client):
     resp = no_auth_client.get("/api/v1/paper/account")
     assert resp.status_code == 401

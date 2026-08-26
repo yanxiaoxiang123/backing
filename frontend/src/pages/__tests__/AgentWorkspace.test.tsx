@@ -190,6 +190,23 @@ describe('AgentWorkspace', () => {
     expect(screen.getByText('整手')).toBeInTheDocument()
   })
 
+  it('研究 run 未包含回测时给出补充策略提示', async () => {
+    const user = userEvent.setup()
+    mockRun.run = {
+      run_id: 'run-research-only',
+      objective: '分析 sz.000001',
+      status: 'completed',
+      steps: [],
+    }
+    mockRun.backtestData = null
+    renderWorkspace()
+
+    await user.click(screen.getByRole('tab', { name: /回测/ }))
+    expect(
+      screen.getByText('本次研究未执行回测；请在对话中指定策略和回测目标'),
+    ).toBeInTheDocument()
+  })
+
   it('审批卡批准调用 decide（真实审批 API 由 hook 封装）', async () => {
     const user = userEvent.setup()
     mockRun.approvals = [

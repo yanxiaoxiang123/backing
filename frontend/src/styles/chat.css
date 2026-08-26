@@ -12,6 +12,17 @@
   max-height: calc(100vh - 120px);
 }
 
+.agent-workspace-chat-sidebar {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.agent-workspace-chat-sidebar > .chat-sidebar {
+  width: 100%;
+  height: 100%;
+  max-height: none;
+}
+
 .chat-sidebar-list {
   display: flex;
   flex-direction: column;
@@ -79,8 +90,13 @@
 }
 
 @keyframes chat-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.35; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
 }
 
 /* ---------- 中栏聊天 ---------- */
@@ -88,12 +104,15 @@
   display: flex;
   flex-direction: column;
   min-height: 0;
-  height: 100%;
+  height: auto;
+  flex: 1;
+  overflow: hidden;
   position: relative;
 }
 
 .chat-scroll {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
@@ -116,6 +135,7 @@
 
 .chat-bubble {
   max-width: 86%;
+  min-width: 0;
   padding: 10px 12px;
   border-radius: 10px;
   font-size: 13px;
@@ -133,6 +153,12 @@
 .chat-msg-assistant .chat-bubble {
   background: #f5f5f5;
   border-top-left-radius: 2px;
+}
+
+@media (max-width: 767px) {
+  .chat-msg-assistant .chat-bubble {
+    max-width: 100%;
+  }
 }
 
 .chat-markdown p {
@@ -156,6 +182,17 @@
   background: rgba(0, 0, 0, 0.06);
   padding: 1px 4px;
   border-radius: 4px;
+}
+
+.chat-markdown {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.chat-markdown table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
 }
 
 .chat-markdown pre code {
@@ -222,10 +259,27 @@
   border-radius: 6px;
   padding: 4px 8px;
   flex-wrap: wrap;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.chat-tool-row > code {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.chat-tool-row .ant-tag {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .chat-tool-summary {
   color: rgba(0, 0, 0, 0.45);
+  flex-basis: 100%;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 /* Deep diving 状态 */
@@ -251,12 +305,24 @@
   animation: chat-bounce 1.2s infinite;
 }
 
-.chat-deep-diving-dots i:nth-child(2) { animation-delay: 0.15s; }
-.chat-deep-diving-dots i:nth-child(3) { animation-delay: 0.3s; }
+.chat-deep-diving-dots i:nth-child(2) {
+  animation-delay: 0.15s;
+}
+.chat-deep-diving-dots i:nth-child(3) {
+  animation-delay: 0.3s;
+}
 
 @keyframes chat-bounce {
-  0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
-  30% { transform: translateY(-3px); opacity: 1; }
+  0%,
+  60%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.4;
+  }
+  30% {
+    transform: translateY(-3px);
+    opacity: 1;
+  }
 }
 
 /* 回到底部 */

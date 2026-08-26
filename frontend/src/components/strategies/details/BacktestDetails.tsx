@@ -1,48 +1,20 @@
-import { Card, Descriptions, Table, Tabs, Tag } from 'antd'
+import { Button, Card, Descriptions, Table, Tabs } from 'antd'
 import { BarChartOutlined } from '@ant-design/icons'
 import ReactECharts from 'echarts-for-react'
 import type {
-  SignalStats,
-  StrategyBacktestResponse,
   OptimizeResponse,
   CompareResponse,
+  CompareStrategyResult,
 } from '../../../types'
 import { getCompareChartOption } from '../../../utils/chart'
 import { COMPARE_COLORS } from '../../../constants/strategy'
 
 interface BacktestDetailsProps {
-  signalStats: SignalStats | null
-  backtestResult: StrategyBacktestResponse | null
   optimizeResult: OptimizeResponse | null
   compareResult: CompareResponse | null
+  onRunBestBacktest?: () => void
+  onSelectStrategy?: (strategyName: string) => void
 }
-
-const tradeColumns = [
-  { title: '日期', dataIndex: 'date', key: 'date' },
-  {
-    title: '操作',
-    dataIndex: 'action',
-    key: 'action',
-    render: (action: string) => (
-      <Tag color={action === 'buy' ? 'green' : 'red'}>
-        {action === 'buy' ? '买入' : '卖出'}
-      </Tag>
-    ),
-  },
-  {
-    title: '价格',
-    dataIndex: 'price',
-    key: 'price',
-    render: (v: number) => v.toFixed(2),
-  },
-  { title: '数量', dataIndex: 'quantity', key: 'quantity' },
-  {
-    title: '金额',
-    dataIndex: 'amount',
-    key: 'amount',
-    render: (v: number) => v.toFixed(2),
-  },
-]
 
 const optimizeColumns = [
   {
@@ -77,168 +49,103 @@ const optimizeColumns = [
   },
 ]
 
-const compareColumns: any[] = [
-  {
-    title: '策略',
-    dataIndex: 'strategy_name',
-    key: 'strategy_name',
-    render: (name: string, _: unknown, index: number) => (
-      <span
-        style={{
-          color: COMPARE_COLORS[index % COMPARE_COLORS.length],
-          fontWeight: 600,
-        }}
-      >
-        {name}
-      </span>
-    ),
-  },
-  {
-    title: '总收益率',
-    dataIndex: ['metrics', 'total_return'],
-    key: 'total_return',
-    sorter: (
-      a: { metrics: { total_return: number } },
-      b: { metrics: { total_return: number } },
-    ) => a.metrics.total_return - b.metrics.total_return,
-    render: (v: number) => (
-      <span style={{ color: v >= 0 ? '#34c759' : '#ff3b30', fontWeight: 600 }}>
-        {v.toFixed(2)}%
-      </span>
-    ),
-  },
-  {
-    title: '夏普比率',
-    dataIndex: ['metrics', 'sharpe_ratio'],
-    key: 'sharpe_ratio',
-    sorter: (
-      a: { metrics: { sharpe_ratio: number } },
-      b: { metrics: { sharpe_ratio: number } },
-    ) => a.metrics.sharpe_ratio - b.metrics.sharpe_ratio,
-    render: (v: number) => v.toFixed(4),
-  },
-  {
-    title: '最大回撤',
-    dataIndex: ['metrics', 'max_drawdown'],
-    key: 'max_drawdown',
-    sorter: (
-      a: { metrics: { max_drawdown: number } },
-      b: { metrics: { max_drawdown: number } },
-    ) => a.metrics.max_drawdown - b.metrics.max_drawdown,
-    render: (v: number) => <span style={{ color: '#ff3b30' }}>{v.toFixed(2)}%</span>,
-  },
-  {
-    title: '胜率',
-    dataIndex: ['metrics', 'win_rate'],
-    key: 'win_rate',
-    sorter: (
-      a: { metrics: { win_rate: number } },
-      b: { metrics: { win_rate: number } },
-    ) => a.metrics.win_rate - b.metrics.win_rate,
-    render: (v: number) => `${v.toFixed(2)}%`,
-  },
-  {
-    title: '交易次数',
-    dataIndex: ['metrics', 'total_trades'],
-    key: 'total_trades',
-    sorter: (
-      a: { metrics: { total_trades: number } },
-      b: { metrics: { total_trades: number } },
-    ) => a.metrics.total_trades - b.metrics.total_trades,
-  },
-]
+function getCompareColumns(onSelectStrategy?: (strategyName: string) => void): any[] {
+  const columns: any[] = [
+    {
+      title: '策略',
+      dataIndex: 'strategy_name',
+      key: 'strategy_name',
+      render: (name: string, _: unknown, index: number) => (
+        <span
+          style={{
+            color: COMPARE_COLORS[index % COMPARE_COLORS.length],
+            fontWeight: 600,
+          }}
+        >
+          {name}
+        </span>
+      ),
+    },
+    {
+      title: '总收益率',
+      dataIndex: ['metrics', 'total_return'],
+      key: 'total_return',
+      sorter: (
+        a: { metrics: { total_return: number } },
+        b: { metrics: { total_return: number } },
+      ) => a.metrics.total_return - b.metrics.total_return,
+      render: (v: number) => (
+        <span style={{ color: v >= 0 ? '#34c759' : '#ff3b30', fontWeight: 600 }}>
+          {v.toFixed(2)}%
+        </span>
+      ),
+    },
+    {
+      title: '夏普比率',
+      dataIndex: ['metrics', 'sharpe_ratio'],
+      key: 'sharpe_ratio',
+      sorter: (
+        a: { metrics: { sharpe_ratio: number } },
+        b: { metrics: { sharpe_ratio: number } },
+      ) => a.metrics.sharpe_ratio - b.metrics.sharpe_ratio,
+      render: (v: number) => v.toFixed(4),
+    },
+    {
+      title: '最大回撤',
+      dataIndex: ['metrics', 'max_drawdown'],
+      key: 'max_drawdown',
+      sorter: (
+        a: { metrics: { max_drawdown: number } },
+        b: { metrics: { max_drawdown: number } },
+      ) => a.metrics.max_drawdown - b.metrics.max_drawdown,
+      render: (v: number) => <span style={{ color: '#ff3b30' }}>{v.toFixed(2)}%</span>,
+    },
+    {
+      title: '胜率',
+      dataIndex: ['metrics', 'win_rate'],
+      key: 'win_rate',
+      sorter: (
+        a: { metrics: { win_rate: number } },
+        b: { metrics: { win_rate: number } },
+      ) => a.metrics.win_rate - b.metrics.win_rate,
+      render: (v: number) => `${v.toFixed(2)}%`,
+    },
+    {
+      title: '交易次数',
+      dataIndex: ['metrics', 'total_trades'],
+      key: 'total_trades',
+      sorter: (
+        a: { metrics: { total_trades: number } },
+        b: { metrics: { total_trades: number } },
+      ) => a.metrics.total_trades - b.metrics.total_trades,
+    },
+  ]
+  if (onSelectStrategy) {
+    columns.push({
+      title: '操作',
+      key: 'select',
+      render: (_: unknown, record: CompareStrategyResult) => (
+        <Button size="small" onClick={() => onSelectStrategy(record.strategy_name)}>
+          选择策略
+        </Button>
+      ),
+    })
+  }
+  return columns
+}
 
 export function BacktestDetails({
-  backtestResult,
   optimizeResult,
   compareResult,
+  onRunBestBacktest,
+  onSelectStrategy,
 }: BacktestDetailsProps) {
-  if (!backtestResult && !optimizeResult && !compareResult) {
+  if (!optimizeResult && !compareResult) {
     return null
   }
 
   return (
     <>
-      {/* Backtest Results */}
-      {backtestResult && (
-        <Card title="回测结果">
-          <Tabs
-            items={[
-              {
-                key: 'metrics',
-                label: '绩效指标',
-                children: (
-                  <Descriptions column={2} size="small" bordered>
-                    <Descriptions.Item label="策略">
-                      {backtestResult.strategy_name}
-                    </Descriptions.Item>
-                    <Descriptions.Item label="股票">
-                      {backtestResult.stock_code}
-                    </Descriptions.Item>
-                    <Descriptions.Item label="初始资金">
-                      {backtestResult.initial_capital.toLocaleString()}
-                    </Descriptions.Item>
-                    <Descriptions.Item label="最终资金">
-                      {backtestResult.final_capital.toLocaleString()}
-                    </Descriptions.Item>
-                    <Descriptions.Item label="总收益率">
-                      <span
-                        style={{
-                          color:
-                            backtestResult.metrics.total_return >= 0
-                              ? '#34c759'
-                              : '#ff3b30',
-                        }}
-                      >
-                        {backtestResult.metrics.total_return.toFixed(2)}%
-                      </span>
-                    </Descriptions.Item>
-                    <Descriptions.Item label="年化收益率">
-                      <span
-                        style={{
-                          color:
-                            backtestResult.metrics.annual_return >= 0
-                              ? '#34c759'
-                              : '#ff3b30',
-                        }}
-                      >
-                        {backtestResult.metrics.annual_return.toFixed(2)}%
-                      </span>
-                    </Descriptions.Item>
-                    <Descriptions.Item label="夏普比率">
-                      {backtestResult.metrics.sharpe_ratio.toFixed(4)}
-                    </Descriptions.Item>
-                    <Descriptions.Item label="最大回撤">
-                      {backtestResult.metrics.max_drawdown.toFixed(2)}%
-                    </Descriptions.Item>
-                    <Descriptions.Item label="胜率">
-                      {backtestResult.metrics.win_rate.toFixed(2)}%
-                    </Descriptions.Item>
-                    <Descriptions.Item label="交易次数">
-                      {backtestResult.metrics.total_trades}
-                    </Descriptions.Item>
-                  </Descriptions>
-                ),
-              },
-              {
-                key: 'trades',
-                label: '交易记录',
-                children: (
-                  <Table
-                    dataSource={backtestResult.trades}
-                    columns={tradeColumns}
-                    rowKey={(record, index) => `${record.date}-${index}`}
-                    size="small"
-                    pagination={{ pageSize: 10 }}
-                    scroll={{ y: 300 }}
-                  />
-                ),
-              },
-            ]}
-          />
-        </Card>
-      )}
-
       {/* Optimize Results */}
       {optimizeResult && (
         <Card title="优化结果">
@@ -256,6 +163,15 @@ export function BacktestDetails({
                 {optimizeResult.best_metrics.total_return.toFixed(2)}%
               </Descriptions.Item>
             </Descriptions>
+            {onRunBestBacktest && (
+              <Button
+                type="primary"
+                style={{ marginTop: 'var(--space-md)' }}
+                onClick={onRunBestBacktest}
+              >
+                用最优参数回测并保存
+              </Button>
+            )}
           </div>
           <Table
             dataSource={optimizeResult.all_results}
@@ -305,7 +221,7 @@ export function BacktestDetails({
                 children: (
                   <Table
                     dataSource={compareResult.results.filter((r) => !r.error)}
-                    columns={compareColumns}
+                    columns={getCompareColumns(onSelectStrategy)}
                     rowKey="strategy_name"
                     size="small"
                     pagination={false}

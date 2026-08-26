@@ -3,6 +3,7 @@ import type {
   SignalDataPoint,
   StrategyBacktestResponse,
   CompareResponse,
+  PortfolioValue,
 } from '../types'
 import { COMPARE_COLORS } from '../constants/strategy'
 
@@ -276,5 +277,54 @@ export function getCompareChartOption(compareResult: CompareResponse): EChartsOp
       },
     ],
     series: seriesData,
+  }
+}
+
+export function getPortfolioChartOption(values: PortfolioValue[] = []): EChartsOption {
+  if (values.length === 0) return {}
+
+  return {
+    backgroundColor: '#fff',
+    animation: false,
+    tooltip: {
+      trigger: 'axis',
+      backgroundColor: '#fff',
+      borderColor: 'var(--color-border)',
+      textStyle: { color: 'var(--color-text-primary)' },
+      valueFormatter: (value) => `¥${Number(value).toLocaleString()}`,
+    },
+    grid: { left: '10%', right: '5%', bottom: '15%', top: '12%' },
+    xAxis: {
+      type: 'category',
+      data: values.map((item) => item.date),
+      axisLine: { lineStyle: { color: 'var(--color-border)' } },
+      axisLabel: { color: 'var(--color-text-tertiary)', fontSize: 10 },
+    },
+    yAxis: {
+      type: 'value',
+      name: '资金 (元)',
+      axisLine: { show: false },
+      axisLabel: {
+        color: 'var(--color-text-tertiary)',
+        fontSize: 10,
+        formatter: (value: number) => `¥${(value / 10000).toFixed(1)}万`,
+      },
+      splitLine: { lineStyle: { color: 'var(--color-border-light)', type: 'dashed' } },
+    },
+    dataZoom: [
+      { type: 'inside', start: 0, end: 100 },
+      { show: true, type: 'slider', bottom: 8, start: 0, end: 100, height: 18 },
+    ],
+    series: [
+      {
+        name: '组合价值',
+        type: 'line',
+        smooth: true,
+        symbol: 'none',
+        data: values.map((item) => item.total_value),
+        lineStyle: { color: '#0071e3', width: 2 },
+        areaStyle: { color: 'rgba(0, 113, 227, 0.12)' },
+      },
+    ],
   }
 }

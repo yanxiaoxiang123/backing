@@ -5,6 +5,7 @@
 """
 
 import hashlib
+import json
 from datetime import date, timedelta
 
 import pandas as pd
@@ -269,6 +270,9 @@ def test_fundamental_stock_info(db):
     assert result["ok"] is True
     assert result["data"]["name"] == "浦发银行"
     assert result["data"]["market"] == "sh"
+    assert isinstance(result["data"]["as_of"], str)
+    # Agent chat persists the complete tool result in a JSON column.
+    json.dumps(result, ensure_ascii=False)
 
 
 def test_fundamental_unknown_stock_fails(db):

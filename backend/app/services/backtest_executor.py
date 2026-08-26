@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from datetime import date
 from typing import Any, Dict, List, Optional
 
@@ -52,6 +52,7 @@ class BacktestExecutionResult:
     trades: List[TradeRecord]
     metrics: BacktestMetricsSummary
     portfolio_values: List[PortfolioValue]
+    parameters: Dict[str, Any] = field(default_factory=dict)
 
     def to_api_dict(self) -> Dict[str, Any]:
         return {
@@ -74,6 +75,7 @@ class BacktestExecutionResult:
                 }
                 for pv in self.portfolio_values
             ],
+            "parameters": dict(self.parameters),
         }
 
 
@@ -105,12 +107,12 @@ class BacktestExecutor:
             [
                 {
                     "date": k.date,
-                    "open": k.open,
-                    "high": k.high,
-                    "low": k.low,
-                    "close": k.close,
-                    "volume": k.volume,
-                    "amount": k.amount or 0.0,
+                    "open": float(k.open),
+                    "high": float(k.high),
+                    "low": float(k.low),
+                    "close": float(k.close),
+                    "volume": float(k.volume),
+                    "amount": float(k.amount or 0.0),
                 }
                 for k in klines
             ]
@@ -144,7 +146,14 @@ class BacktestExecutor:
         if initial_capital <= 0:
             raise ValueError("initial_capital must be positive")
 
-        strategy = strategy_class(**(parameters or {}))
+        effective_parameters = dict(parameters or {})
+        strategy = strategy_class(**effective_parameters)
+        # Persist the resolved values, including defaults that were omitted
+        # from the request, so the history record is independently reproducible.
+        effective_parameters = {
+            name: definition.default
+            for name, definition in strategy.get_parameters().items()
+        }
         signal_data = strategy.generate_signals(df.copy())
         if "signal" not in signal_data.columns:
             raise ValueError("Strategy must generate a 'signal' column")
@@ -156,6 +165,7 @@ class BacktestExecutor:
             final_capital=final_capital,
             start_date=start_date,
             end_date=end_date,
+            portfolio_values=portfolio_values,
         )
 
         return BacktestExecutionResult(
@@ -168,6 +178,7 @@ class BacktestExecutor:
             trades=trades,
             metrics=metrics,
             portfolio_values=portfolio_values,
+            parameters=effective_parameters,
         )
 
     def persist(self, execution: BacktestExecutionResult) -> BacktestResult:
@@ -185,26 +196,41 @@ class BacktestExecutor:
             max_drawdown=execution.metrics.max_drawdown,
             win_rate=execution.metrics.win_rate,
             total_trades=execution.metrics.total_trades,
+            parameters=dict(execution.parameters),
+            portfolio_values=[
+                {
+                    "date": pv.date.isoformat() if hasattr(pv.date, "isoformat") else str(pv.date),
+                    "total_value": round(pv.total_value, 2),
+                    "cash": round(pv.cash, 2),
+                    "position_value": round(pv.position_value, 2),
+                    "position": pv.position,
+                }
+                for pv in execution.portfolio_values
+            ],
         )
-        self.db.add(result)
-        self.db.flush()
+        try:
+            self.db.add(result)
+            self.db.flush()
 
-        for trade in execution.trades:
-            self.db.add(
-                BacktestTrade(
-                    backtest_result_id=result.id,
-                    stock_code=execution.stock_code,
-                    trade_date=trade.date,
-                    action=trade.action,
-                    price=trade.price,
-                    quantity=trade.quantity,
-                    amount=trade.amount,
+            for trade in execution.trades:
+                self.db.add(
+                    BacktestTrade(
+                        backtest_result_id=result.id,
+                        stock_code=execution.stock_code,
+                        trade_date=trade.date,
+                        action=trade.action,
+                        price=trade.price,
+                        quantity=trade.quantity,
+                        amount=trade.amount,
+                    )
                 )
-            )
 
-        self.db.commit()
-        self.db.refresh(result)
-        return result
+            self.db.commit()
+            self.db.refresh(result)
+            return result
+        except Exception:
+            self.db.rollback()
+            raise
 
     def _ensure_strategy_record(self, strategy_name: str) -> Strategy:
         strategy = (
@@ -227,7 +253,9 @@ class BacktestExecutor:
             parameters={},
         )
         self.db.add(strategy)
-        self.db.commit()
+        # Keep strategy creation in the same transaction as its backtest
+        # result; a failed snapshot must not leave an orphan strategy row.
+        self.db.flush()
         self.db.refresh(strategy)
         return strategy
 
@@ -247,53 +275,51 @@ class BacktestExecutor:
             price = float(row["close"])
             signal = row.get("signal", 0)
 
-            # Record portfolio value BEFORE processing the signal
+            if not pd.isna(signal) and signal != 0:
+                if signal == 1 and position == 0:
+                    shares = int(capital / price / 100) * 100
+                    if shares > 0:
+                        amount = shares * price
+                        position = shares
+                        capital -= amount
+                        trades.append(
+                            TradeRecord(
+                                date=trade_date,
+                                action="buy",
+                                price=round(price, 4),
+                                quantity=shares,
+                                amount=round(amount, 4),
+                            )
+                        )
+                elif signal == -1 and position > 0:
+                    amount = position * price
+                    capital += amount
+                    trades.append(
+                        TradeRecord(
+                            date=trade_date,
+                            action="sell",
+                            price=round(price, 4),
+                            quantity=position,
+                            amount=round(amount, 4),
+                        )
+                    )
+                    position = 0
+
+            # Store end-of-bar value so the saved curve includes today's trade.
             position_value = position * price
-            total_value = capital + position_value
             portfolio_values.append(
                 PortfolioValue(
                     date=trade_date,
-                    total_value=total_value,
+                    total_value=capital + position_value,
                     cash=capital,
                     position_value=position_value,
                     position=position,
                 )
             )
 
-            if pd.isna(signal) or signal == 0:
-                continue
-
-            if signal == 1 and position == 0:
-                shares = int(capital / price / 100) * 100
-                if shares <= 0:
-                    continue
-                amount = shares * price
-                position = shares
-                capital -= amount
-                trades.append(
-                    TradeRecord(
-                        date=trade_date,
-                        action="buy",
-                        price=round(price, 4),
-                        quantity=shares,
-                        amount=round(amount, 4),
-                    )
-                )
-            elif signal == -1 and position > 0:
-                amount = position * price
-                capital += amount
-                trades.append(
-                    TradeRecord(
-                        date=trade_date,
-                        action="sell",
-                        price=round(price, 4),
-                        quantity=position,
-                        amount=round(amount, 4),
-                    )
-                )
-                position = 0
-
-        return trades, capital, portfolio_values
+        final_price = float(signal_data.iloc[-1]["close"])
+        final_capital = capital + position * final_price
+        return trades, final_capital, portfolio_values
 
     def _calculate_metrics(
         self,
@@ -302,28 +328,27 @@ class BacktestExecutor:
         final_capital: float,
         start_date: date,
         end_date: date,
+        portfolio_values: List[PortfolioValue],
     ) -> BacktestMetricsSummary:
         days = max((end_date - start_date).days, 1)
         total_return = (final_capital - initial_capital) / initial_capital * 100
         annual_return = (pow(final_capital / initial_capital, 365 / days) - 1) * 100
 
-        capital_curve = [initial_capital]
-        current_capital = initial_capital
+        capital_curve = [value.total_value for value in portfolio_values]
+        if not capital_curve:
+            capital_curve = [initial_capital, final_capital]
         closed_returns = []
         open_buy: Optional[TradeRecord] = None
 
         for trade in trades:
             if trade.action == "buy":
-                current_capital -= trade.amount
                 open_buy = trade
             else:
-                current_capital += trade.amount
                 if open_buy and open_buy.price > 0:
                     closed_returns.append(
                         (trade.price - open_buy.price) / open_buy.price
                     )
                 open_buy = None
-            capital_curve.append(current_capital)
 
         rolling_max = np.maximum.accumulate(capital_curve)
         drawdown = (np.array(capital_curve) - rolling_max) / rolling_max * 100

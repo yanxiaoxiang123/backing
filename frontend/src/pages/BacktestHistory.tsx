@@ -49,7 +49,27 @@ function BacktestHistory() {
   }
 
   const getChartOption = () => {
-    if (!currentResult || !currentResult.trades.length) return {}
+    if (!currentResult) return {}
+
+    if (currentResult.portfolio_values?.length) {
+      const values = currentResult.portfolio_values
+      return {
+        tooltip: { trigger: 'axis' },
+        grid: { left: '10%', right: '5%', bottom: '10%', top: '15%' },
+        xAxis: { type: 'category', data: values.map((item) => item.date) },
+        yAxis: { type: 'value', name: '资金(元)' },
+        series: [
+          {
+            name: '组合价值',
+            data: values.map((item) => item.total_value),
+            type: 'line',
+            smooth: true,
+          },
+        ],
+      }
+    }
+
+    if (!currentResult.trades.length) return {}
 
     const trades = currentResult.trades
     const dates: string[] = []
@@ -122,6 +142,13 @@ function BacktestHistory() {
       dataIndex: 'id',
       key: 'id',
       width: 60,
+    },
+    {
+      title: '策略',
+      dataIndex: 'strategy_name',
+      key: 'strategy_name',
+      width: 120,
+      render: (name?: string) => name || '历史策略',
     },
     {
       title: '股票代码',
@@ -351,6 +378,18 @@ function BacktestHistory() {
                 suffix="%"
                 color="var(--color-danger)"
               />
+            </div>
+
+            <div
+              style={{
+                marginBottom: 'var(--space-md)',
+                color: 'var(--color-text-secondary)',
+              }}
+            >
+              参数快照：
+              {currentResult.parameters
+                ? JSON.stringify(currentResult.parameters)
+                : '未保存（旧记录）'}
             </div>
 
             {/* 资金曲线 */}

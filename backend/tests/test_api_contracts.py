@@ -3,6 +3,7 @@
 不触碰真实数据提供方：仅覆盖不依赖外部服务的端点。
 """
 
+from datetime import date, timedelta
 from unittest.mock import patch
 
 import pytest
@@ -13,10 +14,12 @@ from sqlalchemy.orm import sessionmaker
 
 import app.services.job_store as job_store_module
 from app.api.routes import router as api_router
+from app.api.screener_agent import router as screener_agent_router
 from app.api.strategies import router as strategies_router
 from app.auth import get_current_api_key
-from app.config import Base
+from app.config import Base, get_db
 from app.error_handlers import register_error_handlers
+from app.models.models import DailyKline, Stock
 from app.services.job_store import job_store
 
 
@@ -39,6 +42,7 @@ def client(db_session):
     app = FastAPI()
     register_error_handlers(app)
     app.include_router(api_router, prefix="/api/v1", tags=["api"])
+    app.include_router(screener_agent_router, prefix="/api/v1")
     app.include_router(strategies_router)
     app.dependency_overrides[get_current_api_key] = lambda: "test-key"
     return TestClient(app, raise_server_exceptions=False)
@@ -122,6 +126,76 @@ class TestStrategiesContract:
         body = resp.json()["error"]
         assert body["code"] == "validation_error"
         assert "detail" in body
+
+    def test_strategy_backtest_is_saved_and_exposed_in_history(self, tmp_path):
+        engine = create_engine(f"sqlite:///{tmp_path / 'strategy_backtest.db'}")
+        Base.metadata.create_all(bind=engine)
+        session_factory = sessionmaker(bind=engine)
+        session = session_factory()
+        session.add(Stock(code="sh.600000", name="浦发银行", market="sh"))
+        for idx, close in enumerate([10, 10.2, 10.5, 10.9, 11.2, 10.8, 10.4, 10.0]):
+            session.add(
+                DailyKline(
+                    stock_code="sh.600000",
+                    date=date(2024, 1, 1) + timedelta(days=idx),
+                    open=close - 0.1,
+                    high=close + 0.2,
+                    low=close - 0.2,
+                    close=close,
+                    volume=100000,
+                    amount=close * 100000,
+                )
+            )
+        session.commit()
+
+        app = FastAPI()
+        register_error_handlers(app)
+        app.include_router(strategies_router)
+        app.include_router(api_router, prefix="/api/v1")
+        app.dependency_overrides[get_current_api_key] = lambda: "test-key"
+        app.dependency_overrides[get_db] = lambda: session_factory()
+
+        response = TestClient(app).post(
+            "/api/v1/strategies/backtest",
+            json={
+                "strategy_name": "ma_cross",
+                "stock_code": "sh.600000",
+                "start_date": "2024-01-01",
+                "end_date": "2024-01-08",
+                "initial_capital": 100000,
+                "parameters": {"short_period": 2, "long_period": 3},
+            },
+        )
+
+        assert response.status_code == 200, response.text
+        payload = response.json()
+        assert payload["result_id"] > 0
+        assert payload["parameters"] == {"short_period": 2, "long_period": 3}
+        history = TestClient(app).get("/api/v1/backtest/results")
+        assert history.status_code == 200
+        assert history.json()[0]["id"] == payload["result_id"]
+        detail = TestClient(app).get(f"/api/v1/backtest/{payload['result_id']}")
+        assert detail.status_code == 200
+        assert detail.json()["portfolio_values"]
+
+
+class TestScreenerHistoryContract:
+    def test_history_returns_only_persisted_screener_jobs(self, client, db_session):
+        job_store.create("sync_stocks")
+        job = job_store.create("screener")
+        job_store.update(
+            job.id,
+            status="completed",
+            progress=1.0,
+            result={"success": True, "total_scanned": 5200, "results": []},
+        )
+
+        response = client.get("/api/v1/screener/history")
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert [item["id"] for item in payload] == [job.id]
+        assert payload[0]["result"]["total_scanned"] == 5200
 
 
 class TestRealtimeHealthEndpoint:

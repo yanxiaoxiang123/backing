@@ -167,6 +167,29 @@ class TestEquitySeries:
         assert "equity_series" in report
         assert report["dates"][-1] == "2026-08-05"
 
+    def test_attribution_is_scoped_to_run(self, db):
+        _seed_account_with_fills(db)
+        db.add(AgentRun(run_id="run-att-empty", objective="无成交测试"))
+        db.commit()
+
+        report = paper_service.attribution_report(
+            db,
+            "2026-08-01",
+            "2026-08-05",
+            benchmark_series=[100.0, 100.0, 100.0, 102.0, 103.0],
+            run_id="run-att-1",
+        )
+
+        assert report["run_id"] == "run-att-1"
+        assert paper_service.total_costs(db, run_id="run-att-1") == pytest.approx(5.1)
+        with pytest.raises(ValueError, match="权益序列不足"):
+            paper_service.attribution_report(
+                db,
+                "2026-08-01",
+                "2026-08-05",
+                run_id="run-att-empty",
+            )
+
     def test_attribution_degrades_without_benchmark(self, db):
         _seed_account_with_fills(db)
         report = paper_service.attribution_report(db, "2026-08-01", "2026-08-05")

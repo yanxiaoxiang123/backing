@@ -141,7 +141,9 @@ def test_migration_reversible(db_url) -> None:
     cfg = _alembic_config(db_url)
 
     command.upgrade(cfg, "head")
-    command.downgrade(cfg, "-1")
+    # The repository now has a later backtest snapshot migration; explicitly
+    # downgrade past the chat migration instead of relying on ``-1``.
+    command.downgrade(cfg, "20260817_02")
 
     engine = create_engine(db_url)
     try:

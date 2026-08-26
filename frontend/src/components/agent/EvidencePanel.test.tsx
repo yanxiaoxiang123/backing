@@ -38,6 +38,8 @@ describe('EvidencePanel', () => {
     expect(screen.getByText('假设（无证据）')).toBeInTheDocument()
     expect(screen.getByText('announcement-1')).toBeInTheDocument()
     expect(screen.getByText('置信度 80%')).toBeInTheDocument()
+    expect(screen.getByText('announcement-1')).toHaveClass('agent-evidence-source-id')
+    expect(screen.getByText('公告披露业绩预增')).toHaveClass('agent-evidence-summary')
   })
 
   it('空数据显示占位', () => {

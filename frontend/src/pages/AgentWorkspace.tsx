@@ -84,7 +84,8 @@ export default function AgentWorkspace() {
   const [klines, setKlines] = useState<DailyKline[]>([])
 
   const stockCode = useMemo(
-    () => run?.objective?.match(/\b(?:sh|sz)\.\d{6}\b/)?.[0] ?? null,
+    () =>
+      run?.objective?.match(/(?:sh|sz|bj)\.\d{6}(?!\d)/i)?.[0]?.toLowerCase() ?? null,
     [run],
   )
 
@@ -203,7 +204,12 @@ export default function AgentWorkspace() {
                     />
                   )}
                   {runError && (
-                    <Alert type="error" showIcon message={runError} style={{ marginTop: 8 }} />
+                    <Alert
+                      type="error"
+                      showIcon
+                      message={runError}
+                      style={{ marginTop: 8 }}
+                    />
                   )}
                   {klines.length > 0 ? (
                     <KlineChart klines={klines} />
@@ -262,7 +268,7 @@ export default function AgentWorkspace() {
             {
               key: 'attribution',
               label: '归因',
-              children: <AttributionPanel />,
+              children: <AttributionPanel runId={run?.run_id ?? null} />,
             },
             {
               key: 'alerts',

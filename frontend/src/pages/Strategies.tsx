@@ -13,7 +13,8 @@ import {
 import { logger } from '../utils/logger'
 import { usePersistedState } from '../hooks/usePersistedState'
 import { useJobPolling } from '../hooks/useJobPolling'
-import { getChartOption, KlineData } from '../utils/chart'
+import { getChartOption, getPortfolioChartOption, KlineData } from '../utils/chart'
+import { buildOptimizationGrid } from '../utils/optimization'
 import dayjs from 'dayjs'
 import { StrategyList } from '../components/strategies/StrategyList'
 import { StrategyConfig } from '../components/strategies/StrategyConfig'
@@ -150,7 +151,6 @@ function Strategies() {
       })
       setSignals(response.data)
       setSignalStats(response.stats ?? null)
-
     } catch (error) {
       message.error(getApiErrorMessage(error))
       logger.error(error)
@@ -178,6 +178,7 @@ function Strategies() {
       })
       setBacktestResult(response)
       setSignals([])
+      message.success(`回测已保存，历史记录 #${response.result_id}`)
     } catch (error) {
       message.error(getApiErrorMessage(error))
       logger.error(error)
@@ -205,27 +206,11 @@ function Strategies() {
       const strategy = strategies.find((s) => s.name === selectedStrategy)
       if (!strategy) return
 
-      const paramGrid: Record<string, number[]> = {}
-      Object.entries(strategy.parameters).forEach(([key, config]) => {
-        if (
-          config.type === 'slider' &&
-          config.min !== undefined &&
-          config.max !== undefined
-        ) {
-          if (
-            selectedStrategy === 'lstm_5d' &&
-            !['buy_threshold', 'sell_threshold', 'min_confidence'].includes(key)
-          ) {
-            return
-          }
-          const step = config.step || 1
-          const values: number[] = []
-          for (let v = config.min; v <= config.max; v += step) {
-            values.push(v)
-          }
-          paramGrid[key] = values
-        }
-      })
+      const includedNames =
+        selectedStrategy === 'lstm_5d'
+          ? new Set(['buy_threshold', 'sell_threshold', 'min_confidence'])
+          : undefined
+      const paramGrid = buildOptimizationGrid(strategy, 200, includedNames)
 
       if (Object.keys(paramGrid).length === 0) {
         message.warning('当前策略无可优化参数')
@@ -290,6 +275,10 @@ function Strategies() {
     () => getChartOption(klineData, signals, backtestResult),
     [klineData, signals, backtestResult],
   )
+  const getCurrentPortfolioChartOption = useMemo(
+    () => getPortfolioChartOption(backtestResult?.portfolio_values ?? []),
+    [backtestResult],
+  )
 
   return (
     <div className="fade-in">
@@ -344,12 +333,13 @@ function Strategies() {
           loading={{ signals: loadingSignals, backtest: loadingBacktest }}
           chartRef={chartRef}
           chartOption={getCurrentChartOption}
+          portfolioChartOption={getCurrentPortfolioChartOption}
         >
           <BacktestDetails
-            signalStats={signalStats}
-            backtestResult={backtestResult}
             optimizeResult={optimizeResult}
             compareResult={compareResult}
+            onRunBestBacktest={handleRunBacktest}
+            onSelectStrategy={setSelectedStrategy}
           />
         </StrategyResults>
       </div>

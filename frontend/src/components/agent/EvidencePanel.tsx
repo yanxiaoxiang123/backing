@@ -43,9 +43,11 @@ export function EvidencePanel({ claims }: { claims: Claim[] }) {
           </Typography.Paragraph>
           {claim.evidence.map((item, i) => (
             <div key={i} className="agent-evidence-source">
-              <Tag>{item.vendor}</Tag>
-              <span>{item.source_id}</span>
-              <span className="agent-evidence-asof">{item.as_of}</span>
+              <div className="agent-evidence-source-meta">
+                <Tag>{item.vendor}</Tag>
+                <span className="agent-evidence-source-id">{item.source_id}</span>
+                <span className="agent-evidence-asof">{item.as_of}</span>
+              </div>
               <div className="agent-evidence-summary">{item.summary}</div>
             </div>
           ))}

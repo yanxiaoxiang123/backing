@@ -181,8 +181,10 @@ export async function getArtifact(
   return resp.data
 }
 
-export async function getAttribution(): Promise<AttributionData> {
-  const resp = await api.get<AttributionData>('/paper/attribution')
+export async function getAttribution(runId: string): Promise<AttributionData> {
+  const resp = await api.get<AttributionData>('/paper/attribution', {
+    params: { run_id: runId },
+  })
   return resp.data
 }
 

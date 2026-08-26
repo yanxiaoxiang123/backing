@@ -37,11 +37,11 @@ def get_kline_data(
     data = [
         {
             "date": k.date,
-            "open": k.open,
-            "high": k.high,
-            "low": k.low,
-            "close": k.close,
-            "volume": k.volume,
+            "open": float(k.open),
+            "high": float(k.high),
+            "low": float(k.low),
+            "close": float(k.close),
+            "volume": float(k.volume),
         }
         for k in klines
     ]

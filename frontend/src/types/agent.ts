@@ -125,6 +125,7 @@ export interface ArtifactRecord {
 }
 
 export interface AttributionData {
+  run_id?: string | null
   start_date: string
   end_date: string
   total_portfolio_return: number

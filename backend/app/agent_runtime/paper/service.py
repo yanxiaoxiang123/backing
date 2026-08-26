@@ -481,7 +481,13 @@ def account_state(db: Session) -> dict[str, Any]:
     }
 
 
-def equity_series(db: Session, start_date: str, end_date: str) -> list[dict[str, Any]]:
+def equity_series(
+    db: Session,
+    start_date: str,
+    end_date: str,
+    *,
+    run_id: str | None = None,
+) -> list[dict[str, Any]]:
     """每日权益序列：现金（初始 + 累计事件）+ 持仓市值（按日收盘标记）。
 
     确定性、可审计；用于盘后归因（US-3.3）。
@@ -492,36 +498,50 @@ def equity_series(db: Session, start_date: str, end_date: str) -> list[dict[str,
 
     start = date.fromisoformat(start_date)
     end = date.fromisoformat(end_date)
+    fills_query = db.query(PaperFill, PaperOrder).join(
+        PaperOrder, PaperOrder.order_id == PaperFill.order_id
+    )
+    if run_id:
+        fills_query = fills_query.filter(PaperOrder.run_id == run_id)
+    fills = fills_query.all()
+    if run_id and not fills:
+        return []
+
+    order_ids = {order.order_id for _, order in fills}
+    stock_codes = {order.stock_code for _, order in fills}
+    days_query = db.query(DailyKline.date).filter(
+        DailyKline.date >= start, DailyKline.date <= end
+    )
+    if stock_codes:
+        days_query = days_query.filter(DailyKline.stock_code.in_(stock_codes))
     days = [
         row[0]
-        for row in db.query(DailyKline.date)
-        .filter(DailyKline.date >= start, DailyKline.date <= end)
-        .distinct()
+        for row in days_query.distinct()
         .order_by(DailyKline.date.asc())
         .all()
     ]
     if not days:
         return []
 
-    cash_events = (
-        db.query(PaperCashEvent)
-        .filter(PaperCashEvent.created_at >= datetime.combine(start, time.min))
-        .all()
+    cash_query = db.query(PaperCashEvent).filter(
+        PaperCashEvent.created_at >= datetime.combine(start, time.min),
+        PaperCashEvent.created_at <= datetime.combine(end, time.max),
     )
+    if run_id:
+        cash_query = cash_query.filter(PaperCashEvent.order_id.in_(order_ids))
+    cash_events = cash_query.all()
     cash_by_day: dict[date, float] = defaultdict(float)
     for ev in cash_events:
         if ev.created_at is not None:
             cash_by_day[ev.created_at.date()] += float(ev.amount)
 
-    fills = (
-        db.query(PaperFill, PaperOrder)
-        .join(PaperOrder, PaperOrder.order_id == PaperFill.order_id)
-        .all()
-    )
     closes: dict[tuple[str, date], float] = {}
-    for kline in db.query(DailyKline).filter(
+    closes_query = db.query(DailyKline).filter(
         DailyKline.date >= start, DailyKline.date <= end
-    ):
+    )
+    if stock_codes:
+        closes_query = closes_query.filter(DailyKline.stock_code.in_(stock_codes))
+    for kline in closes_query:
         closes[(kline.stock_code, kline.date)] = float(kline.close)
 
     account = (
@@ -553,9 +573,14 @@ def equity_series(db: Session, start_date: str, end_date: str) -> list[dict[str,
     return series
 
 
-def total_costs(db: Session) -> float:
+def total_costs(db: Session, *, run_id: str | None = None) -> float:
     """累计费用（佣金+印花税+过户费），用于归因 cost_drag。"""
-    rows = db.query(PaperFill).all()
+    query = db.query(PaperFill)
+    if run_id:
+        query = query.join(PaperOrder, PaperOrder.order_id == PaperFill.order_id).filter(
+            PaperOrder.run_id == run_id
+        )
+    rows = query.all()
     return round(
         sum(
             float(f.commission) + float(f.stamp_tax) + float(f.transfer_fee)
@@ -571,11 +596,12 @@ def attribution_report(
     end_date: str,
     *,
     benchmark_series: list[float] | None = None,
+    run_id: str | None = None,
 ) -> dict[str, Any]:
     """盘后归因：组合权益 vs 基准（sh.000300）分解（US-3.3）。"""
     from app.agent_runtime.paper.attribution import decompose_returns
 
-    series = equity_series(db, start_date, end_date)
+    series = equity_series(db, start_date, end_date, run_id=run_id)
     if len(series) < 2:
         raise ValueError("权益序列不足（区间内无成交或数据缺失）")
     portfolio_values = [s["equity"] for s in series]
@@ -589,11 +615,12 @@ def attribution_report(
         benchmark_series or portfolio_values,  # 基准不可用时的退化（beta=0）
         start_date=start_date,
         end_date=end_date,
-        total_cost=total_costs(db),
+        total_cost=total_costs(db, run_id=run_id),
         initial_equity=float(account.initial_cash) if account else 0.0,
     )
     return {
         **report.to_dict(),
+        "run_id": run_id,
         "benchmark_available": benchmark_series is not None,
         "equity_series": series,
         "dates": [s["date"] for s in series],

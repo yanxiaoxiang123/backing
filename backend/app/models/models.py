@@ -187,11 +187,20 @@ class BacktestResult(Base):
     max_drawdown = Column(Numeric(10, 4), nullable=True)  # 百分比 %
     win_rate = Column(Numeric(10, 4), nullable=True)  # 百分比 %
     total_trades = Column(Integer, nullable=False)
+    # Reproducibility snapshots for strategy-research backtests.  These are
+    # nullable so historical rows created before this migration remain valid.
+    parameters = Column(JSON, nullable=True)
+    portfolio_values = Column(JSON, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
 
     strategy = relationship("Strategy", back_populates="backtest_results")
     stock = relationship("Stock", back_populates="backtest_results")
     trades = relationship("BacktestTrade", back_populates="backtest_result", passive_deletes=True)
+
+    @property
+    def strategy_name(self) -> str | None:
+        """Expose the related strategy name in history responses."""
+        return self.strategy.name if self.strategy is not None else None
 
     __table_args__ = (
         Index("idx_backtest_stock_created", "stock_code", "created_at"),

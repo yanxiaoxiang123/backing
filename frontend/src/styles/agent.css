@@ -1,18 +1,53 @@
-/* Agent 工作台（任务 10）三栏布局：左导航 160-180px / 对话栏 320-380px / 研究区自适应 */
+/* Agent 工作台：桌面始终保持会话 / 聊天 / 研究三栏。 */
 
 .agent-workspace {
   display: grid;
-  grid-template-columns: 240px minmax(0, 1fr) minmax(360px, 1fr);
+  grid-template-columns: 220px minmax(360px, 0.85fr) minmax(480px, 1.35fr);
+  grid-template-rows: minmax(0, 1fr);
   gap: 12px;
-  min-height: calc(100vh - 96px);
+  height: calc(100dvh - var(--space-xl) - var(--space-xl));
+  min-height: 0;
   padding-top: 80px; /* 浮动导航让位（与其他页面 .page-header 一致） */
   align-items: stretch;
+  overflow: hidden;
+}
+
+@media (max-width: 1199px) {
+  .agent-workspace {
+    grid-template-columns: 160px minmax(280px, 0.95fr) minmax(0, 1.05fr);
+  }
+
+  .agent-workspace-chat-sidebar {
+    grid-column: 1;
+  }
+
+  .agent-workspace-conversation {
+    grid-column: 2;
+  }
+
+  .agent-workspace-research {
+    grid-column: 3;
+  }
 }
 
 @media (max-width: 767px) {
   .agent-workspace {
     padding-top: 72px;
-    grid-template-columns: 1fr;
+    height: calc(100dvh - var(--space-md) - var(--space-md));
+    grid-template-columns: 112px minmax(210px, 0.95fr) minmax(0, 1.05fr);
+    gap: 8px;
+  }
+
+  .agent-workspace-chat-sidebar {
+    grid-column: 1;
+  }
+
+  .agent-workspace-conversation {
+    grid-column: 2;
+  }
+
+  .agent-workspace-research {
+    grid-column: 3;
   }
 }
 
@@ -58,16 +93,43 @@
   border: 1px solid rgba(5, 5, 5, 0.08);
   border-radius: 8px;
   padding: 12px;
-  min-height: calc(100vh - 96px);
+  height: 100%;
+  min-height: 0;
   min-width: 0;
+  overflow: hidden;
 }
 
 .agent-workspace-research {
+  display: flex;
+  flex-direction: column;
   border: 1px solid rgba(5, 5, 5, 0.08);
   border-radius: 8px;
   padding: 12px;
-  min-height: calc(100vh - 96px);
+  height: 100%;
+  min-height: 0;
   min-width: 0;
+  overflow: hidden;
+}
+
+.agent-workspace-research > .ant-tabs {
+  flex: 1;
+  min-height: 0;
+}
+
+.agent-workspace-research .ant-tabs-content-holder,
+.agent-workspace-research .ant-tabs-content,
+.agent-workspace-research .ant-tabs-tabpane {
+  min-height: 0;
+  height: 100%;
+}
+
+.agent-workspace-research .ant-tabs-content-holder {
+  overflow: hidden;
+}
+
+.agent-workspace-research .ant-tabs-tabpane {
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 .agent-conversation {
@@ -169,6 +231,8 @@
   border: 1px solid rgba(5, 5, 5, 0.08);
   border-radius: 8px;
   padding: 10px 12px;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .agent-evidence-head {
@@ -190,22 +254,39 @@
 }
 
 .agent-evidence-source {
-  display: flex;
-  align-items: center;
-  gap: 6px;
   font-size: 12px;
   color: rgba(0, 0, 0, 0.55);
   margin-top: 4px;
+  min-width: 0;
+}
+
+.agent-evidence-source-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 6px;
+  min-width: 0;
+}
+
+.agent-evidence-source-id {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .agent-evidence-asof {
   margin-left: auto;
+  overflow-wrap: anywhere;
 }
 
 .agent-evidence-summary {
-  width: 100%;
+  display: block;
+  max-width: 100%;
   margin-top: 2px;
   font-size: 12px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  white-space: normal;
 }
 
 .agent-approval-card {

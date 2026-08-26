@@ -5,11 +5,10 @@ from __future__ import annotations
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
 
-from app.agent_chat.policy import TurnToolPolicy
+from app.agent_chat.policy import ToolScope, TurnToolPolicy, stock_reference
 from app.agent_chat.runtime import (
     NativeAgentChatRuntime,
     NativeModelResponse,
-    NativeToolCall,
 )
 from app.agent_chat.seam import RUN_LINKED, TOOL_CALL, TOOL_RESULT, ChatEvent
 from app.agent_chat.stores import create_chat_stores
@@ -105,28 +104,53 @@ def test_read_tool_schema_uses_openai_safe_function_names(tmp_path):
     assert all("." not in name for name in names)
 
 
-def test_explicit_analysis_links_run_and_pairs_call_id(tmp_path):
+def test_stock_code_without_leading_space_is_recognized():
+    admission = TurnToolPolicy().classify("分析sz.000002")
+
+    assert admission.scope is ToolScope.ANALYSIS
+    assert stock_reference("分析sz.000002") == "sz.000002"
+
+
+def test_failed_turn_does_not_replay_orphan_tool_call(tmp_path):
     factory = _session_factory(tmp_path)
-    model = ScriptedModel(
-        [
-            NativeModelResponse(
-                tool_calls=[
-                    NativeToolCall(
-                        call_id="call-analysis-1",
-                        name="quant_run_analysis",
-                        arguments={"objective": "分析 sh.600000 并回测 ma_cross"},
-                    )
-                ]
-            ),
-            NativeModelResponse(text="分析已完成，结果已挂载到右侧。"),
-        ]
+    _turn(factory, "分析 sz.000001")
+    session = factory()
+    stores = create_chat_stores(session)
+    stores.events.create_event(
+        turn_id="turn-native",
+        seq=1,
+        event_type=TOOL_CALL,
+        payload={
+            "call_id": "orphan-call",
+            "tool": "fundamental_stock_info",
+            "args": {"stock_code": "sz.000001"},
+        },
     )
+    stores.turns.update_turn_status("turn-native", "failed", error="服务端执行异常")
+    session.close()
+
+    runtime = NativeAgentChatRuntime(factory, model=ScriptedModel([]), api_key="test")
+    messages, history_text = runtime._history("thread-native", current_turn_id=-1)
+
+    assert messages == [{"role": "user", "content": "分析 sz.000001"}]
+    assert history_text == "分析 sz.000001"
+
+
+def test_explicit_analysis_deterministically_links_run(tmp_path):
+    factory = _session_factory(tmp_path)
+    model = ScriptedModel([NativeModelResponse(text="分析已完成，结果已挂载到右侧。")])
     runtime = NativeAgentChatRuntime(factory, model=model, api_key="test")
-    runtime._execute_tool = lambda *_args: {  # type: ignore[method-assign]
-        "ok": True,
-        "run_id": "run-native-1",
-        "status": "completed",
-    }
+    calls = []
+
+    def execute(*args):
+        calls.append(args[1])
+        return {
+            "ok": True,
+            "run_id": "run-native-1",
+            "status": "completed",
+        }
+
+    runtime._execute_tool = execute  # type: ignore[method-assign]
     turn_id = _turn(factory, "分析 sh.600000 并回测 ma_cross")
     events: list[ChatEvent] = []
 
@@ -137,7 +161,47 @@ def test_explicit_analysis_links_run_and_pairs_call_id(tmp_path):
     assert outcome.status == "completed"
     call = next(event for event in events if event.type == TOOL_CALL)
     result = next(event for event in events if event.type == TOOL_RESULT)
-    assert call.payload["call_id"] == "call-analysis-1"
-    assert result.payload["call_id"] == "call-analysis-1"
+    assert call.payload["call_id"] == f"auto-analysis-{turn_id}"
+    assert result.payload["call_id"] == f"auto-analysis-{turn_id}"
     assert next(event for event in events if event.type == RUN_LINKED).payload["run_id"] == "run-native-1"
-    assert model.tools_seen[0][-1] == "quant_run_analysis"
+    assert [item.name for item in calls] == ["quant_run_analysis"]
+    assert "quant_run_analysis" not in model.tools_seen[0]
+
+
+def test_follow_up_analysis_uses_stock_from_history(tmp_path):
+    factory = _session_factory(tmp_path)
+    first_id = _turn(factory, "查询 sz.000001 行情", turn_id="turn-first")
+    session = factory()
+    stores = create_chat_stores(session)
+    stores.turns.update_turn_status("turn-first", "completed", final_reply="已查询。")
+    session.close()
+
+    model = ScriptedModel([NativeModelResponse(text="回测研究已完成。")])
+    runtime = NativeAgentChatRuntime(factory, model=model, api_key="test")
+    objectives = []
+
+    def execute(_session_id, call, _admission, _cancel_event):
+        objectives.append(call.arguments["objective"])
+        return {"ok": True, "run_id": "run-follow-up", "status": "completed"}
+
+    runtime._execute_tool = execute  # type: ignore[method-assign]
+    session = factory()
+    stores = create_chat_stores(session)
+    second = stores.turns.create_turn(
+        turn_id="turn-second",
+        thread_id="thread-native",
+        user_input="帮我回测一下",
+        status="running",
+    )
+    turn_id = second["id"]
+    session.close()
+    events: list[ChatEvent] = []
+
+    outcome = runtime.run_turn(
+        "thread-native", "帮我回测一下", turn_id=turn_id, emit=events.append
+    )
+
+    assert first_id != turn_id
+    assert outcome.status == "completed"
+    assert objectives == ["帮我回测一下（股票：sz.000001）"]
+    assert next(event for event in events if event.type == RUN_LINKED).payload["run_id"] == "run-follow-up"

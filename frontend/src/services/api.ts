@@ -588,14 +588,31 @@ export async function submitScreener(): Promise<{ job_id: string }> {
   return response.data
 }
 
-export async function getScreenerStatus(jobId: string): Promise<{
+export interface ScreenerJobRecord {
+  id: string
+  job_type?: string
   status: string
   progress: number
   payload?: { stage: string; current: number; total: number; message: string }
   result?: { success: boolean; total_scanned: number; results: any[] }
   error?: string
-}> {
+  created_at?: string
+  updated_at?: string
+}
+
+export async function getScreenerStatus(
+  jobId: string,
+): Promise<ScreenerJobRecord> {
   const response = await api.get(`/screener/${jobId}`)
+  return response.data
+}
+
+export async function getScreenerHistory(
+  limit = 20,
+): Promise<ScreenerJobRecord[]> {
+  const response = await api.get<ScreenerJobRecord[]>('/screener/history', {
+    params: { limit },
+  })
   return response.data
 }
 

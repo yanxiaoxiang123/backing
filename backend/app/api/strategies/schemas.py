@@ -126,6 +126,7 @@ class BacktestResponse(BaseModel):
     """Response model for backtest results."""
 
     success: bool
+    result_id: int
     strategy_name: str
     stock_code: str
     start_date: date
@@ -135,6 +136,7 @@ class BacktestResponse(BaseModel):
     trades: list[BacktestTradeItem]
     metrics: BacktestMetrics
     portfolio_values: list[PortfolioValueItem] | None = None
+    parameters: dict[str, Any] | None = None
 
 
 class OptimizeRequest(BaseModel):

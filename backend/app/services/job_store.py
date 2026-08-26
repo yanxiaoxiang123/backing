@@ -265,6 +265,7 @@ class JobStore:
         self,
         limit: int = 20,
         status: Optional[str] = None,
+        job_type: Optional[str] = None,
         *,
         db: Optional[Session] = None,
     ) -> List[JobRecordSchema]:
@@ -274,6 +275,8 @@ class JobStore:
             )
             if status:
                 q = q.filter(JobDbRecord.status == status)
+            if job_type:
+                q = q.filter(JobDbRecord.job_type == job_type)
             rows = q.limit(limit).all()
             return [JobRecordSchema.model_validate(r) for r in rows]
 

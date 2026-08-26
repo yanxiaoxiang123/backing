@@ -132,6 +132,22 @@ def run_claimed_job(job_id: str) -> str:
         finally:
             heartbeat.stop()
 
+        # Some runners persist their own terminal state and result. Respect
+        # that state instead of turning a handled failure into a result-less
+        # "completed" job.
+        current = job_store.get(job_id)
+        if current is not None and current.status in {"failed", "cancelled"}:
+            outcome = (
+                "cancelled"
+                if _is_cancelled(current.status, current.error)
+                else "failed"
+            )
+            task_metrics.inc(f"task.{outcome}", job_type=job.job_type)
+            return outcome
+        if current is not None and current.status == "completed":
+            task_metrics.inc("task.completed", job_type=job.job_type)
+            return "completed"
+
         job_store.update(
             job_id,
             status="completed",

@@ -4,7 +4,7 @@ import logging
 import threading
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Query, Request
 from pydantic import BaseModel
 
 from app.agent.orchestrator import AgentOrchestrator
@@ -190,6 +190,15 @@ def submit_screener_job(
     """
     job = get_task_executor().submit(job_type="screener")
     return ScreenerSubmitResponse(job_id=job.id)
+
+
+@router.get("/screener/history")
+def get_screener_history(
+    limit: int = Query(20, ge=1, le=50),
+    _: str = Depends(get_current_api_key),
+):
+    """返回持久化的选股任务历史，最新记录排在前面。"""
+    return job_store.list_recent(limit=limit, job_type="screener")
 
 
 @router.get("/screener/{job_id}")

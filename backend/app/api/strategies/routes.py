@@ -355,22 +355,26 @@ def run_backtest(
             raise NotFoundError(detail=message) from exc
         raise ValidationError(detail=message) from exc
 
+    try:
+        persisted = BacktestExecutor(db).persist(execution)
+    except Exception as exc:
+        logger.exception("Failed to persist strategy backtest")
+        raise ValidationError(detail="Backtest completed but could not be saved") from exc
+
+    api_result = execution.to_api_dict()
     return BacktestResponse(
         success=True,
+        result_id=persisted.id,
         strategy_name=execution.strategy_name,
         stock_code=execution.stock_code,
         start_date=execution.start_date,
         end_date=execution.end_date,
         initial_capital=execution.initial_capital,
         final_capital=execution.final_capital,
-        trades=[
-            BacktestTradeItem(**trade) for trade in execution.to_api_dict()["trades"]
-        ],
-        metrics=BacktestMetrics(**execution.to_api_dict()["metrics"]),
-        portfolio_values=[
-            PortfolioValueItem(**pv)
-            for pv in execution.to_api_dict()["portfolio_values"]
-        ],
+        trades=[BacktestTradeItem(**trade) for trade in api_result["trades"]],
+        metrics=BacktestMetrics(**api_result["metrics"]),
+        portfolio_values=[PortfolioValueItem(**pv) for pv in api_result["portfolio_values"]],
+        parameters=execution.parameters,
     )
 
 
@@ -425,10 +429,6 @@ def submit_optimize(
     job = get_task_executor().submit(
         job_type="strategy_optimize",
         payload=request.model_dump(mode="json"),
-        job_key=(
-            f"optimize:{request.strategy_name}:{request.stock_code}:"
-            f"{request.start_date}:{request.end_date}:{request.metric}"
-        ),
     )
     return OptimizeSubmitResponse(
         job_id=job.id, status=job.status, message="Optimization queued"
@@ -461,12 +461,15 @@ def compare_strategies(
                 initial_capital=request.initial_capital,
             )
 
-            # Build equity curve from trade-level capital tracking
-            curve = _build_equity_curve(
-                execution.trades,
-                request.initial_capital,
-                execution.final_capital,
-            )
+            # Reuse the executor's end-of-bar equity snapshots so comparison
+            # curves include unrealized positions and match formal backtests.
+            curve = [
+                CompareStrategyCurve(
+                    date=(pv.date.isoformat() if hasattr(pv.date, "isoformat") else str(pv.date)),
+                    value=round(pv.total_value, 2),
+                )
+                for pv in execution.portfolio_values
+            ]
 
             results.append(
                 CompareStrategyResult(

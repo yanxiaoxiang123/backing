@@ -103,7 +103,10 @@ def research_node(stock_code: str) -> RuntimeNode:
             direction = "bullish" if (ma5 is not None and close > float(ma5)) else "bearish"
             claims.append(
                 ResearchClaim(
-                    claim=f"收盘 {close} 相对 MA5 {'上穿' if direction == 'bullish' else '下破'}",
+                    claim=(
+                        f"收盘 {close:.2f} 相对 MA5 "
+                        f"{'上穿' if direction == 'bullish' else '下破'}"
+                    ),
                     category="technical",
                     direction=direction,
                     confidence=0.6,
@@ -113,7 +116,10 @@ def research_node(stock_code: str) -> RuntimeNode:
                             "as_of": now,
                             "vendor": "backend",
                             "data_version": "v1",
-                            "summary": f"K线收盘 {close}，成交量 {volume:,.0f}，MA5 {ma5}",
+                            "summary": (
+                                f"K线收盘 {close:.2f}，成交量 {volume:,.0f}，"
+                                f"MA5 {ma5:.2f}"
+                            ),
                         }
                     ],
                 ).model_dump(mode="json")

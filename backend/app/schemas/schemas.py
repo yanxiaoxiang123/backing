@@ -88,6 +88,7 @@ class BacktestTradeResponse(BaseModel):
 class BacktestResultResponse(BaseModel):
     id: int
     strategy_id: int
+    strategy_name: Optional[str] = None
     stock_code: str
     start_date: date
     end_date: date
@@ -99,6 +100,8 @@ class BacktestResultResponse(BaseModel):
     max_drawdown: Optional[float] = None
     win_rate: Optional[float] = None
     total_trades: int
+    parameters: Optional[dict] = None
+    portfolio_values: Optional[list[dict]] = None
     created_at: datetime
     trades: List[BacktestTradeResponse] = []
 
@@ -108,11 +111,14 @@ class BacktestResultResponse(BaseModel):
 
 class BacktestListResponse(BaseModel):
     id: int
+    strategy_name: Optional[str] = None
     stock_code: str
     start_date: date
     end_date: date
     total_return: float
     total_trades: int
+    parameters: Optional[dict] = None
+    portfolio_values: Optional[list[dict]] = None
     created_at: datetime
 
     class Config:

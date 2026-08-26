@@ -22,8 +22,12 @@ DEEP_RESEARCH_KEYWORDS = ("深度研究", "深度分析", "多空辩论", "全�
 
 def extract_stock_code(objective: str) -> str:
     """从目标文本提取股票代码（sh./sz. 前缀 + 6 位数字）；缺省返回默认代码。"""
-    match = re.search(r"\b(sh|sz)\.\d{6}\b", objective)
-    return match.group(0) if match else DEFAULT_STOCK_CODE
+    match = re.search(
+        r"(?<![A-Za-z0-9_])(?:sh|sz|bj)\.\d{6}(?!\d)",
+        objective,
+        re.IGNORECASE,
+    )
+    return match.group(0).lower() if match else DEFAULT_STOCK_CODE
 
 
 class SupervisorPlanProvider:

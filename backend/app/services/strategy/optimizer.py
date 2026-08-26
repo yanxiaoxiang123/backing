@@ -415,6 +415,12 @@ class GridSearchOptimizer(ParameterOptimizer):
                 continue
 
         # Adjust best_score back to actual metric value
+        if best_params is None or best_metrics is None:
+            raise ValueError(
+                "No parameter combination completed successfully. "
+                "Check strategy parameters and market data types."
+            )
+
         if metric == "max_drawdown" and best_metrics is not None:
             best_score = best_metrics[metric]
 

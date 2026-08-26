@@ -165,6 +165,7 @@ def get_paper_events(
 def get_attribution(
     start_date: str | None = None,
     end_date: str | None = None,
+    run_id: str | None = None,
     db: Session = Depends(get_db),
     _: str = Depends(get_current_api_key),
 ) -> dict[str, Any]:
@@ -184,7 +185,11 @@ def get_attribution(
         benchmark_series = None
     try:
         return paper_service.attribution_report(
-            db, start, end, benchmark_series=benchmark_series
+            db,
+            start,
+            end,
+            benchmark_series=benchmark_series,
+            run_id=run_id,
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
