@@ -7,13 +7,14 @@ import {
   StarFilled,
   StarOutlined,
 } from '@ant-design/icons'
-import ReactECharts from 'echarts-for-react'
+import { LazyECharts } from '../components/charts/LazyECharts'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { getStockOverview, addToWatchlist, removeFromWatchlist } from '../services/api'
 import { useRealtimeKline } from '../hooks/useRealtimeKline'
 import type { DashboardStock, KlineIndicator } from '../types'
-import { stockKeys } from '../hooks/useStockOverview'
+import { stockKeys } from '../services/queryKeys'
+import { normalizeStockCode } from '../utils/stockIdentity'
 
 type PeriodType = 'daily' | 'weekly' | 'monthly'
 
@@ -63,7 +64,8 @@ function chartOption(data: KlineIndicator[]) {
 }
 
 function StockChart() {
-  const { code } = useParams<{ code: string }>()
+  const { code: routeCode } = useParams<{ code: string }>()
+  const code = normalizeStockCode(routeCode) ?? routeCode
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [period, setPeriod] = useState<PeriodType>('daily')
@@ -198,7 +200,7 @@ function StockChart() {
           {kline.error ? <Alert type="error" showIcon message={kline.error} /> : null}
           <Spin spinning={kline.loading}>
             {kline.data.length ? (
-              <ReactECharts
+              <LazyECharts
                 option={option}
                 style={{ height: 'min(62vh, 680px)' }}
                 notMerge

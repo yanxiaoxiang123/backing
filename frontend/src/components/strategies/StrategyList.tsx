@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Card, Empty, Input } from 'antd'
+import { Alert, Button, Card, Empty, Input } from 'antd'
 import { LineChartOutlined, SearchOutlined } from '@ant-design/icons'
 import type { StrategyInfo } from '../../types'
 import { STRATEGY_METADATA, STRATEGY_CATEGORIES } from '../../constants/strategy'
@@ -9,6 +9,8 @@ interface StrategyListProps {
   selectedStrategy: string | null
   loading: boolean
   onSelect: (name: string) => void
+  error?: unknown
+  onRetry?: () => void
 }
 
 export function StrategyList({
@@ -16,6 +18,8 @@ export function StrategyList({
   selectedStrategy,
   loading,
   onSelect,
+  error,
+  onRetry,
 }: StrategyListProps) {
   const [query, setQuery] = useState('')
 
@@ -54,6 +58,20 @@ export function StrategyList({
         },
       }}
     >
+      {error ? (
+        <Alert
+          type="error"
+          showIcon
+          message="策略目录加载失败"
+          action={
+            onRetry ? (
+              <Button size="small" onClick={onRetry}>
+                重试
+              </Button>
+            ) : undefined
+          }
+        />
+      ) : null}
       <Input
         value={query}
         onChange={(e) => setQuery(e.target.value)}

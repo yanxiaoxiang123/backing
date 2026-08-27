@@ -21,9 +21,9 @@
   --color-flat: #86868b; /* Unchanged price */
 
   /* Functional Colors */
-  --color-success: #34c759;
+  --color-success: #16803c; /* workflow success, separate from A-share down */
   --color-success-light: rgba(52, 199, 89, 0.1);
-  --color-danger: #ff3b30;
+  --color-danger: #c7352b; /* workflow failure, separate from A-share up */
   --color-danger-light: rgba(255, 59, 48, 0.1);
   --color-warning: #f79e1b;
   --color-warning-light: rgba(247, 158, 27, 0.1);
@@ -34,7 +34,7 @@
   /* Text Colors */
   --color-text-primary: var(--color-ink);
   --color-text-secondary: #696969; /* Slate Gray */
-  --color-text-tertiary: #d1cdc7; /* Dust Taupe - whisper text */
+  --color-text-tertiary: #77716b; /* Secondary metadata; readable on light surfaces */
   --color-text-disabled: #a8a5a0; /* Disabled text (readable on light bg) */
   --color-bg-disabled: rgba(20, 20, 19, 0.07);
   --color-border-disabled: rgba(20, 20, 19, 0.16);
@@ -50,6 +50,23 @@
   --color-surface-muted: #eeebe8;
   --color-accent-blue: #145bd7;
   --color-accent-blue-light: rgba(20, 91, 215, 0.1);
+
+  /* Semantic market and research states */
+  --color-market-up: var(--color-up);
+  --color-market-down: var(--color-down);
+  --color-action-buy: #b42318;
+  --color-action-sell: #18794e;
+  --color-risk-high: #b42318;
+  --color-risk-low: #18794e;
+  --color-chart-primary: #145bd7;
+  --color-chart-up: var(--color-up);
+  --color-chart-down: var(--color-down);
+  --color-chart-volume: #536dba;
+  --color-chart-grid: rgba(20, 20, 19, 0.1);
+
+  /* Quiet scrollbars keep dense research surfaces readable. */
+  --scrollbar-thumb: rgba(20, 20, 19, 0.22);
+  --scrollbar-thumb-hover: rgba(20, 20, 19, 0.38);
 
   /* Shadows */
   --shadow-nav: rgba(0, 0, 0, 0.04) 0px 4px 24px 0px;
@@ -109,4 +126,6 @@
   --color-surface-muted: #302d2a;
   --shadow-nav: rgba(0, 0, 0, 0.3) 0 8px 28px;
   --shadow-card: rgba(0, 0, 0, 0.24) 0 16px 36px;
+  --scrollbar-thumb: rgba(255, 255, 255, 0.26);
+  --scrollbar-thumb-hover: rgba(255, 255, 255, 0.42);
 }

@@ -1,51 +1,74 @@
-import { useState, useEffect } from 'react'
-import { Table, Button, message, Modal, Spin } from 'antd'
+import { useMemo, useState } from 'react'
+import { Alert, Button, Input, Modal, Select, Spin, Table } from 'antd'
+import { useQuery } from '@tanstack/react-query'
 import { EyeOutlined } from '@ant-design/icons'
-import ReactECharts from 'echarts-for-react'
+import { LazyECharts } from '../components/charts/LazyECharts'
 import { getBacktestResults, getBacktestResult, getStock } from '../services/api'
-import type { BacktestListItem, BacktestResult, Stock } from '../types'
+import type { BacktestListItem } from '../types'
+import { backtestKeys, stockKeys } from '../services/queryKeys'
+import { MetricCard, PageHeader } from '../components/research/ResearchPrimitives'
 
 function BacktestHistory() {
-  const [loading, setLoading] = useState(false)
-  const [results, setResults] = useState<BacktestListItem[]>([])
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(20)
   const [detailVisible, setDetailVisible] = useState(false)
-  const [detailLoading, setDetailLoading] = useState(false)
-  const [currentResult, setCurrentResult] = useState<BacktestResult | null>(null)
-  const [stockInfo, setStockInfo] = useState<Stock | null>(null)
+  const [selectedResultId, setSelectedResultId] = useState<number | null>(null)
+  const [stockFilter, setStockFilter] = useState('')
+  const [strategyFilter, setStrategyFilter] = useState('')
+  const [sortOrder, setSortOrder] = useState<'newest' | 'return'>('newest')
 
-  useEffect(() => {
-    loadResults()
-  }, [page, pageSize])
-
-  const loadResults = async () => {
-    setLoading(true)
-    try {
-      const data = await getBacktestResults(undefined, (page - 1) * pageSize, pageSize)
-      setResults(data)
-    } catch {
-      message.error('加载历史记录失败')
-    } finally {
-      setLoading(false)
+  const resultsQuery = useQuery({
+    queryKey: backtestKeys.list({ cursor: (page - 1) * pageSize, limit: pageSize }),
+    queryFn: () => getBacktestResults(undefined, (page - 1) * pageSize, pageSize),
+    placeholderData: (previous) => previous,
+    staleTime: 30_000,
+  })
+  const detailQuery = useQuery({
+    queryKey: backtestKeys.detail(selectedResultId ?? 0),
+    queryFn: () => getBacktestResult(selectedResultId as number),
+    enabled: detailVisible && selectedResultId !== null,
+    staleTime: 5 * 60_000,
+  })
+  const stockQuery = useQuery({
+    queryKey: stockKeys.detail(detailQuery.data?.stock_code ?? ''),
+    queryFn: () => getStock(detailQuery.data?.stock_code as string),
+    enabled: detailVisible && Boolean(detailQuery.data?.stock_code),
+    staleTime: 5 * 60_000,
+  })
+  const results = useMemo(() => resultsQuery.data ?? [], [resultsQuery.data])
+  const currentResult = detailQuery.data ?? null
+  const stockInfo = stockQuery.data ?? null
+  const visibleResults = useMemo(() => {
+    const stockQuery = stockFilter.trim().toLowerCase()
+    const strategyQuery = strategyFilter.trim().toLowerCase()
+    return [...results]
+      .filter((item) => {
+        const matchesStock =
+          !stockQuery || item.stock_code.toLowerCase().includes(stockQuery)
+        const matchesStrategy =
+          !strategyQuery ||
+          (item.strategy_name ?? '').toLowerCase().includes(strategyQuery)
+        return matchesStock && matchesStrategy
+      })
+      .sort((left, right) =>
+        sortOrder === 'return'
+          ? right.total_return - left.total_return
+          : right.created_at.localeCompare(left.created_at),
+      )
+  }, [results, sortOrder, stockFilter, strategyFilter])
+  const summary = useMemo(() => {
+    const totalReturn = visibleResults.reduce((sum, item) => sum + item.total_return, 0)
+    const positive = visibleResults.filter((item) => item.total_return > 0).length
+    return {
+      runs: visibleResults.length,
+      averageReturn: visibleResults.length ? totalReturn / visibleResults.length : 0,
+      positive,
     }
-  }
+  }, [visibleResults])
 
-  const handleViewDetail = async (id: number) => {
+  const handleViewDetail = (id: number) => {
     setDetailVisible(true)
-    setDetailLoading(true)
-    setCurrentResult(null)
-    try {
-      const result = await getBacktestResult(id)
-      setCurrentResult(result)
-
-      const stock = await getStock(result.stock_code)
-      setStockInfo(stock)
-    } catch {
-      message.error('加载详情失败')
-    } finally {
-      setDetailLoading(false)
-    }
+    setSelectedResultId(id)
   }
 
   const getChartOption = () => {
@@ -203,7 +226,7 @@ function BacktestHistory() {
       title: '操作',
       key: 'action',
       width: 80,
-      render: (_: any, record: BacktestListItem) => (
+      render: (_: unknown, record: BacktestListItem) => (
         <Button
           type="text"
           icon={<EyeOutlined />}
@@ -283,24 +306,77 @@ function BacktestHistory() {
 
   return (
     <div className="fade-in">
-      {/* 页面标题 */}
-      <div className="page-header">
-        <h1 className="page-title">回测历史</h1>
-        <p className="page-subtitle">查看历史回测记录</p>
+      <PageHeader
+        eyebrow="BACKTEST HISTORY"
+        title="回测历史"
+        subtitle="查看历史运行、绩效指标和交易记录"
+      />
+
+      <div className="backtest-history-summary" aria-label="回测摘要">
+        <MetricCard label="当前页运行" value={summary.runs} detail="按当前筛选条件" />
+        <MetricCard
+          label="平均收益率"
+          value={`${summary.averageReturn >= 0 ? '+' : ''}${summary.averageReturn.toFixed(2)}%`}
+          tone={
+            summary.averageReturn > 0
+              ? 'up'
+              : summary.averageReturn < 0
+                ? 'down'
+                : 'neutral'
+          }
+        />
+        <MetricCard
+          label="盈利运行"
+          value={summary.positive}
+          detail={
+            summary.runs
+              ? `占 ${Math.round((summary.positive / summary.runs) * 100)}%`
+              : '暂无记录'
+          }
+          tone={summary.positive > 0 ? 'up' : 'neutral'}
+        />
       </div>
 
       {/* 历史记录列表 */}
-      <div
-        style={{
-          background: 'var(--color-canvas-lifted)',
-          borderRadius: 'var(--radius-card)',
-        }}
-      >
+      <div className="research-panel backtest-history-panel">
+        <div className="backtest-history-toolbar" aria-label="回测历史筛选">
+          <Input
+            allowClear
+            placeholder="筛选股票代码"
+            aria-label="筛选股票代码"
+            value={stockFilter}
+            onChange={(event) => setStockFilter(event.target.value)}
+          />
+          <Input
+            allowClear
+            placeholder="筛选策略"
+            aria-label="筛选策略"
+            value={strategyFilter}
+            onChange={(event) => setStrategyFilter(event.target.value)}
+          />
+          <Select
+            aria-label="回测排序"
+            value={sortOrder}
+            onChange={setSortOrder}
+            options={[
+              { value: 'newest', label: '最新运行' },
+              { value: 'return', label: '收益率优先' },
+            ]}
+          />
+        </div>
+        {resultsQuery.isError && (
+          <Alert
+            type="error"
+            showIcon
+            message="加载历史记录失败"
+            action={<Button onClick={() => void resultsQuery.refetch()}>重试</Button>}
+          />
+        )}
         <Table
           columns={columns}
-          dataSource={results}
+          dataSource={visibleResults}
           rowKey="id"
-          loading={loading}
+          loading={resultsQuery.isLoading || resultsQuery.isFetching}
           pagination={{
             current: page,
             pageSize: pageSize,
@@ -332,13 +408,22 @@ function BacktestHistory() {
         width={900}
         centered
       >
-        {detailLoading && (
+        {(detailQuery.isLoading || stockQuery.isLoading) && (
           <div className="loading-container" style={{ minHeight: 200 }}>
             <Spin size="large" />
           </div>
         )}
 
-        {currentResult && !detailLoading && (
+        {detailQuery.isError && (
+          <Alert
+            type="error"
+            showIcon
+            message="加载详情失败"
+            action={<Button onClick={() => void detailQuery.refetch()}>重试</Button>}
+          />
+        )}
+
+        {currentResult && !detailQuery.isLoading && !stockQuery.isLoading && (
           <>
             {/* 统计指标 */}
             <div
@@ -411,7 +496,7 @@ function BacktestHistory() {
               >
                 资金曲线
               </div>
-              <ReactECharts option={getChartOption()} style={{ height: 280 }} />
+              <LazyECharts option={getChartOption()} style={{ height: 280 }} />
             </div>
 
             {/* 交易记录 */}

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Card, Button, Progress, Tag, message, Row, Col, Empty, Select } from 'antd'
+import { useNavigate } from 'react-router-dom'
+import { Button, Card, Select, message } from 'antd'
 import {
   PlayCircleOutlined,
   CheckCircleOutlined,
@@ -13,6 +14,14 @@ import {
   cancelJob,
   type ScreenerJobRecord,
 } from '../services/api'
+import { useJobPolling } from '../hooks/useJobPolling'
+import type { JobStatus } from '../types'
+import {
+  EmptyState,
+  JobProgressPanel,
+  PageHeader,
+  ResearchResultCard,
+} from '../components/research/ResearchPrimitives'
 
 interface StockResult {
   stock_code: string
@@ -34,6 +43,12 @@ interface StockResult {
   ai_reason?: string
 }
 
+interface ScreenerResult {
+  success: boolean
+  total_scanned: number
+  results: StockResult[]
+}
+
 const STAGE_LABELS: Record<string, string> = {
   scanning: '📊 正在扫描全市场股票...',
   scoring: '🏆 正在综合评分排序...',
@@ -43,6 +58,7 @@ const STAGE_LABELS: Record<string, string> = {
 }
 
 function Screener() {
+  const navigate = useNavigate()
   const [running, setRunning] = useState(false)
   const [stage, setStage] = useState('')
   const [progress, setProgress] = useState(0)
@@ -55,39 +71,59 @@ function Screener() {
   const [completed, setCompleted] = useState(false)
   const [history, setHistory] = useState<ScreenerJobRecord[]>([])
   const [selectedHistoryId, setSelectedHistoryId] = useState<string>()
-
-  const applyCompletedJob = useCallback(
-    (job: ScreenerJobRecord, notify = false) => {
-      const nextResults = (job.result?.results ?? []) as StockResult[]
-      setJobId(job.id)
-      setSelectedHistoryId(job.id)
-      setStage('completed')
-      setProgress(100)
-      setResults(nextResults)
-      setTotalScanned(job.result?.total_scanned ?? 0)
-      setCompleted(true)
-      setRunning(false)
-      if (notify) {
-        if (nextResults.length > 0) {
-          message.success(`选股完成，找到 ${nextResults.length} 只股票`)
-        } else {
-          message.info('扫描完成，本轮没有股票符合筛选条件')
-        }
+  const { waitForJob, cancel } = useJobPolling<ScreenerResult>({
+    intervalMs: 2000,
+    timeoutMs: 10 * 60 * 1000,
+    getStatus: async (id, signal) => {
+      const job = await getScreenerStatus(id)
+      if (signal.aborted) throw new DOMException('Aborted', 'AbortError')
+      return {
+        id: job.id,
+        job_type: job.job_type ?? 'screener',
+        status: job.status as JobStatus<unknown>['status'],
+        message: job.payload?.message ?? '',
+        progress: job.progress,
+        payload: (job.payload ?? {}) as Record<string, unknown>,
+        result: job.result as ScreenerResult | undefined,
+        error: job.error,
+        created_at: job.created_at ?? '',
+        updated_at: job.updated_at ?? '',
       }
     },
-    [],
-  )
+  })
 
-  const refreshHistory = useCallback(async (restoreLatest = false) => {
-    const records = await getScreenerHistory()
-    setHistory(records)
-    if (restoreLatest) {
-      const latestCompleted = records.find(
-        (record) => record.status === 'completed' && record.result,
-      )
-      if (latestCompleted) applyCompletedJob(latestCompleted)
+  const applyCompletedJob = useCallback((job: ScreenerJobRecord, notify = false) => {
+    const nextResults = (job.result?.results ?? []) as unknown as StockResult[]
+    setJobId(job.id)
+    setSelectedHistoryId(job.id)
+    setStage('completed')
+    setProgress(100)
+    setResults(nextResults)
+    setTotalScanned(job.result?.total_scanned ?? 0)
+    setCompleted(true)
+    setRunning(false)
+    if (notify) {
+      if (nextResults.length > 0) {
+        message.success(`选股完成，找到 ${nextResults.length} 只股票`)
+      } else {
+        message.info('扫描完成，本轮没有股票符合筛选条件')
+      }
     }
-  }, [applyCompletedJob])
+  }, [])
+
+  const refreshHistory = useCallback(
+    async (restoreLatest = false) => {
+      const records = await getScreenerHistory()
+      setHistory(records)
+      if (restoreLatest) {
+        const latestCompleted = records.find(
+          (record) => record.status === 'completed' && record.result,
+        )
+        if (latestCompleted) applyCompletedJob(latestCompleted)
+      }
+    },
+    [applyCompletedJob],
+  )
 
   useEffect(() => {
     refreshHistory(true).catch(() => {
@@ -108,59 +144,63 @@ function Screener() {
 
       const res = await submitScreener()
       setJobId(res.job_id)
-      await pollJob(res.job_id)
-    } catch (e: any) {
-      message.error(e?.response?.data?.detail || '提交选股任务失败')
+      let latestJob: ScreenerJobRecord | null = null
+      const result = await waitForJob(res.job_id, {
+        onStatus: (status) => {
+          const payload = status.payload
+          const current = Number(payload.current ?? 0)
+          const nextTotal = Number(payload.total ?? 0)
+          setStage(String(payload.stage ?? ''))
+          setCurrent(current)
+          setTotal(nextTotal)
+          setMessageText(
+            String(
+              payload.message ?? STAGE_LABELS[String(payload.stage)] ?? '处理中...',
+            ),
+          )
+          setProgress(
+            nextTotal > 0 ? Math.round((current / nextTotal) * 100) : status.progress,
+          )
+          latestJob = {
+            id: status.id,
+            job_type: status.job_type,
+            status: status.status,
+            progress: status.progress,
+            payload: {
+              stage: String(payload.stage ?? ''),
+              current,
+              total: nextTotal,
+              message: String(payload.message ?? ''),
+            },
+            result: status.result as unknown as ScreenerJobRecord['result'],
+            error: status.error,
+          }
+        },
+      })
+      applyCompletedJob(
+        latestJob ?? {
+          id: res.job_id,
+          status: 'completed',
+          progress: 100,
+          result: { ...result, results: result.results as unknown[] },
+        },
+        true,
+      )
+      refreshHistory().catch(() => {})
+    } catch (error: unknown) {
+      const detail = error as {
+        response?: { data?: { detail?: string } }
+        message?: string
+      }
+      message.error(
+        detail.response?.data?.detail || detail.message || '提交选股任务失败',
+      )
       setRunning(false)
     }
   }
 
-  const pollJob = async (jobId: string) => {
-    const startTime = Date.now()
-    const MAX_POLL_MS = 10 * 60 * 1000 // 10 minutes
-
-    while (true) {
-      if (Date.now() - startTime > MAX_POLL_MS) {
-        message.error('任务超时，请稍后重试')
-        setRunning(false)
-        break
-      }
-      try {
-        const job = await getScreenerStatus(jobId)
-
-        if (job.status === 'completed') {
-          applyCompletedJob(job, true)
-          refreshHistory().catch(() => {})
-          break
-        }
-
-        if (job.status === 'failed') {
-          message.error(job.error || '选股任务失败')
-          setRunning(false)
-          break
-        }
-
-        // 更新进度
-        const p = job.payload
-        if (p) {
-          setStage(p.stage)
-          setCurrent(p.current || 0)
-          setTotal(p.total || 0)
-          setMessageText(p.message || STAGE_LABELS[p.stage] || '处理中...')
-          const pct = p.total > 0 ? Math.round((p.current / p.total) * 100) : 0
-          setProgress(pct)
-        }
-
-        await new Promise((r) => setTimeout(r, 2000))
-      } catch {
-        message.error('查询任务状态失败')
-        setRunning(false)
-        break
-      }
-    }
-  }
-
   const handleCancel = async () => {
+    cancel()
     if (jobId) {
       try {
         await cancelJob(jobId)
@@ -191,129 +231,66 @@ function Screener() {
     }).format(new Date(isoValue))
   }
 
-  const getSignalColor = (signal?: string) => {
-    switch (signal) {
-      case 'buy':
-        return 'green'
-      case 'sell':
-        return 'red'
-      default:
-        return 'default'
-    }
-  }
-
-  const getSignalLabel = (signal?: string) => {
-    switch (signal) {
-      case 'buy':
-        return '买入'
-      case 'sell':
-        return '卖出'
-      default:
-        return '持有'
-    }
-  }
-
-  const renderResultCard = (stock: StockResult) => {
-    const isUp = stock.change_pct >= 0
-    const signalColor = getSignalColor(stock.ai_signal)
-
-    return (
-      <Card
-        key={stock.stock_code}
-        style={{
-          marginBottom: 12,
-          borderLeft: `4px solid ${
-            stock.ai_signal === 'buy'
-              ? '#52c41a'
-              : stock.ai_signal === 'sell'
-                ? '#ff4d4f'
-                : '#8c8c8c'
-          }`,
-        }}
-      >
-        <Row gutter={16} align="middle">
-          <Col span={3}>
-            <div style={{ fontSize: 18, fontWeight: 700 }}>{stock.stock_code}</div>
-            <div style={{ color: 'var(--color-text-secondary)', fontSize: 13 }}>
-              {stock.stock_name}
-            </div>
-          </Col>
-          <Col span={3}>
-            <div style={{ fontSize: 20, fontWeight: 700 }}>
-              {stock.close.toFixed(2)}
-            </div>
-            <div
-              style={{
-                color: isUp ? '#EB001B' : '#52C41A',
-                fontSize: 13,
-              }}
-            >
-              {isUp ? '+' : ''}
-              {stock.change_pct.toFixed(2)}%
-            </div>
-          </Col>
-          <Col span={3}>
-            <Tag color={signalColor} style={{ fontSize: 13, padding: '2px 8px' }}>
-              {getSignalLabel(stock.ai_signal)}
-            </Tag>
-            {stock.ai_confidence != null && (
-              <div
-                style={{
-                  marginTop: 4,
-                  fontSize: 12,
-                  color: 'var(--color-text-secondary)',
-                }}
-              >
-                置信度 {Math.round(stock.ai_confidence * 100)}%
-              </div>
-            )}
-          </Col>
-          <Col span={10}>
-            <div
-              style={{
-                fontSize: 13,
-                color: 'var(--color-text-secondary)',
-                lineHeight: 1.6,
-              }}
-            >
-              {stock.ai_reason || 'AI 分析中...'}
-            </div>
-          </Col>
-          <Col span={5}>
-            <div style={{ fontSize: 12, color: 'var(--color-text-tertiary)' }}>
-              <div>
-                MA5: {stock.ma5.toFixed(2)} MA10: {stock.ma10.toFixed(2)} MA20:{' '}
-                {stock.ma20.toFixed(2)}
-              </div>
-              <div>
-                RSI: {stock.rsi.toFixed(1)} | 量比: {stock.volume_ratio.toFixed(2)}
-              </div>
-              <div>综合评分: {stock.composite_score.toFixed(1)}</div>
-            </div>
-          </Col>
-        </Row>
-      </Card>
-    )
-  }
+  const renderResultCard = (stock: StockResult) => (
+    <ResearchResultCard
+      key={stock.stock_code}
+      code={stock.stock_code}
+      name={stock.stock_name}
+      price={stock.close}
+      changePercent={stock.change_pct}
+      signal={stock.ai_signal}
+      confidence={stock.ai_confidence}
+      summary={stock.ai_reason || 'AI 分析中...'}
+      metadata={
+        <>
+          <div>
+            MA5: {stock.ma5.toFixed(2)} · MA10: {stock.ma10.toFixed(2)} · MA20:{' '}
+            {stock.ma20.toFixed(2)}
+          </div>
+          <div>
+            RSI: {stock.rsi.toFixed(1)} · 量比: {stock.volume_ratio.toFixed(2)} · 评分:{' '}
+            {stock.composite_score.toFixed(1)}
+          </div>
+        </>
+      }
+      actions={
+        <div className="research-result-card__actions-group">
+          <Button
+            type="link"
+            size="small"
+            onClick={() => navigate(`/stocks/${encodeURIComponent(stock.stock_code)}`)}
+          >
+            个股研究
+          </Button>
+          <Button
+            type="link"
+            size="small"
+            onClick={() =>
+              navigate(`/workspace?stock=${encodeURIComponent(stock.stock_code)}`)
+            }
+          >
+            Agent
+          </Button>
+        </div>
+      }
+    />
+  )
 
   return (
     <div className="fade-in">
-      <div className="page-header">
-        <div className="flex flex-between" style={{ gap: 16, flexWrap: 'wrap' }}>
-          <div>
-            <h1 className="page-title">AI 量化选股</h1>
-            <p className="page-subtitle">
-              基于多维度筛选 + AI 深度分析，智能推荐 A 股
-            </p>
-          </div>
-          {history.some((record) => record.status === 'completed') && (
+      <PageHeader
+        eyebrow="DISCOVERY"
+        title="AI 量化选股"
+        subtitle="基于多维度筛选与 AI 深度分析，发现值得研究的 A 股"
+        actions={
+          history.some((record) => record.status === 'completed') ? (
             <Select
               aria-label="筛选记录"
               value={selectedHistoryId}
-              placeholder="筛选记录"
+              placeholder="历史筛选"
               suffixIcon={<HistoryOutlined />}
               onChange={handleHistoryChange}
-              style={{ width: 260 }}
+              className="screener-history-select"
               options={history
                 .filter((record) => record.status === 'completed' && record.result)
                 .map((record) => ({
@@ -321,29 +298,23 @@ function Screener() {
                   label: `${formatHistoryTime(record.created_at)} · ${record.result?.results.length ?? 0} 只`,
                 }))}
             />
-          )}
-        </div>
-      </div>
+          ) : undefined
+        }
+      />
 
       {/* 初始状态 */}
       {!running && !completed && (
-        <Card style={{ textAlign: 'center', padding: '40px 0' }}>
+        <Card className="screener-start-card">
           <Button
             type="primary"
             size="large"
             icon={<PlayCircleOutlined />}
             onClick={handleRun}
-            style={{ borderRadius: 24, padding: '8px 48px', fontSize: 16, height: 48 }}
+            className="screener-start-card__button"
           >
             开始 AI 选股
           </Button>
-          <div
-            style={{
-              marginTop: 16,
-              color: 'var(--color-text-secondary)',
-              fontSize: 13,
-            }}
-          >
+          <div className="screener-start-card__hint">
             自动扫描全市场股票，综合评分排序后 AI 深度分析 TOP 5
           </div>
         </Card>
@@ -351,46 +322,24 @@ function Screener() {
 
       {/* 进度显示 */}
       {running && (
-        <Card style={{ padding: '24px' }}>
-          <div style={{ marginBottom: 12, fontSize: 16, fontWeight: 600 }}>
-            {STAGE_LABELS[stage] || '正在处理...'}
-          </div>
-          <Progress percent={progress} status="active" style={{ marginBottom: 8 }} />
-          <div
-            style={{
-              color: 'var(--color-text-secondary)',
-              fontSize: 13,
-              marginBottom: 4,
-            }}
-          >
-            {messageText}
-          </div>
-          {total > 0 && (
-            <div style={{ color: 'var(--color-text-tertiary)', fontSize: 12 }}>
-              已处理 {current} / {total} 只股票
-            </div>
-          )}
-          <div style={{ marginTop: 16 }}>
-            <Button onClick={handleCancel}>取消</Button>
-          </div>
-        </Card>
+        <JobProgressPanel
+          title={STAGE_LABELS[stage] || '正在处理...'}
+          progress={progress}
+          message={messageText}
+          detail={total > 0 ? `已处理 ${current} / ${total} 只股票` : undefined}
+          onCancel={handleCancel}
+        />
       )}
 
       {/* 结果展示 */}
       {completed && !running && (
         <div>
-          <Card style={{ marginBottom: 16, background: 'var(--color-canvas-lifted)' }}>
-            <div
-              style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}
-            >
-              <CheckCircleOutlined
-                style={{ color: 'var(--color-success)', fontSize: 20 }}
-              />
-              <span style={{ fontSize: 16, fontWeight: 600 }}>
-                {results.length > 0 ? 'AI 精选 TOP 5' : '全市场扫描完成'}
-              </span>
+          <Card className="screener-summary-card">
+            <div className="screener-summary-card__heading">
+              <CheckCircleOutlined />
+              <span>{results.length > 0 ? 'AI 精选 TOP 5' : '全市场扫描完成'}</span>
             </div>
-            <div style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>
+            <div className="screener-summary-card__description">
               共扫描 {totalScanned} 只有效股票
               {results.length > 0
                 ? `，展示 ${results.length} 只深度分析结果`
@@ -402,10 +351,7 @@ function Screener() {
             results.map((stock) => renderResultCard(stock))
           ) : (
             <Card>
-              <Empty
-                description="当前市场没有股票同时满足均线多头、MACD 红柱和放量条件"
-                image={Empty.PRESENTED_IMAGE_SIMPLE}
-              />
+              <EmptyState description="当前市场没有股票同时满足均线多头、MACD 红柱和放量条件" />
             </Card>
           )}
 
@@ -419,7 +365,7 @@ function Screener() {
               setSelectedHistoryId(undefined)
               setRunning(false)
             }}
-            style={{ marginTop: 16 }}
+            className="screener-restart-button"
           >
             重新选股
           </Button>

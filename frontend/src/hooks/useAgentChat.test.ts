@@ -34,7 +34,9 @@ const mocks = vi.hoisted(() => {
     submitTurn: vi.fn(),
     cancelTurn: vi.fn(),
     archiveThread: vi.fn(),
-    getChatStatus: vi.fn().mockResolvedValue({ backend: 'fake', available: true, reason: null }),
+    getChatStatus: vi
+      .fn()
+      .mockResolvedValue({ backend: 'fake', available: true, reason: null }),
     getApiErrorMessage: vi.fn((e: unknown) => String(e)),
   }
 })
@@ -92,7 +94,11 @@ describe('useAgentChat', () => {
     mocks.submitTurn.mockReset()
     mocks.cancelTurn.mockReset()
     mocks.archiveThread.mockReset()
-    mocks.getChatStatus.mockResolvedValue({ backend: 'fake', available: true, reason: null })
+    mocks.getChatStatus.mockResolvedValue({
+      backend: 'fake',
+      available: true,
+      reason: null,
+    })
     window.history.replaceState({}, '', '/workspace')
   })
 
@@ -124,9 +130,8 @@ describe('useAgentChat', () => {
       thread: thread('t-1', { title: '' }),
       turns: [],
     })
-    mocks.submitTurn.mockImplementation(
-      (_tid: string, content: string) =>
-        Promise.resolve(turn(1, 't-1', { status: 'queued', content })),
+    mocks.submitTurn.mockImplementation((_tid: string, content: string) =>
+      Promise.resolve(turn(1, 't-1', { status: 'queued', content })),
     )
     const content = '帮我分析 sh.600000 并回测 ma_cross'
     const { result } = renderHook(() => useAgentChat())
@@ -217,7 +222,12 @@ describe('useAgentChat', () => {
     expect(assistant?.content).toBe('正在分析')
     expect(assistant?.reasoning).toBe('思考中…')
     expect(assistant?.tools).toEqual([
-      { tool: 'quant_run_analysis', summary: 'run 创建', callId: null, runId: 'run-77' },
+      {
+        tool: 'quant_run_analysis',
+        summary: 'run 创建',
+        callId: null,
+        runId: 'run-77',
+      },
     ])
     expect(assistant?.runId).toBe('run-77')
     expect(assistant?.status).toBe('completed')

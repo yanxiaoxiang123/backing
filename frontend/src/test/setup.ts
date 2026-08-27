@@ -24,3 +24,9 @@ Object.defineProperty(window, 'matchMedia', {
 
 // jsdom 未实现 scrollTo
 window.scrollTo = vi.fn() as unknown as typeof window.scrollTo
+
+// rc-table asks jsdom for pseudo-element styles; jsdom throws for the optional
+// second argument even though the table only needs the base computed style.
+const getComputedStyle = window.getComputedStyle.bind(window)
+window.getComputedStyle = ((element: Element) =>
+  getComputedStyle(element)) as typeof window.getComputedStyle

@@ -1,5 +1,9 @@
 # 前端深度代码审查与全面优化方案报告
 
+> 本报告为历史审计记录。当前实施计划和验收标准以
+> [`docs/plans/2026-08-27-frontend-comprehensive-optimization.md`](plans/2026-08-27-frontend-comprehensive-optimization.md)
+> 为准。
+
 > **生成时间**：2026-08-26
 > **审查范围**：`frontend/src/` 全部页面（11个）、组件库、自定义 Hooks、服务层、类型定义、样式系统、Vite 构建配置及测试套件。
 > **系统技术栈**：React 18 + TypeScript + Vite + Ant Design 5 + ECharts 5 + React Router 6 + Vitest

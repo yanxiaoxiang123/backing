@@ -1,8 +1,5 @@
 /*** Backing - Mastercard-inspired Design System ***/
 
-/* Font Import */
-@import url('https://fonts.googleapis.com/css2?family=Sofia+Sans:wght@400;450;500;600;700&display=swap');
-
 /* ============================================
    样式分层入口：tokens / base / layout / components / pages
    保持此导入顺序以维持层叠顺序（AntD 覆盖在组件之后）。

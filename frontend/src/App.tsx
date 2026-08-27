@@ -7,7 +7,7 @@ import {
   useLocation,
   useNavigate,
 } from 'react-router-dom'
-import { lazy, Suspense, useEffect, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from 'react'
 import {
   SearchOutlined,
   MenuOutlined,
@@ -46,7 +46,7 @@ const navItems = [
   { key: '/strategies', label: '策略研究' },
   { key: '/dl-prediction', label: 'DL预测' },
   { key: '/history', label: '回测历史' },
-  { key: '/agent', label: 'AI分析' },
+  { key: '/agent', label: '分析报告' },
   { key: '/workspace', label: 'Agent工作台' },
 ]
 
@@ -108,6 +108,26 @@ function App() {
   const navLinkClass = ({ isActive }: { isActive: boolean }) =>
     `nav-item${isActive ? ' active' : ''}`
 
+  const stockCodeForTitle = location.pathname.match(/^\/stocks\/([^/]+)/)?.[1]
+  useEffect(() => {
+    const pageTitles: Record<string, string> = {
+      '/': '仪表盘',
+      '/stocks': '股票管理',
+      '/watchlist': '自选股',
+      '/screener': '股票筛选',
+      '/strategies': '策略研究',
+      '/dl-prediction': 'DL 预测',
+      '/history': '回测历史',
+      '/agent': '分析报告',
+      '/workspace': 'Agent 工作台',
+      '/login': '登录',
+    }
+    const pageTitle =
+      pageTitles[location.pathname] ?? (stockCodeForTitle ? '个股研究' : '量化系统')
+    const detail = stockCodeForTitle ? ` · ${stockCodeForTitle}` : ''
+    document.title = `${pageTitle}${detail} · 量化系统`
+  }, [location.pathname, stockCodeForTitle])
+
   // 未认证：只渲染登录页
   if (authState === 'unauthenticated') {
     return (
@@ -131,7 +151,10 @@ function App() {
   }
 
   const closeMobileMenu = () => setMobileMenuOpen(false)
-  const stockMatch = location.pathname.match(/^\/stocks\/([^/]+)/)
+
+  const page = (name: string, element: ReactNode) => (
+    <ErrorBoundary name={name}>{element}</ErrorBoundary>
+  )
 
   return (
     <div className="app-layout">
@@ -168,8 +191,8 @@ function App() {
           <ResearchCopilot
             context={{
               route: location.pathname,
-              entity_type: stockMatch ? 'stock' : 'page',
-              entity_id: stockMatch?.[1],
+              entity_type: stockCodeForTitle ? 'stock' : 'page',
+              entity_id: stockCodeForTitle,
             }}
           />
 
@@ -245,25 +268,41 @@ function App() {
       {/* Main Content */}
       <main className="app-content">
         <ErrorBoundary name="App">
-          <Suspense fallback={<div className="route-loading">加载页面…</div>}>
+          <Suspense
+            fallback={
+              <div className="route-loading" role="status" aria-live="polite">
+                加载页面…
+              </div>
+            }
+          >
             <Routes>
-              <Route path="/" element={<Dashboard />} />
-              <Route path="/stocks" element={<StockList />} />
-              <Route path="/stocks/:code" element={<StockChart />} />
-              <Route path="/watchlist" element={<Watchlist />} />
-              <Route path="/screener" element={<Screener />} />
-              <Route path="/strategies" element={<Strategies />} />
-              <Route path="/dl-prediction" element={<DLPrediction />} />
+              <Route path="/" element={page('Dashboard', <Dashboard />)} />
+              <Route path="/stocks" element={page('StockList', <StockList />)} />
+              <Route
+                path="/stocks/:code"
+                element={page('StockChart', <StockChart />)}
+              />
+              <Route path="/watchlist" element={page('Watchlist', <Watchlist />)} />
+              <Route path="/screener" element={page('Screener', <Screener />)} />
+              <Route path="/strategies" element={page('Strategies', <Strategies />)} />
+              <Route
+                path="/dl-prediction"
+                element={page('DLPrediction', <DLPrediction />)}
+              />
               <Route path="/backtest" element={<Navigate to="/strategies" replace />} />
-              <Route path="/history" element={<BacktestHistory />} />
-              <Route path="/agent" element={<AgentAnalysis />} />
+              <Route
+                path="/history"
+                element={page('BacktestHistory', <BacktestHistory />)}
+              />
+              <Route path="/agent" element={page('AgentAnalysis', <AgentAnalysis />)} />
               <Route
                 path="/workspace"
-                element={
+                element={page(
+                  'AgentWorkspace',
                   <Suspense fallback={<div className="auth-loading">加载工作台…</div>}>
                     <AgentWorkspace />
-                  </Suspense>
-                }
+                  </Suspense>,
+                )}
               />
               <Route path="/login" element={<Navigate to="/" replace />} />
               <Route path="*" element={<Navigate to="/" replace />} />

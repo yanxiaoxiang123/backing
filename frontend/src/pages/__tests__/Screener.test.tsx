@@ -1,5 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('../../services/api', async () => {
@@ -25,6 +26,14 @@ const mockedSubmit = vi.mocked(submitScreener)
 const mockedStatus = vi.mocked(getScreenerStatus)
 const mockedHistory = vi.mocked(getScreenerHistory)
 
+function renderPage() {
+  return render(
+    <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      <Screener />
+    </MemoryRouter>,
+  )
+}
+
 describe('Screener', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -41,7 +50,7 @@ describe('Screener', () => {
     })
 
     const user = userEvent.setup()
-    render(<Screener />)
+    renderPage()
     await user.click(screen.getByRole('button', { name: /开始 AI 选股/ }))
 
     expect(await screen.findByText('全市场扫描完成')).toBeInTheDocument()
@@ -85,7 +94,7 @@ describe('Screener', () => {
     })
 
     const user = userEvent.setup()
-    render(<Screener />)
+    renderPage()
     await user.click(screen.getByRole('button', { name: /开始 AI 选股/ }))
 
     await waitFor(() => expect(screen.getByText('浦发银行')).toBeInTheDocument())
@@ -125,7 +134,7 @@ describe('Screener', () => {
       },
     ])
 
-    render(<Screener />)
+    renderPage()
 
     expect(await screen.findByText('中国平安')).toBeInTheDocument()
     expect(screen.getByRole('combobox', { name: '筛选记录' })).toBeInTheDocument()

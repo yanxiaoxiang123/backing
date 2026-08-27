@@ -3,10 +3,6 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 
-vi.mock('echarts-for-react', () => ({
-  default: () => <div data-testid="echarts-stub" />,
-}))
-
 const mockRun = vi.hoisted(() => ({
   run: null as Record<string, unknown> | null,
   events: [] as unknown[],
@@ -82,13 +78,17 @@ import AgentWorkspace from '../AgentWorkspace'
 
 function renderWorkspace() {
   return render(
-    <MemoryRouter initialEntries={['/workspace']}>
+    <MemoryRouter
+      initialEntries={['/workspace']}
+      future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
+    >
       <AgentWorkspace />
     </MemoryRouter>,
   )
 }
 
 beforeEach(() => {
+  localStorage.clear()
   mockRun.run = null
   mockRun.events = []
   mockRun.researchClaims = []
@@ -114,11 +114,25 @@ beforeEach(() => {
 describe('AgentWorkspace', () => {
   it('渲染三栏布局：会话列表 / 聊天 / 研究区', () => {
     renderWorkspace()
-    expect(
-      screen.getByRole('complementary', { name: /会话列表/ }),
-    ).toBeInTheDocument()
+    expect(screen.getByRole('complementary', { name: /会话列表/ })).toBeInTheDocument()
     expect(screen.getByLabelText('聊天输入')).toBeInTheDocument()
     expect(screen.getByRole('region', { name: /股票研究区/ })).toBeInTheDocument()
+  })
+
+  it('桌面侧栏可以折叠并恢复', async () => {
+    const user = userEvent.setup()
+    renderWorkspace()
+
+    await user.click(screen.getByRole('button', { name: '收起会话列表' }))
+    expect(screen.getByRole('button', { name: '展开会话列表' })).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: '收起研究区' }))
+    expect(screen.getByRole('button', { name: '展开研究区' })).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: '展开会话列表' }))
+    await user.click(screen.getByRole('button', { name: '展开研究区' }))
+    expect(screen.getByRole('button', { name: '收起会话列表' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '收起研究区' })).toBeInTheDocument()
   })
 
   it('发送消息调用 chat.send', async () => {

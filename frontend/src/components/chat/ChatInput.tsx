@@ -1,4 +1,4 @@
-import { useState, type KeyboardEvent } from 'react'
+import { useEffect, useState, type KeyboardEvent } from 'react'
 import { Button } from 'antd'
 import { SendOutlined, StopOutlined } from '@ant-design/icons'
 
@@ -7,10 +7,21 @@ interface ChatInputProps {
   disabled?: boolean
   onSend: (content: string) => void
   onStop: () => void
+  initialValue?: string
 }
 
-export function ChatInput({ running, disabled = false, onSend, onStop }: ChatInputProps) {
-  const [value, setValue] = useState('')
+export function ChatInput({
+  running,
+  disabled = false,
+  onSend,
+  onStop,
+  initialValue = '',
+}: ChatInputProps) {
+  const [value, setValue] = useState(initialValue)
+
+  useEffect(() => {
+    if (initialValue) setValue(initialValue)
+  }, [initialValue])
 
   const submit = () => {
     const text = value.trim()
@@ -46,6 +57,7 @@ export function ChatInput({ running, disabled = false, onSend, onStop }: ChatInp
           icon={<StopOutlined />}
           onClick={onStop}
           aria-label="停止生成"
+          title="停止生成"
         >
           停止
         </Button>
@@ -56,6 +68,7 @@ export function ChatInput({ running, disabled = false, onSend, onStop }: ChatInp
           disabled={disabled || value.trim().length === 0}
           onClick={submit}
           aria-label="发送消息"
+          title="发送消息"
         >
           发送
         </Button>

@@ -38,22 +38,26 @@ export function BacktestPanel({ data, objective, onRerun }: BacktestPanelProps) 
         />
       )}
       <Space size="small" style={{ marginBottom: 12 }}>
-        <InputNumber
-          size="small"
-          addonBefore="短均线"
-          min={2}
-          max={60}
-          value={shortPeriod}
-          onChange={(v) => setShortPeriod(v ?? 5)}
-        />
-        <InputNumber
-          size="small"
-          addonBefore="长均线"
-          min={3}
-          max={120}
-          value={longPeriod}
-          onChange={(v) => setLongPeriod(v ?? 20)}
-        />
+        <Space.Compact>
+          <span className="compact-input-label">短均线</span>
+          <InputNumber
+            size="small"
+            min={2}
+            max={60}
+            value={shortPeriod}
+            onChange={(v) => setShortPeriod(v ?? 5)}
+          />
+        </Space.Compact>
+        <Space.Compact>
+          <span className="compact-input-label">长均线</span>
+          <InputNumber
+            size="small"
+            min={3}
+            max={120}
+            value={longPeriod}
+            onChange={(v) => setLongPeriod(v ?? 20)}
+          />
+        </Space.Compact>
         <Button
           size="small"
           type="primary"

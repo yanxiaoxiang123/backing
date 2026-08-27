@@ -7,7 +7,7 @@ import {
   SearchOutlined,
   ThunderboltOutlined,
 } from '@ant-design/icons'
-import ReactECharts from 'echarts-for-react'
+import { LazyECharts } from '../components/charts/LazyECharts'
 import { useNavigate } from 'react-router-dom'
 import {
   useDashboardBriefing,
@@ -19,6 +19,7 @@ import {
 } from '../hooks/useDashboardData'
 import { getApiErrorMessage } from '../services/api'
 import type { DashboardIndex, DashboardStock } from '../types'
+import { buildStockIdentityMap, normalizeStockCode } from '../utils/stockIdentity'
 
 function ErrorBlock({ message, onRetry }: { message: string; onRetry: () => void }) {
   return (
@@ -110,7 +111,10 @@ function Dashboard() {
     [watchlistQuery.data],
   )
   const watchlistCodes = useMemo(
-    () => watchlistItems.map((item) => item.stock_code),
+    () =>
+      watchlistItems.map(
+        (item) => normalizeStockCode(item.stock_code) ?? item.stock_code,
+      ),
     [watchlistItems],
   )
   const quotesQuery = useDashboardQuotes(watchlistCodes)
@@ -119,18 +123,13 @@ function Dashboard() {
   const briefingQuery = useDashboardBriefing()
 
   const identities = useMemo(() => {
-    const items = new Map<string, { code: string; name: string }>()
-    watchlistItems.forEach((item) => {
-      const codeParts = item.stock_code.split('.')
-      const rawCode = codeParts[codeParts.length - 1] || item.stock_code
-      const identity = {
+    return buildStockIdentityMap(
+      watchlistItems.map((item) => ({
         code: item.stock_code,
         name: item.stock_name || item.stock_code,
-      }
-      items.set(item.stock_code, identity)
-      items.set(rawCode, identity)
-    })
-    return items
+      })),
+      (item) => item.code,
+    )
   }, [watchlistItems])
   const stocks = useMemo<DashboardStock[]>(
     () =>
@@ -138,7 +137,10 @@ function Dashboard() {
         const identity = identities.get(quote.symbol)
         return {
           id: 0,
-          code: identity?.code || quote.symbol,
+          code:
+            normalizeStockCode(identity?.code || quote.symbol) ||
+            identity?.code ||
+            quote.symbol,
           name: identity?.name || quote.symbol,
           current_price: quote.close,
           high: quote.high,
@@ -370,7 +372,7 @@ function Dashboard() {
           ) : trendQuery.isLoading ? (
             <Skeleton active paragraph={{ rows: 6 }} />
           ) : trendQuery.data?.data.length ? (
-            <ReactECharts
+            <LazyECharts
               option={trendOption}
               style={{ height: 300 }}
               notMerge

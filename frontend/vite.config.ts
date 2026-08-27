@@ -15,19 +15,12 @@ export default defineConfig({
     },
   },
   build: {
+    chunkSizeWarningLimit: 600,
     rollupOptions: {
       output: {
         manualChunks(id) {
           if (!id.includes('node_modules')) return undefined
           if (id.includes('@tanstack/react-query')) return 'query'
-          if (id.includes('echarts') || id.includes('zrender')) return 'charts'
-          if (
-            id.includes('antd') ||
-            id.includes('@ant-design') ||
-            id.includes('/rc-') ||
-            id.includes('@rc-component')
-          )
-            return 'antd'
           if (id.includes('react-markdown') || id.includes('remark-')) return 'markdown'
           if (
             id.includes('react/') ||
@@ -35,7 +28,7 @@ export default defineConfig({
             id.includes('scheduler')
           )
             return 'react'
-          return 'vendor'
+          return undefined
         },
       },
     },
@@ -44,5 +37,7 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
     css: false,
+    include: ['src/**/*.{test,spec}.{ts,tsx}'],
+    exclude: ['node_modules', 'dist', 'e2e'],
   },
 })

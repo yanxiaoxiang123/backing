@@ -1,20 +1,14 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { getDashboardSummary } from '../services/api'
 import {
-  getDashboardSummary,
   getRealtimeBars,
   getRealtimeIndices,
   getRealtimeQuotes,
-  getWatchlist,
-} from '../services/api'
+} from '../services/market'
+import { getWatchlist } from '../services/watchlist'
+import { dashboardKeys } from '../services/queryKeys'
 
-export const dashboardKeys = {
-  all: ['dashboard'] as const,
-  watchlist: () => [...dashboardKeys.all, 'watchlist'] as const,
-  indices: () => [...dashboardKeys.all, 'indices'] as const,
-  quotes: (codes: string[]) => [...dashboardKeys.all, 'quotes', codes] as const,
-  trend: (code: string) => [...dashboardKeys.all, 'trend', code] as const,
-  briefing: () => [...dashboardKeys.all, 'briefing'] as const,
-}
+export { dashboardKeys }
 
 export function useDashboardWatchlist() {
   return useQuery({

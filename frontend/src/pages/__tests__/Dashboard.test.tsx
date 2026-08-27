@@ -22,10 +22,6 @@ vi.mock('../../services/api', async () => {
 // jsdom 无 canvas 2d 上下文，echarts 渲染会随机崩溃（"Cannot set properties
 // of null (setting 'dpr')"）。该测试只断言功能行为，不测图表渲染，故 mock 掉
 // echarts 组件以消除基线 flake。
-vi.mock('echarts-for-react', () => ({
-  default: () => <div data-testid="echarts-stub" />,
-}))
-
 import Dashboard from '../Dashboard'
 import {
   getRealtimeQuotes,
@@ -131,7 +127,7 @@ function renderDashboard() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter>
+      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <Dashboard />
       </MemoryRouter>
     </QueryClientProvider>,

@@ -7,6 +7,66 @@
   --research-gap: clamp(14px, 2vw, 24px);
 }
 
+.dl-lab-layout {
+  display: grid;
+  grid-template-columns: minmax(260px, 300px) minmax(420px, 1.25fr) minmax(360px, 1fr);
+  gap: var(--space-lg);
+  align-items: start;
+}
+
+.dl-model-brief {
+  min-height: 220px;
+}
+
+.dl-model-status {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-sm);
+}
+
+.dl-model-brief p {
+  color: var(--color-text-secondary);
+  line-height: 1.6;
+}
+
+.dl-model-brief dl {
+  display: grid;
+  gap: var(--space-sm);
+  margin: var(--space-lg) 0 0;
+}
+
+.dl-model-brief dl div {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-md);
+  border-bottom: 1px solid var(--color-border);
+  padding-bottom: var(--space-xs);
+}
+
+.dl-model-brief dt {
+  color: var(--color-text-secondary);
+}
+.dl-model-brief dd {
+  margin: 0;
+  font-weight: 600;
+}
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-flat);
+}
+
+@media (max-width: 1200px) {
+  .dl-lab-layout {
+    grid-template-columns: 280px minmax(0, 1fr);
+  }
+  .dl-lab-layout > :nth-child(3) {
+    grid-column: 1 / -1;
+  }
+}
+
 .research-page-header {
   display: flex;
   align-items: flex-end;
@@ -18,6 +78,146 @@
   display: flex;
   gap: var(--space-sm);
   flex-wrap: wrap;
+}
+
+.stock-list-controls {
+  margin-bottom: var(--space-md);
+}
+
+.stock-list-controls__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-md);
+}
+
+.stock-list-controls__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+}
+
+.stock-list-search {
+  width: min(240px, 100%);
+}
+
+.stock-list-market {
+  width: 120px;
+}
+
+.stock-list-sort {
+  width: 130px;
+}
+
+.stock-list-table-panel {
+  overflow: hidden;
+}
+
+.instrument-code {
+  color: var(--color-ink);
+  font-weight: 550;
+  font-variant-numeric: tabular-nums;
+}
+
+.watchlist-quotes-alert {
+  margin-bottom: var(--space-md);
+}
+
+.screener-history-select {
+  width: 260px;
+}
+
+.screener-start-card {
+  padding: 40px 0;
+  text-align: center;
+}
+
+.screener-start-card__button {
+  height: 48px;
+  padding: 8px 48px;
+  border-radius: var(--radius-pill);
+  font-size: var(--font-size-md);
+}
+
+.screener-start-card__hint {
+  margin-top: var(--space-md);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.screener-summary-card {
+  margin-bottom: var(--space-md);
+  background: var(--color-canvas-lifted);
+}
+
+.screener-summary-card__heading {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-sm);
+  font-size: var(--font-size-md);
+  font-weight: 650;
+}
+
+.screener-summary-card__heading .anticon {
+  color: var(--color-success);
+  font-size: var(--font-size-lg);
+}
+
+.screener-summary-card__description {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.screener-restart-button {
+  margin-top: var(--space-md);
+}
+
+.backtest-history-panel {
+  overflow: hidden;
+}
+
+.backtest-history-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-md);
+  margin-bottom: var(--space-lg);
+}
+
+.backtest-history-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
+}
+
+.backtest-history-toolbar .ant-input {
+  width: 180px;
+}
+
+.backtest-history-toolbar .ant-select {
+  width: 140px;
+}
+
+@media (max-width: 720px) {
+  .backtest-history-summary {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 1100px) {
+  .research-result-card {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .research-result-card__summary {
+    grid-column: span 2;
+  }
+
+  .research-result-card__metadata {
+    grid-column: span 2;
+  }
 }
 .eyebrow {
   color: var(--color-text-secondary);
@@ -52,7 +252,7 @@
 }
 .research-index-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: var(--research-gap);
 }
 .research-index-card,
@@ -246,6 +446,12 @@
   }
   .hide-on-narrow {
     display: none;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1250px) {
+  .research-index-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 

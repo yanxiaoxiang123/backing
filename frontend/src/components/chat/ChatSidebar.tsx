@@ -1,5 +1,10 @@
 import { Button, Empty, Tooltip } from 'antd'
-import { DeleteOutlined, PlusOutlined } from '@ant-design/icons'
+import {
+  DeleteOutlined,
+  MenuFoldOutlined,
+  MenuUnfoldOutlined,
+  PlusOutlined,
+} from '@ant-design/icons'
 import type { ChatThread } from '../../types/chat'
 
 interface ChatSidebarProps {
@@ -8,6 +13,8 @@ interface ChatSidebarProps {
   onSelect: (threadId: string) => void
   onNew: () => void
   onArchive: (threadId: string) => void
+  collapsed?: boolean
+  onToggleCollapsed?: () => void
 }
 
 function formatTime(value: string | null): string {
@@ -27,9 +34,48 @@ export function ChatSidebar({
   onSelect,
   onNew,
   onArchive,
+  collapsed = false,
+  onToggleCollapsed,
 }: ChatSidebarProps) {
+  if (collapsed) {
+    return (
+      <div className="chat-sidebar chat-sidebar-collapsed" aria-label="会话列表">
+        <Button
+          type="text"
+          icon={<MenuUnfoldOutlined />}
+          className="chat-sidebar-rail-button"
+          aria-label="展开会话列表"
+          title="展开会话列表"
+          onClick={onToggleCollapsed}
+        />
+        <Button
+          type="text"
+          icon={<PlusOutlined />}
+          className="chat-sidebar-rail-new"
+          aria-label="新对话"
+          title="新对话"
+          onClick={onNew}
+        />
+      </div>
+    )
+  }
+
   return (
     <div className="chat-sidebar" aria-label="会话列表">
+      <div className="chat-sidebar-heading">
+        <div>
+          <span className="chat-sidebar-kicker">CONVERSATIONS</span>
+          <strong>会话</strong>
+        </div>
+        <Button
+          type="text"
+          icon={<MenuFoldOutlined />}
+          aria-label="收起会话列表"
+          title="收起会话列表"
+          className="chat-sidebar-toggle"
+          onClick={onToggleCollapsed}
+        />
+      </div>
       <Button
         type="primary"
         block
@@ -44,7 +90,7 @@ export function ChatSidebar({
           <Empty
             image={Empty.PRESENTED_IMAGE_SIMPLE}
             description="暂无会话"
-            style={{ marginTop: 24 }}
+            className="chat-sidebar-empty"
           />
         ) : (
           threads.map((thread) => {
@@ -65,7 +111,9 @@ export function ChatSidebar({
                   {running ? (
                     <span className="chat-sidebar-dot" aria-label="运行中" />
                   ) : null}
-                  <span className="chat-sidebar-title">{thread.title || '未命名会话'}</span>
+                  <span className="chat-sidebar-title">
+                    {thread.title || '未命名会话'}
+                  </span>
                 </div>
                 <div className="chat-sidebar-item-meta">
                   <span>{formatTime(thread.updated_at)}</span>

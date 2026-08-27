@@ -1,8 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { message } from 'antd'
-import ReactECharts from 'echarts-for-react'
+import { useQuery } from '@tanstack/react-query'
 import {
-  getStrategies,
   generateSignals,
   runStrategyBacktest,
   submitOptimizeParameters,
@@ -10,6 +9,7 @@ import {
   compareStrategies,
   getApiErrorMessage,
 } from '../services/api'
+import { getStrategies } from '../services/strategies'
 import { logger } from '../utils/logger'
 import { usePersistedState } from '../hooks/usePersistedState'
 import { useJobPolling } from '../hooks/useJobPolling'
@@ -28,17 +28,30 @@ import type {
   OptimizeResponse,
   CompareResponse,
 } from '../types'
+import { PageHeader } from '../components/research/ResearchPrimitives'
+import { strategyKeys } from '../services/queryKeys'
+import { normalizeStockCode } from '../utils/stockIdentity'
+import { useSearchParams } from 'react-router-dom'
 
 function Strategies() {
-  const chartRef = useRef<ReactECharts>(null)
+  const chartRef = useRef<HTMLDivElement>(null)
+  const [searchParams] = useSearchParams()
+  const requestedStock = normalizeStockCode(searchParams.get('stock'))
 
   // State
-  const [strategies, setStrategies] = useState<StrategyInfo[]>([])
+  const strategiesQuery = useQuery({
+    queryKey: strategyKeys.catalog(),
+    queryFn: getStrategies,
+    staleTime: 5 * 60_000,
+  })
+  const strategies = useMemo<StrategyInfo[]>(
+    () => strategiesQuery.data ?? [],
+    [strategiesQuery.data],
+  )
   const [selectedStrategy, setSelectedStrategy] = usePersistedState<string | null>(
     'strategies_selectedStrategy',
     null,
   )
-  const [loadingStrategies, setLoadingStrategies] = useState(true)
   const [loadingSignals, setLoadingSignals] = useState(false)
   const [loadingBacktest, setLoadingBacktest] = useState(false)
   const [loadingOptimize, setLoadingOptimize] = useState(false)
@@ -48,6 +61,10 @@ function Strategies() {
     'strategies_stockCode',
     null,
   )
+
+  useEffect(() => {
+    if (requestedStock && requestedStock !== stockCode) setStockCode(requestedStock)
+  }, [requestedStock, setStockCode, stockCode])
   const [dateRange, setDateRange] = usePersistedState<[string, string]>(
     'strategies_dateRange',
     [dayjs().subtract(1, 'year').format('YYYY-MM-DD'), dayjs().format('YYYY-MM-DD')],
@@ -74,11 +91,6 @@ function Strategies() {
   // 统一的任务轮询（超时/取消/卸载清理/指数退避）
   const { waitForJob } = useJobPolling<OptimizeResponse>({ timeoutMs: 600000 })
 
-  // Load strategies on mount
-  useEffect(() => {
-    loadData()
-  }, [])
-
   // Update parameters when strategy changes
   useEffect(() => {
     if (selectedStrategy && strategies.length > 0) {
@@ -92,19 +104,6 @@ function Strategies() {
       }
     }
   }, [selectedStrategy, strategies])
-
-  const loadData = async () => {
-    try {
-      setLoadingStrategies(true)
-      const strategiesData = await getStrategies()
-      setStrategies(strategiesData)
-    } catch (error) {
-      message.error('加载数据失败')
-      logger.error(error)
-    } finally {
-      setLoadingStrategies(false)
-    }
-  }
 
   const loadMootdxData = useCallback(async () => {
     if (!stockCode || !dateRange[0] || !dateRange[1]) return []
@@ -282,24 +281,20 @@ function Strategies() {
 
   return (
     <div className="fade-in">
-      <div className="page-header">
-        <div
-          className="flex flex-between"
-          style={{ flexWrap: 'wrap', gap: 'var(--space-md)' }}
-        >
-          <div>
-            <h1 className="page-title">策略研究</h1>
-            <p className="page-subtitle">选择策略、配置参数、执行回测</p>
-          </div>
-        </div>
-      </div>
+      <PageHeader
+        eyebrow="STRATEGY LAB"
+        title="策略研究"
+        subtitle="选择策略、配置参数并验证历史表现"
+      />
 
       <div className="strategies-layout">
         <StrategyList
           strategies={strategies}
           selectedStrategy={selectedStrategy}
-          loading={loadingStrategies}
+          loading={strategiesQuery.isLoading}
           onSelect={setSelectedStrategy}
+          error={strategiesQuery.error}
+          onRetry={() => void strategiesQuery.refetch()}
         />
 
         <StrategyConfig
