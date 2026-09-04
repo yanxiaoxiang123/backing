@@ -24,7 +24,13 @@ from app.exceptions import (
     ValidationError,
 )
 from app.limiter import limiter
-from app.models.models import DEFAULT_USER_ID, BacktestResult, DailyKline, Stock, WatchlistItem
+from app.models.models import (
+    DEFAULT_USER_ID,
+    BacktestResult,
+    DailyKline,
+    Stock,
+    WatchlistItem,
+)
 from app.schemas.schemas import (
     BacktestListResponse,
     BacktestRequest,

@@ -14,7 +14,9 @@ MAX_KLINE_ROWS = 500
 class MarketKlineParams(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    stock_code: str = Field(..., min_length=1)
+    stock_code: str = Field(
+        ..., min_length=1, description="股票代码，支持 sh.600000、sh600000、SH600000 或 600000"
+    )
     start_date: str = Field(..., pattern=r"^\d{4}-\d{2}-\d{2}$")
     end_date: str = Field(..., pattern=r"^\d{4}-\d{2}-\d{2}$")
 
@@ -42,7 +44,9 @@ def _market_kline(params: MarketKlineParams, context: ToolContext) -> dict:
 class MarketSnapshotParams(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    stock_code: str = Field(..., min_length=1)
+    stock_code: str = Field(
+        ..., min_length=1, description="股票代码，支持 sh.600000、sh600000、SH600000 或 600000"
+    )
     period: str = Field(default="daily", pattern=r"^(daily|weekly|monthly)$")
 
 

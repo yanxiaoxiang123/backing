@@ -11,7 +11,9 @@ from app.tools.base import Permission, Tool, ToolContext
 class FactorIndicatorsParams(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    stock_code: str = Field(..., min_length=1)
+    stock_code: str = Field(
+        ..., min_length=1, description="股票代码，支持 sh.600000、sh600000、SH600000 或 600000"
+    )
     period: str = Field(default="daily", pattern=r"^(daily|weekly|monthly)$")
     limit: int = Field(default=200, ge=1, le=1000)
 

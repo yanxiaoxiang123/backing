@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List
 from datetime import datetime, timezone
+from typing import Any, Dict, List
 
 from sqlalchemy import case, func
 from sqlalchemy.orm import Session

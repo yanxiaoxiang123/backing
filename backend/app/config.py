@@ -40,7 +40,7 @@ class Settings(BaseSettings):
     # Agent 配置
     DEEPSEEK_API_KEY: str | None = None
     DEEPSEEK_BASE_URL: str = "https://api.deepseek.com/v1"
-    DEEPSEEK_MODEL: str = "deepseek-chat"
+    DEEPSEEK_MODEL: str = "deepseek-v4-flash"
     TAVILY_API_KEY: str | None = None
     AGENT_ORCHESTRATOR_MODE: str = "standard"
     AGENT_MAX_STEPS: int = 6

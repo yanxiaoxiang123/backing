@@ -16,6 +16,11 @@ from app.agent_runtime.graphs import build_supervisor_pipeline
 from app.agent_runtime.runtime import RunExecutor
 from app.agent_runtime.stores import Stores, create_stores
 from app.domain.plans import RunBudget
+from app.domain.stock_codes import (
+    canonicalize_stock_code_in_text,
+    normalize_stock_code,
+    stock_code_from_text,
+)
 from evals.runner import DEFAULT_DATASET, load_cases
 from evals.scorers import (
     citation_coverage,
@@ -53,6 +58,8 @@ def _parse_available_at(case: dict[str, Any]) -> datetime | None:
 def _stock_code_of(case: dict[str, Any]) -> str:
     from app.agent_runtime.graphs.supervisor import extract_stock_code
 
+    if case.get("stock_code"):
+        return normalize_stock_code(case["stock_code"])
     return extract_stock_code(case.get("objective", ""))
 
 
@@ -128,7 +135,9 @@ def evaluate_case_through_runtime(
 ) -> dict[str, Any]:
     """在运行时上执行单个 golden case 并打分。"""
     stores = create_stores(session)
-    objective = case.get("objective", "")
+    objective = canonicalize_stock_code_in_text(case.get("objective", ""))
+    if stock_code_from_text(objective) is None and case.get("stock_code"):
+        objective = f"{objective}（股票：{case['stock_code']}）"
     budget = budget or RunBudget(max_rounds=12, max_tool_calls=40)
     executor = RunExecutor(stores, db=session, as_of=_parse_available_at(case))
     run_id = executor.create_run(objective=objective, budget=budget)

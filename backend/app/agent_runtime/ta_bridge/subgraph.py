@@ -47,8 +47,8 @@ def _ta_config(ctx: NodeContext) -> dict[str, Any]:
     config.update(
         {
             "llm_provider": "deepseek",
-            "deep_think_llm": "deepseek-reasoner",
-            "quick_think_llm": "deepseek-chat",
+            "deep_think_llm": settings.DEEPSEEK_MODEL,
+            "quick_think_llm": settings.DEEPSEEK_MODEL,
             "api_key": settings.DEEPSEEK_API_KEY or "",
             "checkpoint_enabled": False,
             "results_dir": str(_TA_DIR / "logs"),

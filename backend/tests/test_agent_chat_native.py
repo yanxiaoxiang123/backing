@@ -9,10 +9,12 @@ from app.agent_chat.policy import ToolScope, TurnToolPolicy, stock_reference
 from app.agent_chat.runtime import (
     NativeAgentChatRuntime,
     NativeModelResponse,
+    NativeToolCall,
 )
 from app.agent_chat.seam import RUN_LINKED, TOOL_CALL, TOOL_RESULT, ChatEvent
 from app.agent_chat.stores import create_chat_stores
 from app.config import Base
+from app.models.models import Stock
 
 
 def _session_factory(tmp_path):
@@ -105,10 +107,10 @@ def test_read_tool_schema_uses_openai_safe_function_names(tmp_path):
 
 
 def test_stock_code_without_leading_space_is_recognized():
-    admission = TurnToolPolicy().classify("分析sz.000002")
+    admission = TurnToolPolicy().classify("分析sz000002")
 
     assert admission.scope is ToolScope.ANALYSIS
-    assert stock_reference("分析sz.000002") == "sz.000002"
+    assert stock_reference("分析sz000002") == "sz.000002"
 
 
 def test_failed_turn_does_not_replay_orphan_tool_call(tmp_path):
@@ -166,6 +168,80 @@ def test_explicit_analysis_deterministically_links_run(tmp_path):
     assert next(event for event in events if event.type == RUN_LINKED).payload["run_id"] == "run-native-1"
     assert [item.name for item in calls] == ["quant_run_analysis"]
     assert "quant_run_analysis" not in model.tools_seen[0]
+
+
+def test_auto_analysis_uses_canonical_code_and_internal_context(tmp_path):
+    factory = _session_factory(tmp_path)
+
+    class InspectingModel(ScriptedModel):
+        def __init__(self):
+            super().__init__([NativeModelResponse(text="分析完成。")])
+            self.messages_seen = []
+
+        def complete(self, messages, tools, **kwargs):
+            self.messages_seen.append(messages)
+            return super().complete(messages, tools, **kwargs)
+
+    model = InspectingModel()
+    runtime = NativeAgentChatRuntime(factory, model=model, api_key="test")
+    calls = []
+
+    def execute(_session_id, call, _admission, _cancel_event):
+        calls.append(call)
+        return {"ok": True, "run_id": "run-canonical", "status": "completed"}
+
+    runtime._execute_tool = execute  # type: ignore[method-assign]
+    turn_id = _turn(factory, "分析一下sh600000")
+    events: list[ChatEvent] = []
+
+    outcome = runtime.run_turn(
+        "thread-native", "分析一下sh600000", turn_id=turn_id, emit=events.append
+    )
+
+    assert outcome.status == "completed"
+    assert len(calls) == 1
+    assert calls[0].name == "quant_run_analysis"
+    assert calls[0].arguments == {"objective": "分析一下sh.600000"}
+    messages = model.messages_seen[0]
+    assert not any(message.get("tool_calls") for message in messages)
+    assert any("不要声称调用了未提供的工具" in message["content"] for message in messages)
+    assert next(event for event in events if event.type == RUN_LINKED).payload == {
+        "run_id": "run-canonical"
+    }
+
+
+def test_chat_read_tool_normalizes_model_stock_code(tmp_path):
+    factory = _session_factory(tmp_path)
+    session = factory()
+    session.add(Stock(code="sh.600000", name="浦发银行", market="sh"))
+    session.commit()
+    session.close()
+    model = ScriptedModel(
+        [
+            NativeModelResponse(
+                tool_calls=[
+                    NativeToolCall(
+                        call_id="read-stock",
+                        name="fundamental_stock_info",
+                        arguments={"stock_code": "sh600000"},
+                    )
+                ]
+            ),
+            NativeModelResponse(text="已获取浦发银行基础信息。"),
+        ]
+    )
+    runtime = NativeAgentChatRuntime(factory, model=model, api_key="test")
+    turn_id = _turn(factory, "查询sh600000基础信息")
+    events: list[ChatEvent] = []
+
+    outcome = runtime.run_turn(
+        "thread-native", "查询sh600000基础信息", turn_id=turn_id, emit=events.append
+    )
+
+    assert outcome.status == "completed"
+    result_event = next(event for event in events if event.type == TOOL_RESULT)
+    assert result_event.payload["result"]["ok"] is True
+    assert result_event.payload["result"]["data"]["code"] == "sh.600000"
 
 
 def test_follow_up_analysis_uses_stock_from_history(tmp_path):

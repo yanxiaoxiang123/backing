@@ -214,11 +214,11 @@ def test_market_kline_envelope(monkeypatch):
     ctx = ToolContext()
     result = DEFAULT_REGISTRY.invoke(
         "market.kline",
-        {"stock_code": "sh.600519", "start_date": "2026-01-01", "end_date": "2026-01-10"},
+        {"stock_code": "SH600519", "start_date": "2026-01-01", "end_date": "2026-01-10"},
         ctx,
     )
     assert result["ok"] is True
-    assert result["source_id"].startswith("kline:")
+    assert result["source_id"].startswith("kline:sh.600519:")
     assert result["as_of"] is not None
     assert result["vendor"] == "backend"
     assert result["data"]["rows"] == 2
@@ -245,7 +245,7 @@ def test_market_snapshot_with_db(db):
     _seed_stock_and_klines(db)
     ctx = ToolContext(db=db)
     result = DEFAULT_REGISTRY.invoke(
-        "market.snapshot", {"stock_code": "sh.600000"}, ctx
+        "market.snapshot", {"stock_code": "sh600000"}, ctx
     )
     assert result["ok"] is True
     assert result["data"]["latest"]["close"] == 11.4
@@ -265,7 +265,7 @@ def test_fundamental_stock_info(db):
     _seed_stock_and_klines(db)
     ctx = ToolContext(db=db)
     result = DEFAULT_REGISTRY.invoke(
-        "fundamental.stock_info", {"stock_code": "sh.600000"}, ctx
+        "fundamental.stock_info", {"stock_code": "600000"}, ctx
     )
     assert result["ok"] is True
     assert result["data"]["name"] == "浦发银行"
@@ -334,8 +334,8 @@ def test_portfolio_constraints_ok():
         "portfolio.constraints",
         {
             "positions": [
-                {"code": "a", "action": "buy", "weight": 0.3, "shares": 100},
-                {"code": "b", "action": "buy", "weight": 0.3, "shares": 200},
+                {"code": "600000", "action": "buy", "weight": 0.3, "shares": 100},
+                {"code": "000001", "action": "buy", "weight": 0.3, "shares": 200},
             ]
         },
         ctx,
@@ -350,8 +350,8 @@ def test_portfolio_constraints_weight_over_one():
         "portfolio.constraints",
         {
             "positions": [
-                {"code": "a", "action": "buy", "weight": 0.6},
-                {"code": "b", "action": "buy", "weight": 0.6},
+                {"code": "600000", "action": "buy", "weight": 0.6},
+                {"code": "000001", "action": "buy", "weight": 0.6},
             ]
         },
         ctx,
@@ -367,8 +367,8 @@ def test_portfolio_constraints_lot_and_t_plus_1():
         "portfolio.constraints",
         {
             "positions": [
-                {"code": "a", "action": "buy", "weight": 0.2, "shares": 150},
-                {"code": "a", "action": "sell", "weight": 0.1, "shares": 100},
+                {"code": "sh600000", "action": "buy", "weight": 0.2, "shares": 150},
+                {"code": "600000", "action": "sell", "weight": 0.1, "shares": 100},
             ]
         },
         ctx,
@@ -397,6 +397,22 @@ def test_tool_call_recorded_when_stores_provided():
     assert calls[0]["status"] == "ok"
     assert calls[0]["params_hash"] == hashlib.sha256(b"{}").hexdigest()
     session.close()
+
+
+def test_stock_tool_normalizes_input_and_audit_params(db):
+    _seed_stock_and_klines(db)
+    stores = create_stores(db)
+    stores.runs.create_run(run_id="run-stock-code", objective="研究 sh.600000")
+    ctx = ToolContext(db=db, stores=stores, run_id="run-stock-code")
+
+    result = DEFAULT_REGISTRY.invoke(
+        "fundamental.stock_info", {"stock_code": "SH600000"}, ctx
+    )
+
+    assert result["ok"] is True
+    assert result["data"]["code"] == "sh.600000"
+    call = stores.tool_calls.list_tool_calls("run-stock-code")[0]
+    assert call["params_json"] == {"stock_code": "sh.600000"}
 
 
 def test_denied_tool_recorded_as_denied():

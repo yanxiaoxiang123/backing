@@ -27,6 +27,11 @@ from app.agent_runtime.runtime import CancelToken, RunExecutor
 from app.agent_runtime.stores import create_stores
 from app.auth import get_current_api_key
 from app.config import SessionLocal, get_db
+from app.domain.stock_codes import (
+    StockCodeError,
+    canonicalize_stock_code_in_text,
+    stock_code_from_text,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -85,16 +90,27 @@ def _require_run(db: Session, run_id: str) -> dict:
     return run
 
 
+def _validated_objective(objective: str, db: Session) -> str:
+    try:
+        canonical = canonicalize_stock_code_in_text(objective, db=db)
+    except StockCodeError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    if stock_code_from_text(canonical, db=db) is None:
+        raise HTTPException(status_code=422, detail="研究目标缺少有效股票代码")
+    return canonical
+
+
 @router.post("/agent-runs", response_model=RunResponse, status_code=201)
 def create_run(
     payload: CreateRunRequest,
     db: Session = Depends(get_db),
     _: str = Depends(get_current_api_key),
 ):
+    objective = _validated_objective(payload.objective, db)
     stores = create_stores(db)
     executor = RunExecutor(stores, db=db)
     run_id = executor.create_run(
-        payload.objective,
+        objective,
         budget=payload.budget,
         thread_id=payload.thread_id,
         snapshot_id=payload.snapshot_id,
@@ -105,11 +121,11 @@ def create_run(
         executor = RunExecutor(stores, db=db, cancel_token=token)
         final = executor.execute(
             run_id,
-            default_pipeline(payload.objective, strategy_params=payload.strategy_params),
+            default_pipeline(objective, strategy_params=payload.strategy_params),
         )
     else:
         _spawn_execution(
-            run_id, payload.objective, strategy_params=payload.strategy_params
+            run_id, objective, strategy_params=payload.strategy_params
         )
         final = stores.runs.get_run(run_id)
     return RunResponse(
@@ -198,7 +214,7 @@ def resume_run(
         lease_expires = datetime.fromisoformat(lease_raw) if lease_raw else None
         if lease_expires is None or lease_expires.replace(tzinfo=timezone.utc) > datetime.now(timezone.utc):
             raise HTTPException(status_code=409, detail="run 正在执行，不能重复恢复")
-    objective = run["objective"]
+    objective = _validated_objective(run["objective"], db)
     executor = RunExecutor(
         stores,
         db=db,

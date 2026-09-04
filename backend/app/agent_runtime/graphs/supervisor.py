@@ -6,28 +6,24 @@
 - 回测数字来自确定性引擎（BacktestExecutor），LLM 不得篡改
 """
 
-import re
 from typing import Any
 
 from pydantic import BaseModel, ValidationError
 
 from app.agent_runtime.runtime import NodeContext, RuntimeNode, SimpleNode
 from app.domain.plans import PlanStep, RunBudget, RunPlan
-
-DEFAULT_STOCK_CODE = "sh.600000"
+from app.domain.stock_codes import StockCodeError, stock_code_from_text
 
 _HIGH_RISK_KEYWORDS = ("高风险", "杠杆", "追涨", "全仓", "重仓", "满仓")
 DEEP_RESEARCH_KEYWORDS = ("深度研究", "深度分析", "多空辩论", "全面分析", "综合研究")
 
 
 def extract_stock_code(objective: str) -> str:
-    """从目标文本提取股票代码（sh./sz. 前缀 + 6 位数字）；缺省返回默认代码。"""
-    match = re.search(
-        r"(?<![A-Za-z0-9_])(?:sh|sz|bj)\.\d{6}(?!\d)",
-        objective,
-        re.IGNORECASE,
-    )
-    return match.group(0).lower() if match else DEFAULT_STOCK_CODE
+    """从目标文本提取规范股票代码；缺失标的时明确失败。"""
+    code = stock_code_from_text(objective)
+    if code is None:
+        raise StockCodeError("研究目标缺少有效股票代码")
+    return code
 
 
 class SupervisorPlanProvider:

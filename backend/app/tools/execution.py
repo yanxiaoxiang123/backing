@@ -38,7 +38,9 @@ def _now() -> datetime:
 class ProposeOrderParams(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    stock_code: str = Field(..., min_length=1)
+    stock_code: str = Field(
+        ..., min_length=1, description="股票代码，支持 sh.600000、sh600000、SH600000 或 600000"
+    )
     side: PaperSide
     quantity: int = Field(..., gt=0)
     limit_price: float | None = Field(default=None, gt=0)

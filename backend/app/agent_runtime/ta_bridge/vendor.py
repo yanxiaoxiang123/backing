@@ -17,6 +17,7 @@ import logging
 from contextvars import ContextVar
 from typing import Any, Callable
 
+from app.domain.stock_codes import normalize_stock_code
 from app.tools.registry import DEFAULT_REGISTRY
 
 logger = logging.getLogger(__name__)
@@ -82,21 +83,7 @@ def normalize_code(symbol: str) -> str:
     'sh.600000' -> 'sh.600000'；'600000' -> 'sh.600000'；'SH600000' -> 'sh.600000'；
     '000001' -> 'sz.000001'；'300750' -> 'sz.300750'；'688017' -> 'sh.688017'。
     """
-    raw = (symbol or "").strip().upper()
-    if not raw:
-        raise ValueError("空股票代码")
-    if "." in raw:
-        prefix, code = raw.split(".", 1)
-        return f"{prefix.lower()}.{code}"
-    digits = "".join(ch for ch in raw if ch.isdigit())
-    if len(digits) < 6:
-        raise ValueError(f"无法解析股票代码: {symbol!r}")
-    code = digits[-6:]
-    if code.startswith(("6", "9", "688", "689")):
-        return f"sh.{code}"
-    if code.startswith(("4", "8")):
-        return f"bj.{code}"
-    return f"sz.{code}"
+    return normalize_stock_code(symbol)
 
 
 def _today() -> str:

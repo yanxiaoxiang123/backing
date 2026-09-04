@@ -45,7 +45,7 @@ def client():
 
 
 def _create(client, **overrides):
-    payload = {"objective": "研究测试", "execute_inline": True}
+    payload = {"objective": "研究 sh.600000 测试", "execute_inline": True}
     payload.update(overrides)
     return client.post("/api/v1/agent-runs", json=payload)
 
@@ -156,6 +156,20 @@ def test_unknown_run_404(client):
 def test_validation_errors(client):
     resp = client.post("/api/v1/agent-runs", json={"objective": ""})
     assert resp.status_code == 422
+    resp = client.post(
+        "/api/v1/agent-runs",
+        json={"objective": "研究这只股票", "execute_inline": True},
+    )
+    assert resp.status_code == 422
+    assert "缺少有效股票代码" in resp.json()["detail"]
+
+
+def test_create_run_canonicalizes_compact_stock_code(client):
+    resp = _create(client, objective="研究一下SH600000")
+
+    assert resp.status_code == 201
+    run = client.get(f"/api/v1/agent-runs/{resp.json()['run_id']}?include_steps=false").json()
+    assert run["objective"] == "研究一下sh.600000"
     resp = client.post(
         "/api/v1/agent-runs",
         json={"objective": "x", "budget": {"max_rounds": 0}},
