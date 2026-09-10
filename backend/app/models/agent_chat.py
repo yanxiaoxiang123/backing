@@ -18,6 +18,7 @@ from sqlalchemy import (
     Column,
     DateTime,
     ForeignKey,
+    Index,
     Integer,
     String,
     Text,
@@ -89,6 +90,7 @@ class AgentChatTurn(Base):
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
     __table_args__ = (
+        Index("ix_agent_chat_turns_status", "status"),
         CheckConstraint(
             f"status IN {TURN_STATUSES}", name="ck_agent_chat_turns_status"
         ),

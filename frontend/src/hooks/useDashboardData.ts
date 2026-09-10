@@ -10,6 +10,19 @@ import { dashboardKeys } from '../services/queryKeys'
 
 export { dashboardKeys }
 
+function getMarketPollingInterval(): number {
+  const now = new Date()
+  const day = now.getDay()
+  if (day === 0 || day === 6) {
+    return 60_000 // 周末降频至 60 秒
+  }
+  const minutes = now.getHours() * 60 + now.getMinutes()
+  // 交易时段（9:15-11:35, 12:55-15:05）使用 10 秒刷新，闭市时降频至 60 秒
+  const isTradingHours =
+    (minutes >= 555 && minutes <= 695) || (minutes >= 775 && minutes <= 905)
+  return isTradingHours ? 10_000 : 60_000
+}
+
 export function useDashboardWatchlist() {
   return useQuery({
     queryKey: dashboardKeys.watchlist(),
@@ -18,21 +31,23 @@ export function useDashboardWatchlist() {
 }
 
 export function useDashboardIndices() {
+  const interval = getMarketPollingInterval()
   return useQuery({
     queryKey: dashboardKeys.indices(),
     queryFn: getRealtimeIndices,
-    staleTime: 10_000,
-    refetchInterval: 10_000,
+    staleTime: interval,
+    refetchInterval: interval,
   })
 }
 
 export function useDashboardQuotes(codes: string[]) {
+  const interval = getMarketPollingInterval()
   return useQuery({
     queryKey: dashboardKeys.quotes(codes),
     queryFn: () => getRealtimeQuotes(codes),
     enabled: codes.length > 0,
-    staleTime: 10_000,
-    refetchInterval: 10_000,
+    staleTime: interval,
+    refetchInterval: interval,
   })
 }
 

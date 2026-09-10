@@ -20,6 +20,9 @@ export default defineConfig({
       output: {
         manualChunks(id) {
           if (!id.includes('node_modules')) return undefined
+          if (id.includes('antd') || id.includes('@ant-design')) return 'antd'
+          if (id.includes('echarts') || id.includes('zrender')) return 'echarts'
+          if (id.includes('dayjs')) return 'dayjs'
           if (id.includes('@tanstack/react-query')) return 'query'
           if (id.includes('react-markdown') || id.includes('remark-')) return 'markdown'
           if (

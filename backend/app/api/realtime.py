@@ -412,6 +412,11 @@ async def ws_realtime_bars(
     _ws_conn_tracker[client_host] += 1
     if _ws_conn_tracker[client_host] > 5:
         logger.warning("ws_realtime_bars rate limit exceeded: %s", client_host)
+        cnt = _ws_conn_tracker.get(client_host, 0)
+        if cnt > 1:
+            _ws_conn_tracker[client_host] = cnt - 1
+        elif cnt == 1:
+            del _ws_conn_tracker[client_host]
         await websocket.close(code=4009)
         return
 

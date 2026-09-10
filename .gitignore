@@ -2,8 +2,12 @@ __pycache__/
 *.pyc
 *.db
 *.db.*
+*.db-shm
+*.db-wal
 *.bak
 *.sqlite
+*.sqlite-shm
+*.sqlite-wal
 .env
 .venv/
 node_modules/

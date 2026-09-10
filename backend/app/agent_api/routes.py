@@ -37,25 +37,61 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-#: 进程内取消注册表（进程重启后以 run 状态为准）
+#: 进程内取消注册表（进程重启后以 run 状态为准，限制最大缓存条目避免内存泄漏）
+_MAX_TRACKED_RUNS = 1000
 _cancel_tokens: dict[str, CancelToken] = {}
 _tokens_lock = threading.Lock()
 _execution_locks: dict[str, threading.Lock] = {}
 _execution_locks_guard = threading.Lock()
 
 
+def _is_run_active(run_id: str) -> bool:
+    with _execution_locks_guard:
+        lock = _execution_locks.get(run_id)
+        return bool(lock and lock.locked())
+
+
 def _cancel_token(run_id: str) -> CancelToken:
     with _tokens_lock:
         token = _cancel_tokens.get(run_id)
         if token is None:
+            if len(_cancel_tokens) >= _MAX_TRACKED_RUNS:
+                inactive = [k for k in _cancel_tokens if not _is_run_active(k)]
+                for k in inactive:
+                    _cancel_tokens.pop(k, None)
+                    if len(_cancel_tokens) < _MAX_TRACKED_RUNS:
+                        break
             token = CancelToken()
             _cancel_tokens[run_id] = token
         return token
 
 
+def _cleanup_cancel_token(run_id: str) -> None:
+    with _tokens_lock:
+        _cancel_tokens.pop(run_id, None)
+
+
 def _execution_lock(run_id: str) -> threading.Lock:
     with _execution_locks_guard:
-        return _execution_locks.setdefault(run_id, threading.Lock())
+        lock = _execution_locks.get(run_id)
+        if lock is None:
+            if len(_execution_locks) >= _MAX_TRACKED_RUNS:
+                inactive = [k for k, l in _execution_locks.items() if not l.locked()]
+                for k in inactive:
+                    _execution_locks.pop(k, None)
+                    if len(_execution_locks) < _MAX_TRACKED_RUNS:
+                        break
+            lock = threading.Lock()
+            _execution_locks[run_id] = lock
+        return lock
+
+
+def _release_execution_lock(run_id: str, lock: threading.Lock) -> None:
+    with _execution_locks_guard:
+        if lock.locked():
+            lock.release()
+        if not lock.locked() and _execution_locks.get(run_id) is lock:
+            _execution_locks.pop(run_id, None)
 
 
 def _spawn_execution(run_id: str, objective: str, strategy_params: dict | None = None) -> None:
@@ -78,7 +114,8 @@ def _spawn_execution(run_id: str, objective: str, strategy_params: dict | None =
             logger.exception("run %s 后台执行异常", run_id)
         finally:
             session.close()
-            lock.release()
+            _release_execution_lock(run_id, lock)
+            _cleanup_cancel_token(run_id)
 
     threading.Thread(target=_run, daemon=True, name=f"agent-run-{run_id}").start()
 
@@ -119,10 +156,13 @@ def create_run(
     token = _cancel_token(run_id)
     if payload.execute_inline:
         executor = RunExecutor(stores, db=db, cancel_token=token)
-        final = executor.execute(
-            run_id,
-            default_pipeline(objective, strategy_params=payload.strategy_params),
-        )
+        try:
+            final = executor.execute(
+                run_id,
+                default_pipeline(objective, strategy_params=payload.strategy_params),
+            )
+        finally:
+            _cleanup_cancel_token(run_id)
     else:
         _spawn_execution(
             run_id, objective, strategy_params=payload.strategy_params
@@ -228,7 +268,8 @@ def resume_run(
         try:
             return executor.execute(run_id, default_pipeline(objective))
         finally:
-            lock.release()
+            _release_execution_lock(run_id, lock)
+            _cleanup_cancel_token(run_id)
     _spawn_execution(run_id, objective)
     return stores.runs.get_run(run_id)
 

@@ -62,4 +62,43 @@ describe('StockList', () => {
       screen.getByRole('link', { name: /查看 浦发银行 sh\.600000 K线/ }),
     ).toBeInTheDocument()
   })
+
+  it('preserves pagination beyond 300ms and does not reset to page 1', async () => {
+    mockedGetStocks.mockResolvedValue({
+      items: [
+        {
+          id: 21,
+          code: 'sh.600001',
+          name: '邯郸钢铁',
+          market: 'sh',
+          list_date: '1999-11-10',
+          created_at: '2026-08-27T00:00:00Z',
+        },
+      ],
+      total: 42,
+      nextCursor: 2,
+    })
+
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    })
+    render(
+      <QueryClientProvider client={client}>
+        <MemoryRouter
+          initialEntries={['/stocks?page=2']}
+          future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
+        >
+          <StockList />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    )
+
+    expect(await screen.findByText('邯郸钢铁')).toBeInTheDocument()
+    // getStocks should have been called with cursor=20 (page 2)
+    expect(mockedGetStocks).toHaveBeenCalledWith(undefined, 20, 20, undefined)
+
+    // Wait 350ms to ensure the debounce timer does NOT reset page to 1
+    await new Promise((resolve) => setTimeout(resolve, 350))
+    expect(mockedGetStocks).not.toHaveBeenCalledWith(undefined, 0, 20, undefined)
+  })
 })

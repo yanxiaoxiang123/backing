@@ -205,19 +205,18 @@ class CacheBackend:
         try:
             yield acquired
         finally:
-            if not acquired:
-                return
-            if client is not None:
-                try:
-                    current = client.get(self._key(lock_key))
-                    if current == token:
-                        client.delete(self._key(lock_key))
-                except Exception as exc:  # pragma: no cover
-                    self._mark_redis_failed(exc)
-            else:
-                with self._lock:
-                    if self._locks.get(lock_key, (None,))[0] == token:
-                        self._locks.pop(lock_key, None)
+            if acquired:
+                if client is not None:
+                    try:
+                        current = client.get(self._key(lock_key))
+                        if current == token:
+                            client.delete(self._key(lock_key))
+                    except Exception as exc:  # pragma: no cover
+                        self._mark_redis_failed(exc)
+                else:
+                    with self._lock:
+                        if self._locks.get(lock_key, (None,))[0] == token:
+                            self._locks.pop(lock_key, None)
 
     def stats(self) -> dict[str, Any]:
         with self._lock:

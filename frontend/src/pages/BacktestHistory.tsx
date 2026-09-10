@@ -8,6 +8,40 @@ import type { BacktestListItem } from '../types'
 import { backtestKeys, stockKeys } from '../services/queryKeys'
 import { MetricCard, PageHeader } from '../components/research/ResearchPrimitives'
 
+const StatBox = ({
+  label,
+  value,
+  suffix = '',
+  color,
+}: {
+  label: string
+  value: number | string
+  suffix?: string
+  color?: string
+}) => (
+  <div className="stat-card" style={{ padding: 'var(--space-md)' }}>
+    <div
+      style={{
+        fontSize: 'var(--font-size-xs)',
+        color: 'var(--color-text-secondary)',
+        marginBottom: 4,
+      }}
+    >
+      {label}
+    </div>
+    <div
+      className="stat-value"
+      style={{
+        fontSize: 'var(--font-size-lg)',
+        color: color || 'var(--color-text-primary)',
+      }}
+    >
+      {typeof value === 'number' ? value.toLocaleString() : value}
+      {suffix}
+    </div>
+  </div>
+)
+
 function BacktestHistory() {
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(20)
@@ -71,7 +105,7 @@ function BacktestHistory() {
     setSelectedResultId(id)
   }
 
-  const getChartOption = () => {
+  const chartOption = useMemo(() => {
     if (!currentResult) return {}
 
     if (currentResult.portfolio_values?.length) {
@@ -157,7 +191,7 @@ function BacktestHistory() {
         },
       ],
     }
-  }
+  }, [currentResult])
 
   const columns = [
     {
@@ -268,41 +302,6 @@ function BacktestHistory() {
     { title: '数量', dataIndex: 'quantity', key: 'quantity', width: 100 },
     { title: '金额', dataIndex: 'amount', key: 'amount', width: 120 },
   ]
-
-  // Stat display component
-  const StatBox = ({
-    label,
-    value,
-    suffix = '',
-    color,
-  }: {
-    label: string
-    value: number | string
-    suffix?: string
-    color?: string
-  }) => (
-    <div className="stat-card" style={{ padding: 'var(--space-md)' }}>
-      <div
-        style={{
-          fontSize: 'var(--font-size-xs)',
-          color: 'var(--color-text-secondary)',
-          marginBottom: 4,
-        }}
-      >
-        {label}
-      </div>
-      <div
-        className="stat-value"
-        style={{
-          fontSize: 'var(--font-size-lg)',
-          color: color || 'var(--color-text-primary)',
-        }}
-      >
-        {typeof value === 'number' ? value.toLocaleString() : value}
-        {suffix}
-      </div>
-    </div>
-  )
 
   return (
     <div className="fade-in">
@@ -496,7 +495,7 @@ function BacktestHistory() {
               >
                 资金曲线
               </div>
-              <LazyECharts option={getChartOption()} style={{ height: 280 }} />
+              <LazyECharts option={chartOption} style={{ height: 280 }} />
             </div>
 
             {/* 交易记录 */}

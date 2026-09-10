@@ -192,3 +192,39 @@ def test_create_run_with_strategy_params(client):
     }
     backtest = next(s for s in detail["steps"] if s["node"] == "backtest_critic")
     assert backtest["output_json"]["metrics"] is not None
+
+
+def test_lock_and_cancel_token_eviction_protects_active_runs(monkeypatch):
+    from app.agent_api import routes
+
+    monkeypatch.setattr(routes, "_MAX_TRACKED_RUNS", 3)
+    with routes._tokens_lock:
+        routes._cancel_tokens.clear()
+    with routes._execution_locks_guard:
+        routes._execution_locks.clear()
+
+    # 活跃的 run 获取锁
+    active_lock = routes._execution_lock("run_active")
+    assert active_lock.acquire(blocking=False)
+    active_token = routes._cancel_token("run_active")
+
+    # 非活跃的 run
+    routes._execution_lock("run_inactive")
+    routes._cancel_token("run_inactive")
+
+    # 第三个 run
+    routes._execution_lock("run_3")
+    routes._cancel_token("run_3")
+
+    # 插入第四个 run，超过上限 3
+    routes._execution_lock("run_4")
+    routes._cancel_token("run_4")
+
+    # 活跃的任务锁与 cancel token 绝不能被淘汰
+    assert routes._execution_lock("run_active") is active_lock
+    assert routes._cancel_token("run_active") is active_token
+    assert active_lock.locked()
+
+    # 释放并清理
+    routes._release_execution_lock("run_active", active_lock)
+    routes._cleanup_cancel_token("run_active")

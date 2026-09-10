@@ -4,7 +4,7 @@ from pathlib import Path
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy import create_engine, event
 from sqlalchemy.engine import make_url
-from sqlalchemy.orm import declarative_base, sessionmaker
+from sqlalchemy.orm import Session, declarative_base, sessionmaker
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
 LLM_DIR = BACKEND_DIR / "models" / "llm"
@@ -150,21 +150,35 @@ def assert_safe_production_settings(s: Settings) -> None:
 
 settings = Settings()
 
+_engine_kwargs: dict = {
+    "pool_pre_ping": True,
+    "pool_recycle": 3600,
+    "echo": False,
+}
+if not settings.DATABASE_URL.startswith("sqlite"):
+    _engine_kwargs.update(
+        {
+            "pool_size": 20,
+            "max_overflow": 20,
+            "pool_timeout": 30,
+        }
+    )
+
 engine = create_engine(
     settings.DATABASE_URL,
-    pool_pre_ping=True,
-    pool_recycle=3600,
-    echo=False,
+    **_engine_kwargs,
 )
 
 if settings.DATABASE_URL.startswith("sqlite"):
     # SQLite does not enforce foreign keys unless the PRAGMA is set on every
-    # connection. Registered on the app engine only (not the Engine class), so
-    # migrations keep full freedom for copy-and-move table rebuilds.
+    # connection. Also enable WAL mode and busy timeout to avoid concurrency locks.
     @event.listens_for(engine, "connect")
-    def _enable_sqlite_foreign_keys(dbapi_connection, connection_record) -> None:
+    def _enable_sqlite_pragmas(dbapi_connection, connection_record) -> None:
         cursor = dbapi_connection.cursor()
         cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.execute("PRAGMA journal_mode=WAL")
+        cursor.execute("PRAGMA busy_timeout=5000")
+        cursor.execute("PRAGMA synchronous=NORMAL")
         cursor.close()
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -172,7 +186,7 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
 
-def get_db() -> Generator:
+def get_db() -> Generator[Session, None, None]:
     db = SessionLocal()
     try:
         yield db

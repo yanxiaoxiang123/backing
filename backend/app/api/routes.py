@@ -542,7 +542,7 @@ def get_backtest_results(
     _: str = Depends(get_current_api_key),
 ):
     """Get backtest results list"""
-    query = db.query(BacktestResult)
+    query = db.query(BacktestResult).options(joinedload(BacktestResult.strategy))
     if stock_code:
         query = query.filter(BacktestResult.stock_code == stock_code)
     results = (

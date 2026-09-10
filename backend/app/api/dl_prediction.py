@@ -58,7 +58,7 @@ class DLBacktestResponse(BaseModel):
 
 
 @router.post("/predict", response_model=DLPredictResponse)
-async def predict(request: DLPredictRequest, _: str = Depends(get_current_api_key)):
+def predict(request: DLPredictRequest, _: str = Depends(get_current_api_key)):
     """
     预测未来5天收盘价
     """
@@ -99,7 +99,7 @@ async def predict(request: DLPredictRequest, _: str = Depends(get_current_api_ke
 
 
 @router.post("/backtest", response_model=DLBacktestResponse)
-async def backtest(request: DLBacktestRequest, _: str = Depends(get_current_api_key)):
+def backtest(request: DLBacktestRequest, _: str = Depends(get_current_api_key)):
     """
     基于预测结果进行回测
     """

@@ -204,9 +204,8 @@ def cache_get(
     except (TypeError, ValueError):
         age = float("inf")
     ttl = _RESEARCH_TTLS.get(tool, 300.0)
-    if age <= _RESEARCH_STALE_RETENTION or allow_stale:
-        if age <= ttl or allow_stale:
-            return entry
+    if (age <= _RESEARCH_STALE_RETENTION or allow_stale) and (age <= ttl or allow_stale):
+        return entry
     return None
 
 

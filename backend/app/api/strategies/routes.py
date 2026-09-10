@@ -522,31 +522,3 @@ def compare_strategies(
         total_strategies=len(strategies),
         failed_count=failed,
     )
-
-
-def _build_equity_curve(
-    trades: list,
-    initial_capital: float,
-    final_capital: float,
-) -> List[CompareStrategyCurve]:
-    """Build daily equity curve from trade list."""
-    curve: List[CompareStrategyCurve] = [
-        CompareStrategyCurve(date="start", value=initial_capital)
-    ]
-    capital = initial_capital
-
-    for trade in trades:
-        trade_date = str(getattr(trade, "date", ""))
-        if trade.action == "buy":
-            capital -= trade.amount
-        else:
-            capital += trade.amount
-        curve.append(
-            CompareStrategyCurve(date=trade_date, value=round(capital, 2))
-        )
-
-    if not curve or curve[-1].date != "end":
-        curve.append(
-            CompareStrategyCurve(date="end", value=round(final_capital, 2))
-        )
-    return curve

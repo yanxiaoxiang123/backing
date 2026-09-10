@@ -7,33 +7,13 @@ import {
   type ReactNode,
 } from 'react'
 import type { EChartsOption } from 'echarts'
-import type { EChartsType } from 'echarts/core'
+import type { EChartsType } from './echartsCustom'
 
-let echartsPromise: Promise<typeof import('echarts/core')> | null = null
+let echartsPromise: Promise<typeof import('./echartsCustom').default> | null = null
 
 function loadEcharts() {
   if (!echartsPromise) {
-    echartsPromise = Promise.all([
-      import('echarts/core'),
-      import('echarts/charts'),
-      import('echarts/components'),
-      import('echarts/renderers'),
-    ]).then(([core, charts, components, renderers]) => {
-      core.use([
-        renderers.CanvasRenderer,
-        charts.BarChart,
-        charts.CandlestickChart,
-        charts.LineChart,
-        charts.ScatterChart,
-        components.DataZoomComponent,
-        components.GridComponent,
-        components.LegendComponent,
-        components.MarkLineComponent,
-        components.MarkPointComponent,
-        components.TooltipComponent,
-      ])
-      return core
-    })
+    echartsPromise = import('./echartsCustom').then((m) => m.default)
   }
   return echartsPromise
 }

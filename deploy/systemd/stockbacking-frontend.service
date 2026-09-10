@@ -6,7 +6,8 @@ After=network.target
 Type=simple
 User=root
 WorkingDirectory=/root/stockbacking/backing/frontend
-ExecStart=/usr/bin/npm run dev -- --host 0.0.0.0 --port 5174 --strictPort
+# 生产环境托管 prebuilt dist 产物（先运行 npm run build），避免运行开销巨大的 dev 开发服务器
+ExecStart=/usr/bin/npm run preview -- --host 0.0.0.0 --port 5174
 Restart=always
 RestartSec=5
 

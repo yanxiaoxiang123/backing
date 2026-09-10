@@ -72,6 +72,7 @@ export class ChatEventStream {
   private lastEventId = 0
   private reconnectTimer?: ReturnType<typeof setTimeout>
   private running = false
+  private retryCount = 0
 
   onEvent?: (event: ChatEvent) => void
   onStateChange?: (state: ChatStreamState, error?: unknown) => void
@@ -81,11 +82,13 @@ export class ChatEventStream {
   start(lastEventId = 0): void {
     this.lastEventId = lastEventId
     this.running = true
+    this.retryCount = 0
     void this.connect()
   }
 
   stop(): void {
     this.running = false
+    this.retryCount = 0
     if (this.reconnectTimer) clearTimeout(this.reconnectTimer)
     this.abort?.abort()
     this.onStateChange?.('closed')
@@ -102,8 +105,18 @@ export class ChatEventStream {
         headers,
         signal: this.abort.signal,
       })
+
+      // 遇到 4xx 客户端错误（如 401 未登录、404 会话不存在）直接终止重连，避免死循环
+      if (resp.status >= 400 && resp.status < 500) {
+        this.running = false
+        const err = new Error(`客户端错误 ${resp.status}，已停止重连`)
+        this.onStateChange?.('error', err)
+        return
+      }
+
       if (!resp.ok || !resp.body) throw new Error(`SSE 连接失败: ${resp.status}`)
       this.onStateChange?.('active')
+      this.retryCount = 0
 
       const reader = resp.body.getReader()
       const decoder = new TextDecoder()
@@ -152,6 +165,7 @@ export class ChatEventStream {
 
   private scheduleReconnect(): void {
     if (!this.running) return
-    this.reconnectTimer = setTimeout(() => void this.connect(), 1000)
+    const delay = Math.min(15000, 1000 * Math.pow(1.5, this.retryCount++))
+    this.reconnectTimer = setTimeout(() => void this.connect(), delay)
   }
 }

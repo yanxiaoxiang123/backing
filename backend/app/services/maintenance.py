@@ -27,6 +27,18 @@ from app.services.job_store import job_store
 
 logger = logging.getLogger(__name__)
 
+__all__ = [
+    "DEFAULT_ANALYSIS_RETENTION_DAYS",
+    "DEFAULT_BACKTEST_RETENTION_DAYS",
+    "DEFAULT_JOB_RETENTION_DAYS",
+    "KlineArchive",
+    "archive_klines",
+    "backup_database",
+    "cleanup_old_jobs",
+    "purge_old_analysis",
+    "purge_old_backtests",
+]
+
 # 默认保留期（天）
 DEFAULT_JOB_RETENTION_DAYS = 30
 DEFAULT_ANALYSIS_RETENTION_DAYS = 180
@@ -120,41 +132,35 @@ def archive_klines(before_date: date, *, db=None) -> dict:
     """
     session, owned = _session(db)
     try:
-        rows = (
+        count_to_archive = (
             session.query(DailyKline)
             .filter(DailyKline.date < before_date)
-            .all()
+            .count()
         )
-        if rows:
-            session.add_all(
-                [
-                    KlineArchive(
-                        stock_code=r.stock_code,
-                        date=r.date,
-                        open=r.open,
-                        high=r.high,
-                        low=r.low,
-                        close=r.close,
-                        volume=r.volume,
-                        amount=r.amount,
-                    )
-                    for r in rows
-                ]
+        if count_to_archive > 0:
+            session.execute(
+                text(
+                    """
+                    INSERT INTO daily_klines_archive (stock_code, date, open, high, low, close, volume, amount)
+                    SELECT stock_code, date, open, high, low, close, volume, amount
+                    FROM daily_klines
+                    WHERE date < :before_date
+                    """
+                ),
+                {"before_date": str(before_date)},
             )
-            ids = [r.id for r in rows]
-            (
-                session.query(DailyKline)
-                .filter(DailyKline.id.in_(ids))
-                .delete(synchronize_session=False)
+            session.execute(
+                text("DELETE FROM daily_klines WHERE date < :before_date"),
+                {"before_date": str(before_date)},
             )
         remaining = session.query(DailyKline).count()
         if owned:
             session.commit()
         logger.info(
             "maintenance: archived %d klines before %s, %d remaining",
-            len(rows), before_date, remaining,
+            count_to_archive, before_date, remaining,
         )
-        return {"archived": len(rows), "remaining": remaining}
+        return {"archived": count_to_archive, "remaining": remaining}
     except Exception:
         if owned:
             session.rollback()

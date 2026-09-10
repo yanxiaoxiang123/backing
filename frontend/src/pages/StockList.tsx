@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Button, Form, Input, message, Modal, Select, Table } from 'antd'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
@@ -32,49 +32,12 @@ function StockList() {
   const [syncing, setSyncing] = useState(false)
   const [syncModalVisible, setSyncModalVisible] = useState(false)
   const [searchText, setSearchText] = useState(searchParams.get('q') ?? '')
+  const [debouncedSearch, setDebouncedSearch] = useState(searchText)
+
   const [market, setMarket] = useState(searchParams.get('market') ?? '')
   const [sort, setSort] = useState<'id' | 'code' | 'name'>(
     (searchParams.get('sort') as 'id' | 'code' | 'name') || 'id',
   )
-  const stocksQuery = useQuery({
-    queryKey: stockKeys.list({
-      market: market || undefined,
-      cursor: (page - 1) * pageSize,
-      limit: pageSize,
-      search: searchText || undefined,
-    }),
-    queryFn: () =>
-      getStocks(
-        market || undefined,
-        (page - 1) * pageSize,
-        pageSize,
-        searchText || undefined,
-      ),
-    placeholderData: (previous) => previous,
-  })
-  const filteredStocks = useMemo<Stock[]>(
-    () => stocksQuery.data?.items ?? [],
-    [stocksQuery.data],
-  )
-  const total = stocksQuery.data?.total ?? 0
-
-  // Keep local controls in sync with browser back/forward navigation.
-  useEffect(() => {
-    const nextPage = Number(searchParams.get('page')) || 1
-    const nextPageSize = Number(searchParams.get('page_size')) || 20
-    const nextSearch = searchParams.get('q') ?? ''
-    const nextMarket = searchParams.get('market') ?? ''
-    const nextSort = searchParams.get('sort') as 'id' | 'code' | 'name' | null
-    setPage((value) => (value === nextPage ? value : nextPage))
-    setPageSize((value) => (value === nextPageSize ? value : nextPageSize))
-    setSearchText((value) => (value === nextSearch ? value : nextSearch))
-    setMarket((value) => (value === nextMarket ? value : nextMarket))
-    if (nextSort === 'id' || nextSort === 'code' || nextSort === 'name') {
-      setSort((value) => (value === nextSort ? value : nextSort))
-    } else {
-      setSort((value) => (value === 'id' ? value : 'id'))
-    }
-  }, [searchParams])
 
   const syncUrl = useCallback(
     (next: {
@@ -104,6 +67,70 @@ function StockList() {
     },
     [market, page, pageSize, searchParams, searchText, setSearchParams, sort],
   )
+
+  const lastSyncedSearchRef = useRef(searchText)
+  const syncUrlRef = useRef(syncUrl)
+  syncUrlRef.current = syncUrl
+
+  useEffect(() => {
+    if (searchText === lastSyncedSearchRef.current) {
+      return
+    }
+    const timer = setTimeout(() => {
+      lastSyncedSearchRef.current = searchText
+      setDebouncedSearch(searchText)
+      setPage(1)
+      syncUrlRef.current({ page: 1, search: searchText })
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [searchText])
+
+  const stocksQuery = useQuery({
+    queryKey: stockKeys.list({
+      market: market || undefined,
+      cursor: (page - 1) * pageSize,
+      limit: pageSize,
+      search: debouncedSearch || undefined,
+    }),
+    queryFn: () =>
+      getStocks(
+        market || undefined,
+        (page - 1) * pageSize,
+        pageSize,
+        debouncedSearch || undefined,
+      ),
+    placeholderData: (previous) => previous,
+  })
+  const filteredStocks = useMemo<Stock[]>(
+    () => stocksQuery.data?.items ?? [],
+    [stocksQuery.data],
+  )
+  const total = stocksQuery.data?.total ?? 0
+
+  // Keep local controls in sync with browser back/forward navigation.
+  useEffect(() => {
+    const nextPage = Number(searchParams.get('page')) || 1
+    const nextPageSize = Number(searchParams.get('page_size')) || 20
+    const nextSearch = searchParams.get('q') ?? ''
+    const nextMarket = searchParams.get('market') ?? ''
+    const nextSort = searchParams.get('sort') as 'id' | 'code' | 'name' | null
+    setPage((value) => (value === nextPage ? value : nextPage))
+    setPageSize((value) => (value === nextPageSize ? value : nextPageSize))
+    setSearchText((value) => {
+      if (value !== nextSearch) {
+        lastSyncedSearchRef.current = nextSearch
+        setDebouncedSearch(nextSearch)
+        return nextSearch
+      }
+      return value
+    })
+    setMarket((value) => (value === nextMarket ? value : nextMarket))
+    if (nextSort === 'id' || nextSort === 'code' || nextSort === 'name') {
+      setSort((value) => (value === nextSort ? value : nextSort))
+    } else {
+      setSort((value) => (value === 'id' ? value : 'id'))
+    }
+  }, [searchParams])
 
   const visibleStocks = useMemo(() => {
     if (sort === 'id') return filteredStocks
@@ -276,10 +303,8 @@ function StockList() {
             className="stock-list-search"
             value={searchText}
             onChange={(e) => {
-              const value = e.target.value
-              setSearchText(value)
+              setSearchText(e.target.value)
               setPage(1)
-              syncUrl({ page: 1, search: value })
             }}
           />
           <Select

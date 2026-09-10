@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Badge, Button, Drawer, Empty } from 'antd'
+import { Button, Drawer, Empty } from 'antd'
 import { CloseOutlined, RobotOutlined } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
 import { ChatConversation } from '../chat/ChatConversation'
@@ -11,10 +11,57 @@ interface ResearchCopilotProps {
   context?: PageContext
 }
 
-export function ResearchCopilot({ context }: ResearchCopilotProps) {
+function CopilotContent({
+  context,
+  onClose,
+}: {
+  context?: PageContext
+  onClose: () => void
+}) {
   const navigate = useNavigate()
-  const [open, setOpen] = useState(false)
   const chat = useAgentChat({ context })
+
+  return (
+    <div className="research-copilot-body">
+      {chat.messages.length === 0 && !chat.running ? (
+        <Empty
+          image={
+            <RobotOutlined
+              style={{ fontSize: 32, color: 'var(--color-accent-blue)' }}
+            />
+          }
+          description="问我这只股票的走势、风险或下一步验证方向"
+        />
+      ) : null}
+      <ChatConversation
+        messages={chat.messages}
+        running={chat.running}
+        streamState={chat.streamState}
+        error={chat.error}
+      />
+      <div className="research-copilot-actions">
+        <Button
+          size="small"
+          onClick={() => {
+            onClose()
+            navigate('/workspace')
+          }}
+        >
+          打开完整工作台
+        </Button>
+      </div>
+      <ChatInput
+        running={chat.running}
+        disabled={chat.runtimeStatus?.available === false}
+        onSend={(content) => void chat.send(content, context)}
+        onStop={() => void chat.stop()}
+      />
+    </div>
+  )
+}
+
+export function ResearchCopilot({ context }: ResearchCopilotProps) {
+  const [open, setOpen] = useState(false)
 
   return (
     <>
@@ -26,7 +73,6 @@ export function ResearchCopilot({ context }: ResearchCopilotProps) {
       >
         <RobotOutlined />
         <span>AI 副驾驶</span>
-        {chat.running ? <Badge status="processing" /> : null}
       </button>
       <Drawer
         title={
@@ -39,6 +85,7 @@ export function ResearchCopilot({ context }: ResearchCopilotProps) {
         placement="right"
         width={420}
         open={open}
+        destroyOnHidden
         onClose={() => setOpen(false)}
         extra={
           <Button
@@ -50,35 +97,9 @@ export function ResearchCopilot({ context }: ResearchCopilotProps) {
         }
         className="research-copilot-drawer"
       >
-        <div className="research-copilot-body">
-          {chat.messages.length === 0 && !chat.running ? (
-            <Empty
-              image={
-                <RobotOutlined
-                  style={{ fontSize: 32, color: 'var(--color-accent-blue)' }}
-                />
-              }
-              description="问我这只股票的走势、风险或下一步验证方向"
-            />
-          ) : null}
-          <ChatConversation
-            messages={chat.messages}
-            running={chat.running}
-            streamState={chat.streamState}
-            error={chat.error}
-          />
-          <div className="research-copilot-actions">
-            <Button size="small" onClick={() => navigate('/workspace')}>
-              打开完整工作台
-            </Button>
-          </div>
-          <ChatInput
-            running={chat.running}
-            disabled={chat.runtimeStatus?.available === false}
-            onSend={(content) => void chat.send(content, context)}
-            onStop={() => void chat.stop()}
-          />
-        </div>
+        {open ? (
+          <CopilotContent context={context} onClose={() => setOpen(false)} />
+        ) : null}
       </Drawer>
     </>
   )
