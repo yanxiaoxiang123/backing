@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { getRealtimeBars } from '../services/api'
+import type { RealtimeFreshness } from '../services/api'
 import type { KlineIndicator } from '../types'
 
 type PeriodType = 'daily' | 'weekly' | 'monthly'
@@ -17,6 +18,12 @@ interface RealtimeBar {
 interface RealtimeMessage {
   type: 'init' | 'update'
   data?: RealtimeBar[]
+  status?: RealtimeFreshness['status']
+  stale?: boolean
+  cache_age_ms?: number
+  fetched_at?: number
+  market_at?: string
+  reason?: string | null
 }
 
 function normalizeBar(bar: RealtimeBar): KlineIndicator {
@@ -45,6 +52,7 @@ export function useRealtimeKline(code: string | undefined, period: PeriodType) {
   const [error, setError] = useState<string | null>(null)
   const [connected, setConnected] = useState(false)
   const [fallback, setFallback] = useState(false)
+  const [freshness, setFreshness] = useState<RealtimeFreshness>({})
   const socketRef = useRef<WebSocket | null>(null)
   const reconnectRef = useRef<ReturnType<typeof setTimeout>>()
   const retryCountRef = useRef(0)
@@ -55,6 +63,7 @@ export function useRealtimeKline(code: string | undefined, period: PeriodType) {
       setLoading(false)
       setConnected(false)
       setFallback(false)
+      setFreshness({})
       return
     }
 
@@ -70,6 +79,7 @@ export function useRealtimeKline(code: string | undefined, period: PeriodType) {
           if (!cancelled) {
             setData((current) => mergeRealtimeBars(current, response.data))
             setError(null)
+            setFreshness(response)
           }
         } catch {
           if (!cancelled) setError('加载 K 线数据失败')
@@ -102,8 +112,26 @@ export function useRealtimeKline(code: string | undefined, period: PeriodType) {
             }
             setLoading(false)
             setError(null)
+            setFreshness((current) => ({
+              ...current,
+              status: message.status,
+              stale: message.stale,
+              cache_age_ms: message.cache_age_ms,
+              fetched_at: message.fetched_at,
+              market_at: message.market_at,
+              reason: message.reason,
+            }))
           } else if (message.type === 'update' && bars.length) {
             setData((current) => mergeRealtimeBars(current, bars))
+            setFreshness((current) => ({
+              ...current,
+              status: message.status,
+              stale: message.stale,
+              cache_age_ms: message.cache_age_ms,
+              fetched_at: message.fetched_at,
+              market_at: message.market_at,
+              reason: message.reason,
+            }))
           }
         } catch {
           setError('实时行情消息格式异常')
@@ -127,6 +155,7 @@ export function useRealtimeKline(code: string | undefined, period: PeriodType) {
     setLoading(true)
     setConnected(false)
     setFallback(false)
+    setFreshness({})
     setError(null)
     retryCountRef.current = 0
     void loadFallback()
@@ -139,5 +168,5 @@ export function useRealtimeKline(code: string | undefined, period: PeriodType) {
     }
   }, [code, period])
 
-  return { data, loading, error, connected, fallback }
+  return { data, loading, error, connected, fallback, freshness }
 }

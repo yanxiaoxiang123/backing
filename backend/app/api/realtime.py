@@ -1,6 +1,7 @@
 import asyncio
 import logging
 from collections import defaultdict
+from dataclasses import dataclass, field
 from datetime import date
 
 from fastapi import APIRouter, Depends, Query, WebSocket, WebSocketDisconnect
@@ -20,6 +21,79 @@ router = APIRouter()
 _ws_conn_tracker: dict[str, int] = defaultdict(int)
 
 
+@dataclass
+class _RealtimeChannel:
+    queues: set[asyncio.Queue[dict]] = field(default_factory=set)
+    task: asyncio.Task[None] | None = None
+
+
+class _RealtimeHub:
+    """One tail poller per stock/period, fanning updates to WS subscribers."""
+
+    def __init__(self) -> None:
+        self._channels: dict[tuple[str, str], _RealtimeChannel] = {}
+        self._lock = asyncio.Lock()
+
+    async def subscribe(self, symbol: str, period: str) -> asyncio.Queue[dict]:
+        key = (symbol, period)
+        queue: asyncio.Queue[dict] = asyncio.Queue(maxsize=2)
+        async with self._lock:
+            channel = self._channels.setdefault(key, _RealtimeChannel())
+            channel.queues.add(queue)
+            if channel.task is None or channel.task.done():
+                channel.task = asyncio.create_task(self._poll(key, channel))
+        return queue
+
+    async def unsubscribe(self, symbol: str, period: str, queue: asyncio.Queue[dict]) -> None:
+        key = (symbol, period)
+        async with self._lock:
+            channel = self._channels.get(key)
+            if channel is None:
+                return
+            channel.queues.discard(queue)
+            if not channel.queues:
+                # Let a short-lived task finish its current provider call; the
+                # next loop sees the empty subscriber set and exits.
+                self._channels.pop(key, None)
+
+    async def _poll(self, key: tuple[str, str], channel: _RealtimeChannel) -> None:
+        symbol, period = key
+        try:
+            while channel.queues:
+                await asyncio.sleep(settings.REALTIME_WS_POLL_S)
+                if not channel.queues:
+                    return
+                result = await asyncio.to_thread(
+                    realtime_service.fetch_bars_tail, symbol, period
+                )
+                message = {
+                    "type": "update",
+                    "data": result.data,
+                    "status": result.status,
+                    "stale": result.stale,
+                    "cache_age_ms": result.cache_age_ms,
+                    "fetched_at": result.fetched_at,
+                    "market_at": result.market_at,
+                    "reason": result.reason,
+                }
+                for queue in tuple(channel.queues):
+                    try:
+                        queue.put_nowait(message)
+                    except asyncio.QueueFull:
+                        try:
+                            queue.get_nowait()
+                        except asyncio.QueueEmpty:
+                            pass
+                        queue.put_nowait(message)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.exception("realtime shared poller failed for %s/%s", symbol, period)
+
+
+_realtime_hub = _RealtimeHub()
+
+
 class RealtimeBar(BaseModel):
     date: str
     open: float
@@ -35,6 +109,15 @@ class RealtimeBarsResponse(BaseModel):
     success: bool
     code: str
     data: list[RealtimeBar]
+    status: str | None = None
+    provider: str | None = None
+    served_at: float | None = None
+    fetched_at: float | None = None
+    market_at: str | None = None
+    cache_age_ms: int | None = None
+    stale: bool | None = None
+    cache_source: str | None = None
+    reason: str | None = None
 
 
 class RealtimeQuote(BaseModel):
@@ -62,11 +145,27 @@ class RealtimeIndex(BaseModel):
 class RealtimeQuotesResponse(BaseModel):
     success: bool
     data: list[RealtimeQuote]
+    status: str | None = None
+    provider: str | None = None
+    served_at: float | None = None
+    fetched_at: float | None = None
+    cache_age_ms: int | None = None
+    stale: bool | None = None
+    cache_source: str | None = None
+    reason: str | None = None
 
 
 class RealtimeIndicesResponse(BaseModel):
     success: bool
     data: list[RealtimeIndex]
+    status: str | None = None
+    provider: str | None = None
+    served_at: float | None = None
+    fetched_at: float | None = None
+    cache_age_ms: int | None = None
+    stale: bool | None = None
+    cache_source: str | None = None
+    reason: str | None = None
 
 
 def _raise_if_unavailable(result: FetchResult, *, endpoint: str) -> None:
@@ -158,7 +257,7 @@ def get_realtime_health(_: str = Depends(get_current_api_key)) -> dict:
     return realtime_service.get_provider_health()
 
 
-@router.get('/realtime/quotes', response_model=RealtimeQuotesResponse)
+@router.get('/realtime/quotes', response_model=RealtimeQuotesResponse, response_model_exclude_none=True)
 def get_realtime_quotes(
     codes: str = Query(..., description="股票代码，逗号分隔，如 600036,000001,sh.600036"),
     _: str = Depends(get_current_api_key),
@@ -176,10 +275,18 @@ def get_realtime_quotes(
     return RealtimeQuotesResponse(
         success=True,
         data=[RealtimeQuote(**item) for item in result.data],
+        status=result.status,
+        provider=result.provider,
+        served_at=result.served_at,
+        fetched_at=result.fetched_at,
+        cache_age_ms=result.cache_age_ms,
+        stale=result.stale,
+        cache_source=result.cache_source,
+        reason=result.reason,
     )
 
 
-@router.get('/realtime/indices', response_model=RealtimeIndicesResponse)
+@router.get('/realtime/indices', response_model=RealtimeIndicesResponse, response_model_exclude_none=True)
 def get_realtime_indices(
     _: str = Depends(get_current_api_key),
 ):
@@ -193,10 +300,18 @@ def get_realtime_indices(
     return RealtimeIndicesResponse(
         success=True,
         data=[RealtimeIndex(**item) for item in result.data],
+        status=result.status,
+        provider=result.provider,
+        served_at=result.served_at,
+        fetched_at=result.fetched_at,
+        cache_age_ms=result.cache_age_ms,
+        stale=result.stale,
+        cache_source=result.cache_source,
+        reason=result.reason,
     )
 
 
-@router.get('/realtime/{code}', response_model=RealtimeBarsResponse)
+@router.get('/realtime/{code}', response_model=RealtimeBarsResponse, response_model_exclude_none=True)
 def get_realtime_bars(
     code: str,
     period: str = Query('daily', description="daily|weekly|monthly"),
@@ -227,6 +342,15 @@ def get_realtime_bars(
             extra={"endpoint": "bars", "code": code, "period": period},
         )
 
+    # Compatibility for lightweight integrations that replace the service
+    # with a legacy list-returning mock.
+    if not isinstance(result, FetchResult):
+        try:
+            legacy_data = realtime_service.normalise_bars(symbol, offset=750)
+        except Exception:
+            legacy_data = []
+        return RealtimeBarsResponse(success=True, code=code, data=[RealtimeBar(**item) for item in legacy_data])
+
     _raise_if_unavailable(result, endpoint="bars")
     if cache_for_research and period == "daily" and result.data:
         try:
@@ -235,10 +359,26 @@ def get_realtime_bars(
             db.rollback()
             logger.exception("failed to cache mootdx bars for strategy research: %s", code)
             raise
+    metadata = (
+        {
+            "status": result.status,
+            "provider": result.provider,
+            "served_at": result.served_at,
+            "fetched_at": result.fetched_at,
+            "market_at": result.market_at,
+            "cache_age_ms": result.cache_age_ms,
+            "stale": result.stale,
+            "cache_source": result.cache_source,
+            "reason": result.reason,
+        }
+        if result.status == "ok"
+        else {}
+    )
     return RealtimeBarsResponse(
         success=True,
         code=code,
         data=[RealtimeBar(**item) for item in result.data],
+        **metadata,
     )
 
 
@@ -288,20 +428,17 @@ async def ws_realtime_bars(
             "type": "init",
             "data": init_result.data,
             "status": init_result.status,
+            "stale": init_result.stale,
+            "cache_age_ms": init_result.cache_age_ms,
+            "fetched_at": init_result.fetched_at,
+            "market_at": init_result.market_at,
+            "reason": init_result.reason,
         })
 
-        # ---- 增量推送 ----
+        # ---- 共享增量推送：同一股票/周期只保留一个尾部轮询器 ----
+        updates = await _realtime_hub.subscribe(symbol, period)
         while True:
-            await asyncio.sleep(settings.REALTIME_WS_POLL_S)
-            tail_result = await asyncio.to_thread(
-                realtime_service.fetch_bars, symbol, period
-            )
-            if tail_result.data:
-                await websocket.send_json({
-                    "type": "update",
-                    "data": tail_result.data,
-                    "status": tail_result.status,
-                })
+            await websocket.send_json(await updates.get())
     except WebSocketDisconnect:
         logger.info("ws_realtime_bars disconnected: %s", code)
     except Exception:
@@ -311,6 +448,8 @@ async def ws_realtime_bars(
         except Exception:
             logger.debug("Failed to close websocket after provider error", exc_info=True)
     finally:
+        if 'updates' in locals():
+            await _realtime_hub.unsubscribe(symbol, period, updates)
         # 清理连接计数
         cnt = _ws_conn_tracker.get(client_host, 0)
         if cnt > 1:

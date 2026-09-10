@@ -770,22 +770,8 @@ export async function getRealtimeBars(
   code: string,
   period: string = 'daily',
   cacheForResearch = false,
-): Promise<{
-  success: boolean
-  code: string
-  data: Array<{
-    date: string
-    open: number
-    high: number
-    low: number
-    close: number
-    volume: number
-    amount: number
-    symbol: string
-  }>
-}> {
-  const normalizedCode = canonicalStockCode(code)
-  const response = await api.get<{
+): Promise<
+  RealtimeFreshness & {
     success: boolean
     code: string
     data: Array<{
@@ -798,7 +784,25 @@ export async function getRealtimeBars(
       amount: number
       symbol: string
     }>
-  }>(
+  }
+> {
+  const normalizedCode = canonicalStockCode(code)
+  const response = await api.get<
+    RealtimeFreshness & {
+      success: boolean
+      code: string
+      data: Array<{
+        date: string
+        open: number
+        high: number
+        low: number
+        close: number
+        volume: number
+        amount: number
+        symbol: string
+      }>
+    }
+  >(
     `/realtime/${encodeURIComponent(normalizedCode)}?${new URLSearchParams({
       period,
       cache_for_research: String(cacheForResearch),
@@ -812,6 +816,18 @@ export async function getRealtimeBars(
       symbol: canonicalStockCode(bar.symbol),
     })),
   }
+}
+
+export interface RealtimeFreshness {
+  status?: 'ok' | 'empty' | 'unavailable'
+  provider?: string
+  served_at?: number
+  fetched_at?: number
+  market_at?: string
+  cache_age_ms?: number
+  stale?: boolean
+  cache_source?: 'provider' | 'memory' | 'redis' | string
+  reason?: string | null
 }
 
 // Realtime Quotes API
@@ -828,14 +844,16 @@ export interface RealtimeQuote {
   prev_close: number
 }
 
-export async function getRealtimeQuotes(codes: string[]): Promise<{
-  success: boolean
-  data: RealtimeQuote[]
-}> {
+export async function getRealtimeQuotes(codes: string[]): Promise<
+  RealtimeFreshness & {
+    success: boolean
+    data: RealtimeQuote[]
+  }
+> {
   const normalizedCodes = codes.map(canonicalStockCode)
-  const response = await api.get<{ success: boolean; data: RealtimeQuote[] }>(
-    `/realtime/quotes?codes=${encodeURIComponent(normalizedCodes.join(','))}`,
-  )
+  const response = await api.get<
+    RealtimeFreshness & { success: boolean; data: RealtimeQuote[] }
+  >(`/realtime/quotes?codes=${encodeURIComponent(normalizedCodes.join(','))}`)
   return {
     ...response.data,
     data: (Array.isArray(response.data.data) ? response.data.data : []).map(
@@ -857,13 +875,15 @@ export interface RealtimeIndex {
   prev_close: number
 }
 
-export async function getRealtimeIndices(): Promise<{
-  success: boolean
-  data: RealtimeIndex[]
-}> {
-  const response = await api.get<{ success: boolean; data: RealtimeIndex[] }>(
-    '/realtime/indices',
-  )
+export async function getRealtimeIndices(): Promise<
+  RealtimeFreshness & {
+    success: boolean
+    data: RealtimeIndex[]
+  }
+> {
+  const response = await api.get<
+    RealtimeFreshness & { success: boolean; data: RealtimeIndex[] }
+  >('/realtime/indices')
   return response.data
 }
 

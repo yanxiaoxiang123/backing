@@ -109,4 +109,32 @@ describe('useRealtimeKline', () => {
     unmount()
     expect(MockWebSocket.instances[0].close).toHaveBeenCalledOnce()
   })
+
+  it('exposes stale market metadata while retaining the chart snapshot', async () => {
+    mockedGetRealtimeBars.mockResolvedValue({
+      success: true,
+      code: '600036',
+      data: [
+        {
+          date: '2026-08-25',
+          open: 40,
+          high: 41,
+          low: 39,
+          close: 40.5,
+          volume: 100,
+          amount: 4000,
+          symbol: '600036',
+        },
+      ],
+      stale: true,
+      cache_age_ms: 72_000,
+    })
+
+    const { result, unmount } = renderHook(() => useRealtimeKline('600036', 'daily'))
+
+    await waitFor(() => expect(result.current.freshness.stale).toBe(true))
+    expect(result.current.data).toHaveLength(1)
+    expect(result.current.freshness.cache_age_ms).toBe(72_000)
+    unmount()
+  })
 })

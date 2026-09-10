@@ -31,6 +31,7 @@ alembic==1.19.1
 pytest==9.1.1
 httpx==0.28.1
 slowapi==0.1.10
+redis>=5.0,<6.0
 itsdangerous==2.2.0
 langchain-core==1.5.4
 langchain-openai==1.5.1

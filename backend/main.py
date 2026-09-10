@@ -35,6 +35,7 @@ from app.logging_config import setup_logging
 from app.middleware import CsrfMiddleware, RequestLoggingMiddleware
 from app.models.models import Strategy
 from app.services.job_store import job_store
+from app.services.cache import close_caches
 from app.services.tasks import get_task_executor
 
 # Structured JSON logging (request/job correlation + redaction)
@@ -159,6 +160,7 @@ async def lifespan(app: FastAPI):
     soak.stop()
     chat_service.shutdown()
     task_executor.shutdown()
+    close_caches()
     logger.info("Shutting down...")
 
 

@@ -43,8 +43,8 @@ function Watchlist() {
     queryKey: watchlistKeys.quotes(codes),
     queryFn: () => getRealtimeQuotes(codes),
     enabled: codes.length > 0,
-    staleTime: 15_000,
-    refetchInterval: 30_000,
+    staleTime: 10_000,
+    refetchInterval: 10_000,
   })
   const stockPriceMap = useMemo<Record<string, DashboardStock>>(() => {
     const map: Record<string, DashboardStock> = {}
@@ -206,7 +206,11 @@ function Watchlist() {
           }}
         >
           <span className="apple-card-title">我的自选股 ({watchlist.length})</span>
-          <span className="data-freshness">行情每 30 秒自动刷新</span>
+          <span className="data-freshness">
+            {quotesQuery.data?.stale
+              ? `行情延迟${quotesQuery.data.cache_age_ms != null ? ` ${Math.round(quotesQuery.data.cache_age_ms / 1000)} 秒` : ''}`
+              : '行情每 10 秒自动刷新'}
+          </span>
         </div>
 
         {watchlistQuery.isLoading ? (

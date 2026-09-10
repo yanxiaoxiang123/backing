@@ -21,6 +21,8 @@ export function useDashboardIndices() {
   return useQuery({
     queryKey: dashboardKeys.indices(),
     queryFn: getRealtimeIndices,
+    staleTime: 10_000,
+    refetchInterval: 10_000,
   })
 }
 
@@ -29,6 +31,8 @@ export function useDashboardQuotes(codes: string[]) {
     queryKey: dashboardKeys.quotes(codes),
     queryFn: () => getRealtimeQuotes(codes),
     enabled: codes.length > 0,
+    staleTime: 10_000,
+    refetchInterval: 10_000,
   })
 }
 

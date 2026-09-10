@@ -215,6 +215,14 @@ function StockChart() {
               className={kline.connected ? 'status-dot status-dot--live' : 'status-dot'}
             />
             {kline.connected ? '实时连接' : kline.fallback ? 'HTTP 降级' : '等待连接'}
+            {kline.freshness.stale ? (
+              <Tag color="orange">
+                行情延迟
+                {kline.freshness.cache_age_ms != null
+                  ? ` ${Math.round(kline.freshness.cache_age_ms / 1000)} 秒`
+                  : ''}
+              </Tag>
+            ) : null}
           </div>
         </div>
 

@@ -225,7 +225,11 @@ function Dashboard() {
             <div className="eyebrow">OVERVIEW</div>
             <h2 id="market-overview-title">市场概览</h2>
           </div>
-          <span className="data-freshness">行情按需更新</span>
+          <span className="data-freshness">
+            {quotesQuery.data?.stale
+              ? `行情延迟${quotesQuery.data.cache_age_ms != null ? ` ${Math.round(quotesQuery.data.cache_age_ms / 1000)} 秒` : ''}`
+              : '行情按需更新'}
+          </span>
         </div>
         {indicesQuery.isError ? (
           <ErrorBlock

@@ -9,6 +9,8 @@ from typing import Any, Dict, List, Optional, Tuple
 import pandas as pd
 from sqlalchemy.orm import Session
 
+from app.services.cache import indicator_cache
+
 
 class IndicatorService:
     """技术指标计算服务"""
@@ -244,6 +246,19 @@ class IndicatorService:
         if not klines:
             return []
 
+        data_version = (
+            f"{len(klines)}:{klines[-1].date}:{float(klines[-1].close):.8f}"
+        )
+        redis_key = (
+            f"{stock_code}:{period}:{start_date}:{end_date}:v2:{data_version}"
+        )
+        if indicator_cache.enabled:
+            redis_record = indicator_cache.get(redis_key, allow_stale=False)
+            if redis_record is not None and isinstance(redis_record.get("payload"), list):
+                result = redis_record["payload"]
+                self._cache_set(cache_key, result)
+                return result
+
         # 转换为DataFrame
         df = pd.DataFrame(
             [
@@ -326,6 +341,14 @@ class IndicatorService:
             )
 
         self._cache_set(cache_key, result)
+        if indicator_cache.enabled:
+            indicator_cache.set(
+                redis_key,
+                result,
+                fresh_ttl_s=self._cache_ttl,
+                stale_ttl_s=24 * 3600.0,
+                metadata={"data_version": data_version},
+            )
         return result
 
     @staticmethod

@@ -6,6 +6,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.services.baostock_service import baostock_service
 from app.services.indicator_service import indicator_service
+from app.services.realtime_service import STATUS_OK, realtime_service
 from app.tools.base import Permission, Tool, ToolContext
 
 MAX_KLINE_ROWS = 500
@@ -51,8 +52,30 @@ class MarketSnapshotParams(BaseModel):
 
 
 def _market_snapshot(params: MarketSnapshotParams, context: ToolContext) -> dict:
+    # Current research uses the same Mootdx-backed stream as the dashboard and
+    # stock page.  Historical/as-of requests intentionally stay on the
+    # persisted indicator data so they remain reproducible.
+    if context.as_of is not None and (datetime.now(timezone.utc) - context.as_of).total_seconds() <= 300:
+        result = realtime_service.fetch_bars(params.stock_code.split(".")[-1], params.period)
+        if result.status != STATUS_OK or not result.data:
+            raise ValueError(result.reason or "无行情快照数据")
+        latest = result.data[-1]
+        return {
+            "source_id": f"snapshot:{params.stock_code}:{params.period}:{result.market_at or 'unknown'}",
+            "as_of": context.as_of or datetime.now(timezone.utc),
+            "vendor": context.vendor,
+            "stock_code": params.stock_code,
+            "period": params.period,
+            "latest": latest,
+            "freshness": {
+                "stale": result.stale,
+                "cache_age_ms": result.cache_age_ms,
+                "market_at": result.market_at,
+                "cache_source": result.cache_source,
+            },
+        }
     if context.db is None:
-        raise ValueError("缺少数据库会话，无法获取快照")
+        raise ValueError("缺少数据库会话，无法获取历史快照")
     klines = indicator_service.get_kline_with_indicators(
         context.db,
         params.stock_code,

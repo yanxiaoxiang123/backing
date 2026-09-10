@@ -3,12 +3,12 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any, Dict, List
 
-from sqlalchemy import case, func
 from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.models.models import DEFAULT_USER_ID, DailyKline, Stock, WatchlistItem
 from app.services.baostock_service import MAJOR_INDICES
+from app.services.realtime_service import STATUS_OK, realtime_service
 
 
 class DashboardService:
@@ -77,92 +77,41 @@ class DashboardService:
         }
 
     def _get_watchlist_data(self, watchlist_codes: List[str]) -> List[Dict[str, Any]]:
-        """Get latest price data for watchlist stocks only - single query with window functions"""
+        """Get current watchlist quotes from the shared Mootdx service."""
         if not watchlist_codes:
             return []
 
-        # Use window functions to get latest and previous in one query
-        ranked_subquery = (
-            self.db.query(
-                DailyKline.stock_code,
-                DailyKline.date,
-                DailyKline.close,
-                DailyKline.high,
-                DailyKline.low,
-                DailyKline.volume,
-                func.dense_rank().over(
-                    partition_by=DailyKline.stock_code,
-                    order_by=DailyKline.date.desc()
-                ).label("dr")
-            )
-            .filter(DailyKline.stock_code.in_(watchlist_codes))
-            .subquery()
-        )
-
-        rows = (
-            self.db.query(
-                Stock.id,
-                Stock.code,
-                Stock.name,
-                func.max(
-                    case(
-                        (ranked_subquery.c.dr == 1, ranked_subquery.c.close),
-                        else_=None
-                    )
-                ).label("latest_close"),
-                func.max(
-                    case(
-                        (ranked_subquery.c.dr == 1, ranked_subquery.c.high),
-                        else_=None
-                    )
-                ).label("latest_high"),
-                func.max(
-                    case(
-                        (ranked_subquery.c.dr == 1, ranked_subquery.c.low),
-                        else_=None
-                    )
-                ).label("latest_low"),
-                func.max(
-                    case(
-                        (ranked_subquery.c.dr == 1, ranked_subquery.c.volume),
-                        else_=None
-                    )
-                ).label("latest_volume"),
-                func.max(
-                    case(
-                        (ranked_subquery.c.dr == 2, ranked_subquery.c.close),
-                        else_=None
-                    )
-                ).label("previous_close"),
-            )
-            .join(ranked_subquery, ranked_subquery.c.stock_code == Stock.code)
+        stocks = (
+            self.db.query(Stock.id, Stock.code, Stock.name)
             .filter(Stock.code.in_(watchlist_codes))
-            .group_by(Stock.id, Stock.code, Stock.name)
             .all()
         )
-
+        code_to_stock = {row.code: row for row in stocks}
+        symbols = [str(code).split(".")[-1] for code in watchlist_codes]
+        quotes = realtime_service.fetch_quotes(symbols)
+        if quotes.status != STATUS_OK:
+            return []
+        quote_map = {str(item.get("symbol")): item for item in quotes.data}
         result: List[Dict[str, Any]] = []
-        for row in rows:
-            previous_close = row.previous_close or row.latest_close
-            if not previous_close or not row.latest_close:
+        for code in watchlist_codes:
+            symbol = str(code).split(".")[-1]
+            quote = quote_map.get(symbol)
+            stock = code_to_stock.get(code)
+            if quote is None or stock is None:
                 continue
-            change = row.latest_close - previous_close
-            change_percent = (change / previous_close) * 100 if previous_close else 0
             result.append(
                 {
-                    "id": row.id,
-                    "code": row.code,
-                    "name": row.name,
-                    "current_price": round(row.latest_close, 2),
-                    "high": round(row.latest_high, 2),
-                    "low": round(row.latest_low, 2),
-                    "volume": int(row.latest_volume),
-                    "change": round(change, 2),
-                    "change_percent": round(change_percent, 2),
+                    "id": stock.id,
+                    "code": code,
+                    "name": stock.name,
+                    "current_price": round(float(quote["close"]), 2),
+                    "high": round(float(quote["high"]), 2),
+                    "low": round(float(quote["low"]), 2),
+                    "volume": int(float(quote["volume"])),
+                    "change": round(float(quote["change"]), 2),
+                    "change_percent": round(float(quote["change_percent"]), 2),
                 }
             )
-
-        # Sort by change_percent descending
         return sorted(result, key=lambda x: x["change_percent"], reverse=True)
 
     def _get_index_trend(self, index_code: str, days: int = 30) -> Dict[str, Any]:
@@ -191,82 +140,30 @@ class DashboardService:
             stock = self.db.query(Stock.name).filter(Stock.code == stock_code).first()
             stock_name = stock.name if stock else stock_code
 
-        rows = (
-            self.db.query(DailyKline.date, DailyKline.close)
-            .filter(DailyKline.stock_code == stock_code)
-            .order_by(DailyKline.date.desc())
-            .limit(days)
-            .all()
-        )
-        if not rows:
+        result = realtime_service.fetch_bars(str(stock_code).split(".")[-1], "daily")
+        if result.status != STATUS_OK or not result.data:
             return {"name": stock_name, "dates": [], "values": []}
-        rows = list(reversed(rows))
+        rows = result.data[-days:]
         return {
             "name": f"{stock_name} ({stock_code})",
-            "dates": [row.date.isoformat() for row in rows],
-            "values": [round(float(row.close), 2) for row in rows],
+            "dates": [str(row["date"]) for row in rows],
+            "values": [round(float(row["close"]), 2) for row in rows],
+            "stale": result.stale,
+            "cache_age_ms": result.cache_age_ms,
         }
 
     def _get_major_indices(self) -> List[Dict[str, Any]]:
-        target_codes = [item["code"] for item in MAJOR_INDICES[:3]]
-
-        ranked = (
-            self.db.query(
-                DailyKline.stock_code,
-                DailyKline.close,
-                func.dense_rank()
-                .over(partition_by=DailyKline.stock_code, order_by=DailyKline.date.desc())
-                .label("dr"),
-            )
-            .filter(DailyKline.stock_code.in_(target_codes))
-            .subquery()
-        )
-
-        rows = (
-            self.db.query(
-                ranked.c.stock_code.label("code"),
-                func.max(
-                    case((ranked.c.dr == 1, ranked.c.close), else_=None)
-                ).label("latest_close"),
-                func.max(
-                    case((ranked.c.dr == 2, ranked.c.close), else_=None)
-                ).label("previous_close"),
-            )
-            .filter(ranked.c.dr.in_([1, 2]))
-            .group_by(ranked.c.stock_code)
-            .all()
-        )
-        data_map = {row.code: row for row in rows}
-        results: List[Dict[str, Any]] = []
-
-        for item in MAJOR_INDICES[:3]:
-            row = data_map.get(item["code"])
-            if row is None:
-                results.append(
-                    {
-                        "code": item["code"],
-                        "name": item["name"],
-                        "value": 0,
-                        "change": 0,
-                        "change_percent": 0,
-                    }
-                )
-                continue
-
-            latest_close = float(row.latest_close or 0)
-            previous_close = float(row.previous_close or row.latest_close or 0)
-            if previous_close == 0:
-                previous_close = latest_close or 1
-            change = latest_close - previous_close
-            change_percent = (change / previous_close) * 100 if previous_close else 0
-            results.append(
+        realtime = realtime_service.fetch_indices()
+        if realtime.status == STATUS_OK:
+            names = {str(item["code"]).split(".")[-1]: item["name"] for item in MAJOR_INDICES}
+            return [
                 {
-                    "code": item["code"],
-                    "name": item["name"],
-                    "value": round(latest_close, 2),
-                    "change": round(change, 2),
-                    "change_percent": round(change_percent, 2),
+                    "code": f"{('sh' if str(item['symbol']).startswith(('0', '6')) else 'sz')}.{item['symbol']}",
+                    "name": names.get(str(item["symbol"]), str(item["symbol"])),
+                    "value": round(float(item["close"]), 2),
+                    "change": round(float(item["change"]), 2),
+                    "change_percent": round(float(item["change_percent"]), 2),
                 }
-            )
-
-        return results
+                for item in realtime.data
+            ]
+        return []

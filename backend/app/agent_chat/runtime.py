@@ -12,6 +12,7 @@ import json
 import logging
 import threading
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from typing import Any, Callable, Protocol
 
 from app.agent_api.pipelines import default_pipeline
@@ -585,7 +586,12 @@ class NativeAgentChatRuntime:
             result = DEFAULT_REGISTRY.invoke(
                 registry_name,
                 call.arguments,
-                ToolContext(db=session, stores=create_stores(session), granted_permissions={"read"}),
+                ToolContext(
+                    db=session,
+                    stores=create_stores(session),
+                    as_of=datetime.now(timezone.utc),
+                    granted_permissions={"read"},
+                ),
             )
             return result
         finally:

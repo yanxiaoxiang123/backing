@@ -5,6 +5,7 @@ approval 工具拒绝——模拟下单审批留在后端工作台）。
 """
 
 import logging
+from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -37,7 +38,11 @@ def invoke_tool(
     _: str = Depends(get_current_api_key),
 ) -> dict[str, Any]:
     """直调单个类型化网关工具（证据 envelope 返回；approval 工具拒绝）。"""
-    context = ToolContext(db=db, granted_permissions=set(GATEWAY_GRANTED))
+    context = ToolContext(
+        db=db,
+        as_of=datetime.now(timezone.utc),
+        granted_permissions=set(GATEWAY_GRANTED),
+    )
     env = DEFAULT_REGISTRY.invoke(body.tool, body.params, context)
     if not env.get("ok") and env.get("error", {}).get("code") == "permission_denied":
         raise HTTPException(status_code=403, detail=env["error"]["message"])
