@@ -12,6 +12,7 @@ from sqlalchemy import (
     DateTime,
     Float,
     ForeignKey,
+    Index,
     Integer,
     String,
     Text,
@@ -53,6 +54,7 @@ class AgentRun(Base):
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
     __table_args__ = (
+        Index("ix_agent_runs_status_created", "status", "created_at"),
         CheckConstraint(f"status IN {RUN_STATUSES}", name="ck_agent_runs_status"),
     )
 
@@ -118,6 +120,8 @@ class ToolCallRecord(Base):
     created_at = Column(DateTime, server_default=func.now())
 
     __table_args__ = (
+        Index("ix_tool_calls_step_id", "step_id"),
+        Index("ix_tool_calls_status_created", "status", "created_at"),
         CheckConstraint(f"permission IN {PERMISSIONS}", name="ck_tool_calls_permission"),
         CheckConstraint(f"status IN {TOOL_STATUSES}", name="ck_tool_calls_status"),
     )

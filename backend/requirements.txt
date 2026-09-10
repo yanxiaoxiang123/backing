@@ -24,13 +24,13 @@ python-dotenv==1.2.2
 pandas==3.0.5
 numpy==2.5.2
 requests==2.34.2
-scipy==1.18.0
 scikit-learn==1.9.0
 torch==2.13.0
 alembic==1.19.1
 pytest==9.1.1
 httpx==0.28.1
 slowapi==0.1.10
+redis>=5.0,<6.0
 itsdangerous==2.2.0
 langchain-core==1.5.4
 langchain-openai==1.5.1

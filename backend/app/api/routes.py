@@ -24,7 +24,13 @@ from app.exceptions import (
     ValidationError,
 )
 from app.limiter import limiter
-from app.models.models import BacktestResult, DailyKline, Stock
+from app.models.models import (
+    DEFAULT_USER_ID,
+    BacktestResult,
+    DailyKline,
+    Stock,
+    WatchlistItem,
+)
 from app.schemas.schemas import (
     BacktestListResponse,
     BacktestRequest,
@@ -56,6 +62,29 @@ def _validate_stock_code(code: str) -> str:
             detail=f"Invalid stock code format: '{code}'. Expected format: sh.XXXXXX, sz.XXXXXX, or bj.XXXXXX",
         )
     return code
+
+
+def _resolve_stock_code(db: Session, code: str) -> str:
+    """Accept canonical codes and resolve legacy six-digit route values."""
+    normalized = code.strip().lower()
+    if _STOCK_CODE_RE.match(normalized):
+        return normalized
+    if re.fullmatch(r"\d{6}", normalized):
+        matches = (
+            db.query(Stock.code)
+            .filter(Stock.code.endswith(f".{normalized}"))
+            .limit(2)
+            .all()
+        )
+        if len(matches) == 1:
+            return str(matches[0][0])
+        if not matches:
+            raise HTTPException(status_code=404, detail="Stock not found")
+        raise HTTPException(
+            status_code=422,
+            detail=f"Ambiguous stock code: '{code}'. Please include the market prefix.",
+        )
+    return _validate_stock_code(normalized)
 
 
 class JobResponse(BaseModel):
@@ -192,11 +221,69 @@ def get_stock(
     _: str = Depends(get_current_api_key),
 ):
     """Get stock by code"""
-    _validate_stock_code(code)
+    code = _resolve_stock_code(db, code)
     stock = db.query(Stock).filter(Stock.code == code).first()
     if not stock:
         raise HTTPException(status_code=404, detail="Stock not found")
     return stock
+
+
+@router.get("/stocks/{code}/overview")
+@limiter.limit("60/minute")
+def get_stock_overview(
+    request: Request,
+    code: str,
+    db: Session = Depends(get_db),
+    _: str = Depends(get_current_api_key),
+):
+    """Return the compact decision-research context for one stock."""
+    code = _resolve_stock_code(db, code)
+    stock = db.query(Stock).filter(Stock.code == code).first()
+    if not stock:
+        raise HTTPException(status_code=404, detail="Stock not found")
+
+    bars = (
+        db.query(DailyKline)
+        .filter(DailyKline.stock_code == code)
+        .order_by(DailyKline.date.desc())
+        .limit(2)
+        .all()
+    )
+    latest = bars[0] if bars else None
+    previous = bars[1] if len(bars) > 1 else latest
+    previous_close = float(previous.close) if previous else 0.0
+    latest_close = float(latest.close) if latest else 0.0
+    change = latest_close - previous_close
+    change_percent = (change / previous_close * 100) if previous_close else 0.0
+    watchlisted = (
+        db.query(WatchlistItem.id)
+        .filter(
+            WatchlistItem.user_id == DEFAULT_USER_ID,
+            WatchlistItem.stock_code == code,
+        )
+        .first()
+        is not None
+    )
+    quote = None
+    if latest:
+        quote = {
+            "id": 0,
+            "code": code,
+            "name": stock.name,
+            "current_price": round(latest_close, 2),
+            "high": round(float(latest.high), 2),
+            "low": round(float(latest.low), 2),
+            "volume": int(latest.volume),
+            "change": round(change, 2),
+            "change_percent": round(change_percent, 2),
+        }
+    return {
+        "stock": stock,
+        "quote": quote,
+        "watchlisted": watchlisted,
+        "technical": {"updated_at": latest.date.isoformat() if latest else None},
+        "recent_analysis": [],
+    }
 
 
 @router.get("/stocks/{code}/indicators")
@@ -211,7 +298,7 @@ def get_stock_indicators(
     _: str = Depends(get_current_api_key),
 ):
     """Get stock kline data with technical indicators"""
-    _validate_stock_code(code)
+    code = _resolve_stock_code(db, code)
     # Verify stock exists
     stock = db.query(Stock).filter(Stock.code == code).first()
     if not stock:
@@ -247,7 +334,7 @@ def get_stock_kline(
     _: str = Depends(get_current_api_key),
 ):
     """Get stock kline data"""
-    _validate_stock_code(code)
+    code = _resolve_stock_code(db, code)
     query = db.query(DailyKline).filter(DailyKline.stock_code == code)
     if start_date:
         query = query.filter(DailyKline.date >= start_date)
@@ -455,7 +542,7 @@ def get_backtest_results(
     _: str = Depends(get_current_api_key),
 ):
     """Get backtest results list"""
-    query = db.query(BacktestResult)
+    query = db.query(BacktestResult).options(joinedload(BacktestResult.strategy))
     if stock_code:
         query = query.filter(BacktestResult.stock_code == stock_code)
     results = (

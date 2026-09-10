@@ -23,7 +23,10 @@ describe('ChatSidebar', () => {
     const onSelect = vi.fn()
     render(
       <ChatSidebar
-        threads={[thread('t-1', { title: '第一会话' }), thread('t-2', { title: '第二会话' })]}
+        threads={[
+          thread('t-1', { title: '第一会话' }),
+          thread('t-2', { title: '第二会话' }),
+        ]}
         currentThreadId="t-1"
         onSelect={onSelect}
         onNew={vi.fn()}

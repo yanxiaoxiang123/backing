@@ -253,10 +253,13 @@ class JobStore:
             )
             if row is None:
                 return None
+            changes.setdefault(
+                "updated_at",
+                datetime.now(timezone.utc).replace(tzinfo=None),
+            )
             for key, value in changes.items():
                 if hasattr(row, key):
                     setattr(row, key, value)
-            # updated_at is handled by the ORM's onupdate=func.now()
             session.flush()
             session.refresh(row)
             return JobRecordSchema.model_validate(row)

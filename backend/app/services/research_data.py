@@ -25,10 +25,18 @@ import akshare as ak
 import pandas as pd
 
 from app.services.baostock_service import baostock_service
+from app.services.cache import research_cache
 
 logger = logging.getLogger(__name__)
 
 DATA_VERSION = "1.0.0"
+_RESEARCH_TTLS = {
+    "event.news": 300.0,
+    "event.announcement": 300.0,
+    "fundamental.financials": 6 * 3600.0,
+    "market.index_kline": 300.0,
+}
+_RESEARCH_STALE_RETENTION = 7 * 24 * 3600.0
 
 _BACKEND_DIR = os.path.dirname(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -153,14 +161,24 @@ def _connect() -> sqlite3.Connection:
     return conn
 
 
-def cache_get(tool: str, params: dict[str, Any]) -> dict[str, Any] | None:
+def cache_get(
+    tool: str, params: dict[str, Any], *, allow_stale: bool = False
+) -> dict[str, Any] | None:
     """命中返回 {payload, source_id, as_of, vendor, data_version}；未命中 None。"""
     ph = _params_hash(params)
+    if research_cache.enabled:
+        redis_record = research_cache.get(
+            f"{tool}:{ph}", allow_stale=allow_stale
+        )
+        if redis_record is not None:
+            payload = redis_record.get("payload")
+            if isinstance(payload, dict) and "payload" in payload:
+                return payload
     with _CACHE_LOCK:
         conn = _connect()
         try:
             row = conn.execute(
-                "SELECT payload, source_id, as_of, vendor, data_version "
+                "SELECT payload, source_id, as_of, vendor, data_version, fetched_at "
                 "FROM research_cache WHERE tool = ? AND params_hash = ?",
                 (tool, ph),
             ).fetchone()
@@ -168,13 +186,27 @@ def cache_get(tool: str, params: dict[str, Any]) -> dict[str, Any] | None:
             conn.close()
     if row is None:
         return None
-    return {
+    entry = {
         "payload": json.loads(row[0]),
         "source_id": row[1],
         "as_of": row[2],
         "vendor": row[3],
         "data_version": row[4],
     }
+    # SQLite remains the durable evidence store.  Its fetched_at is not part
+    # of the public evidence envelope, so use the side cache for fresh reads;
+    # legacy rows without a verifiable timestamp are treated as expired.
+    try:
+        fetched_at = datetime.fromisoformat(str(row[5]))
+        if fetched_at.tzinfo is None:
+            fetched_at = fetched_at.replace(tzinfo=timezone.utc)
+        age = (datetime.now(timezone.utc) - fetched_at).total_seconds()
+    except (TypeError, ValueError):
+        age = float("inf")
+    ttl = _RESEARCH_TTLS.get(tool, 300.0)
+    if (age <= _RESEARCH_STALE_RETENTION or allow_stale) and (age <= ttl or allow_stale):
+        return entry
+    return None
 
 
 def cache_put(
@@ -209,6 +241,32 @@ def cache_put(
             conn.commit()
         finally:
             conn.close()
+    ttl = _RESEARCH_TTLS.get(tool, 300.0)
+    if research_cache.enabled:
+        research_cache.set(
+            f"{tool}:{ph}",
+            {
+                "payload": payload,
+                "source_id": source_id,
+                "as_of": as_of,
+                "vendor": vendor,
+                "data_version": data_version,
+            },
+            fresh_ttl_s=ttl,
+            stale_ttl_s=_RESEARCH_STALE_RETENTION,
+        )
+
+
+def _stale_entry(
+    tool: str, params: dict[str, Any], reason: str
+) -> dict[str, Any] | None:
+    entry = cache_get(tool, params, allow_stale=True)
+    if entry is None:
+        return None
+    result = dict(entry)
+    result["stale"] = True
+    result["stale_reason"] = reason
+    return result
 
 
 def _clean_news_records(df: pd.DataFrame, limit: int) -> list[dict[str, Any]]:
@@ -246,6 +304,9 @@ def fetch_stock_news(
     try:
         df = ak.stock_news_em(symbol=code)
     except Exception as exc:
+        stale = _stale_entry(tool, params, str(exc))
+        if stale is not None:
+            return stale
         raise ValueError(f"新闻获取失败（{code}）: {exc}") from exc
     if df is None or df.empty:
         raise ValueError(f"无新闻数据: {code}")
@@ -290,6 +351,9 @@ def fetch_announcements(
     try:
         df = ak.stock_notice_report(symbol=code, date=compact_date)
     except Exception as exc:
+        stale = _stale_entry(tool, params, str(exc))
+        if stale is not None:
+            return stale
         raise ValueError(f"公告获取失败（{code} {date}）: {exc}") from exc
     if df is None or df.empty:
         raise ValueError(f"无公告数据: {code} {date}")
@@ -338,6 +402,9 @@ def fetch_financials_summary(
     try:
         df = ak.stock_financial_abstract(symbol=code)
     except Exception as exc:
+        stale = _stale_entry(tool, params, str(exc))
+        if stale is not None:
+            return stale
         raise ValueError(f"财报摘要获取失败（{code}）: {exc}") from exc
     if df is None or df.empty:
         raise ValueError(f"无财报摘要数据: {code}")
@@ -383,6 +450,9 @@ def fetch_index_kline(
             index_code, start_date, end_date
         )
     except Exception as exc:
+        stale = _stale_entry(tool, params, str(exc))
+        if stale is not None:
+            return stale
         raise ValueError(f"指数行情获取失败（{index_code}）: {exc}") from exc
     if df is None or df.empty:
         raise ValueError(f"无指数行情数据: {index_code}")

@@ -117,6 +117,48 @@ pip install -r requirements.lock
 
 默认后端地址：`http://localhost:8808`
 
+#### 可选 Redis 缓存
+
+行情、研究数据和技术指标可以使用 Redis 作为共享二级缓存。Redis 仅保存可丢弃缓存，不替代数据库，也不会因为设置 `REDIS_URL` 自动切换到 Arq 任务队列。Redis 暂时不可用时服务会退回进程内缓存，因此个人单机部署可以不安装 Redis。
+
+##### 方式 A：使用 Docker Compose
+
+macOS 首次使用需要先安装并启动 Docker Desktop。确认 Docker 引擎已运行后，在项目根目录执行：
+
+```bash
+brew install --cask docker       # 仅首次执行
+open -a Docker                   # 等待 Docker Desktop 启动完成
+docker --version
+docker compose version
+docker compose -f deploy/docker-compose.redis.yml up -d
+```
+
+##### 方式 B：使用 Homebrew 原生 Redis（macOS）
+
+不想安装 Docker 时，可以直接安装 Redis 服务：
+
+```bash
+brew install redis                # 仅首次执行
+brew services start redis
+redis-cli ping                     # 应返回 PONG
+```
+
+##### 接入后端
+
+Redis 启动后，在 `backend/.env` 添加或取消注释：
+
+```env
+REDIS_URL=redis://127.0.0.1:6379/1
+```
+
+然后重启后端。检查 Redis 状态：
+
+```bash
+redis-cli ping
+```
+
+如果暂时不使用 Redis，请不要设置 `REDIS_URL`；后端会自动使用有容量上限的内存缓存。Redis 连接失败时也会自动降级，不影响应用启动。
+
 ### 2. 前端
 
 ```bash

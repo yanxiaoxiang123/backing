@@ -236,6 +236,206 @@
    15. Ant Design Overrides
    ============================================ */
 
+.research-clickable-row {
+  cursor: pointer;
+}
+
+.research-clickable-row:focus-visible td {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: -2px;
+}
+
+.price-flat {
+  color: var(--color-flat);
+}
+
+.research-panel {
+  min-width: 0;
+}
+
+.async-boundary {
+  min-height: 120px;
+  display: grid;
+  align-items: center;
+}
+
+.visually-hidden,
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.compact-input-label {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 8px;
+  color: var(--color-text-secondary);
+  background: var(--color-surface-subtle);
+  border: 1px solid var(--color-border-medium);
+  border-right: 0;
+  font-size: var(--font-size-xs);
+  white-space: nowrap;
+}
+
+.metric-card {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 4px;
+  padding: var(--space-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  background: var(--color-canvas-lifted);
+}
+
+.metric-card__label,
+.metric-card__detail {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+}
+
+.metric-card__value {
+  color: var(--color-text-primary);
+  font-size: var(--font-size-xl);
+  font-variant-numeric: tabular-nums;
+}
+
+.metric-card--up .metric-card__value {
+  color: var(--color-market-up);
+}
+
+.metric-card--down .metric-card__value {
+  color: var(--color-market-down);
+}
+
+.metric-card--warning {
+  border-color: color-mix(in srgb, var(--color-warning) 40%, var(--color-border));
+}
+
+.research-empty-state {
+  display: grid;
+  justify-items: center;
+  padding: var(--space-xl) var(--space-md);
+  color: var(--color-text-secondary);
+}
+
+.research-empty-state__action {
+  margin-top: calc(var(--space-sm) * -1);
+}
+
+.job-progress-panel {
+  display: grid;
+  gap: var(--space-sm);
+  padding: var(--space-lg);
+  border: 1px solid var(--color-border-medium);
+  border-radius: var(--radius-card);
+  background: var(--color-canvas-lifted);
+}
+
+.job-progress-panel__heading {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-md);
+}
+
+.job-progress-panel p,
+.job-progress-panel small {
+  margin: 0;
+  color: var(--color-text-secondary);
+}
+
+.research-result-card {
+  display: grid;
+  grid-template-columns:
+    minmax(140px, 0.7fr) minmax(100px, 0.5fr) minmax(90px, 0.45fr)
+    minmax(260px, 1.6fr) minmax(180px, 0.9fr) auto;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-md) var(--space-lg);
+  border: 1px solid var(--color-border);
+  border-left: 4px solid var(--color-border-strong);
+  border-radius: var(--radius-card);
+  background: var(--color-canvas-lifted);
+  transition:
+    box-shadow var(--transition-fast),
+    transform var(--transition-fast);
+}
+
+.research-result-card:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-hover);
+}
+
+.research-result-card--buy {
+  border-left-color: var(--color-action-buy);
+}
+
+.research-result-card--sell {
+  border-left-color: var(--color-action-sell);
+}
+
+.research-result-card__identity,
+.research-result-card__quote,
+.research-result-card__signal {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.research-result-card__identity span,
+.research-result-card__signal small,
+.research-result-card__metadata {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+}
+
+.research-signal-tag--buy {
+  color: var(--color-action-buy);
+  border-color: color-mix(in srgb, var(--color-action-buy) 30%, transparent);
+  background: color-mix(in srgb, var(--color-action-buy) 10%, transparent);
+}
+
+.research-signal-tag--sell {
+  color: var(--color-action-sell);
+  border-color: color-mix(in srgb, var(--color-action-sell) 30%, transparent);
+  background: color-mix(in srgb, var(--color-action-sell) 10%, transparent);
+}
+
+.research-result-card__quote strong {
+  font-size: var(--font-size-lg);
+  font-variant-numeric: tabular-nums;
+}
+
+.research-result-card__summary {
+  min-width: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  line-height: 1.6;
+}
+
+.research-result-card__metadata {
+  line-height: 1.6;
+}
+
+.research-result-card__actions {
+  justify-self: end;
+}
+
+.research-result-card__actions-group {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
 /* Cards */
 .ant-card {
   border-radius: var(--radius-card) !important;

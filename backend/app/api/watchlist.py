@@ -1,7 +1,7 @@
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, contains_eager
 
 from app.auth import get_current_api_key
 from app.config import get_db
@@ -30,6 +30,7 @@ def get_watchlist(db: Session = Depends(get_db), _: str = Depends(get_current_ap
     items = (
         db.query(WatchlistItem)
         .join(Stock, WatchlistItem.stock_code == Stock.code)
+        .options(contains_eager(WatchlistItem.stock))
         .filter(WatchlistItem.user_id == _current_user_id())
         .order_by(WatchlistItem.added_at.desc())
         .all()

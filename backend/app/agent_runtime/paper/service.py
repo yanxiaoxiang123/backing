@@ -101,27 +101,33 @@ def _next_trading_day(db: Session, stock_code: str, after: date) -> str | None:
 
 def _find_bar(db: Session, stock_code: str, trade_date: str) -> tuple[Bar | None, float | None]:
     """返回 (target 日 bar, prev_close)；无 bar 或无可比前收盘返回 (None, None)。"""
+    target = date.fromisoformat(trade_date)
     rows = (
         db.query(DailyKline)
-        .filter(DailyKline.stock_code == stock_code)
-        .order_by(DailyKline.date.asc())
+        .filter(DailyKline.stock_code == stock_code, DailyKline.date <= target)
+        .order_by(DailyKline.date.desc())
+        .limit(2)
         .all()
     )
-    target = date.fromisoformat(trade_date)
-    prev_close: float | None = None
+    if not rows:
+        return None, None
+
     bar: Bar | None = None
-    for row in rows:
-        if row.date < target:
-            prev_close = float(row.close)
-        elif row.date == target:
-            bar = Bar(
-                date=trade_date,
-                open=float(row.open),
-                high=float(row.high),
-                low=float(row.low),
-                close=float(row.close),
-            )
-            break
+    prev_close: float | None = None
+
+    if rows[0].date == target:
+        bar = Bar(
+            date=trade_date,
+            open=float(rows[0].open),
+            high=float(rows[0].high),
+            low=float(rows[0].low),
+            close=float(rows[0].close),
+        )
+        if len(rows) > 1:
+            prev_close = float(rows[1].close)
+    else:
+        prev_close = float(rows[0].close)
+
     return bar, prev_close
 
 

@@ -31,7 +31,9 @@ function ToolRows({ tools }: { tools: ToolRow[] }) {
             <li key={`${tool.tool}-${idx}`} className="chat-tool-row">
               <code>{tool.tool}</code>
               {tool.runId && <Tag color="blue">{tool.runId}</Tag>}
-              {tool.summary && <span className="chat-tool-summary">{tool.summary}</span>}
+              {tool.summary && (
+                <span className="chat-tool-summary">{tool.summary}</span>
+              )}
             </li>
           ))}
         </ul>
@@ -86,7 +88,7 @@ export function ChatConversation({
         {messages.length === 0 && !running ? (
           <Empty
             description="可以先问候，也可以查询行情，或明确描述股票与策略后发起回测"
-            style={{ marginTop: 64 }}
+            className="chat-conversation-empty"
           />
         ) : (
           messages.map((msg, idx) =>
@@ -95,7 +97,10 @@ export function ChatConversation({
                 <div className="chat-bubble">{msg.content}</div>
               </div>
             ) : (
-              <div key={`a-${msg.turnId}-${idx}`} className="chat-msg chat-msg-assistant">
+              <div
+                key={`a-${msg.turnId}-${idx}`}
+                className="chat-msg chat-msg-assistant"
+              >
                 <div className="chat-bubble">
                   {msg.reasoning ? <ReasoningBlock text={msg.reasoning} /> : null}
                   {msg.tools.length > 0 ? <ToolRows tools={msg.tools} /> : null}
@@ -111,7 +116,7 @@ export function ChatConversation({
                   ) : null}
                 </div>
               </div>
-            )
+            ),
           )
         )}
         {running ? (
@@ -130,6 +135,8 @@ export function ChatConversation({
         <Button
           className="chat-jump-bottom"
           icon={<DownOutlined />}
+          aria-label="回到底部"
+          title="回到底部"
           onClick={() => {
             setPinned(true)
             const el = scrollRef.current

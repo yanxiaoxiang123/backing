@@ -6,6 +6,7 @@ import type {
   ChatTurn,
   ToolRow,
   ChatRuntimeStatus,
+  PageContext,
 } from '../types/chat'
 import {
   ChatEventStream,
@@ -29,6 +30,7 @@ interface TurnParts {
 
 export interface UseAgentChatOptions {
   onRunLinked?: (runId: string) => void
+  context?: PageContext
 }
 
 export interface UseAgentChatResult {
@@ -41,7 +43,7 @@ export interface UseAgentChatResult {
   runtimeStatus: ChatRuntimeStatus | null
   selectThread: (threadId: string) => Promise<void>
   newThread: () => Promise<string>
-  send: (content: string) => Promise<void>
+  send: (content: string, context?: PageContext) => Promise<void>
   stop: () => Promise<void>
   archive: (threadId: string) => Promise<void>
   refreshStatus: () => Promise<void>
@@ -59,11 +61,11 @@ function newIdempotencyKey(): string {
  * （reasoning/assistant_chunk/tool_call/tool_result/run.linked/turn.done）→ 队列/停止。
  * 刷新后由 URL 中的 thread_id 恢复（聊天历史 + SSE 游标从 0 重放）。
  */
-export function useAgentChat(
-  options: UseAgentChatOptions = {},
-): UseAgentChatResult {
+export function useAgentChat(options: UseAgentChatOptions = {}): UseAgentChatResult {
   const onRunLinkedRef = useRef(options.onRunLinked)
   onRunLinkedRef.current = options.onRunLinked
+  const contextRef = useRef(options.context)
+  contextRef.current = options.context
 
   const initialThreadId = useRef<string | null>(
     typeof window === 'undefined'
@@ -81,9 +83,7 @@ export function useAgentChat(
   // Fake/本地 Harness 可能在 submitTurn 的 202 响应返回前就完成整轮。
   // 终态事件先到时 turns 中尚无对应行，先暂存补丁，REST 返回后再合并，
   // 避免 completed 被随后到达的 queued 快照覆盖。
-  const terminalTurnPatchesRef = useRef<
-    Map<number, Partial<ChatTurn>>
-  >(new Map())
+  const terminalTurnPatchesRef = useRef<Map<number, Partial<ChatTurn>>>(new Map())
 
   const persistThreadId = useCallback((id: string | null) => {
     if (typeof window === 'undefined') return
@@ -93,112 +93,112 @@ export function useAgentChat(
     window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`)
   }, [])
 
-  const applyEvent = useCallback((event: ChatEvent) => {
-    const turnId = event.turn_id
-    const payload = event.payload
-    if (event.type === 'reasoning') {
-      setParts((prev) => ({
-        ...prev,
-        [turnId]: {
-          reasoning: (prev[turnId]?.reasoning ?? '') + String(payload['content'] ?? ''),
-          chunks: prev[turnId]?.chunks ?? [],
-          tools: prev[turnId]?.tools ?? [],
-          runId: prev[turnId]?.runId ?? null,
-        },
-      }))
-    } else if (event.type === 'assistant_chunk') {
-      setParts((prev) => ({
-        ...prev,
-        [turnId]: {
-          reasoning: prev[turnId]?.reasoning ?? '',
-          chunks: [...(prev[turnId]?.chunks ?? []), String(payload['content'] ?? '')],
-          tools: prev[turnId]?.tools ?? [],
-          runId: prev[turnId]?.runId ?? null,
-        },
-      }))
-    } else if (event.type === 'tool_call') {
-      setParts((prev) => ({
-        ...prev,
-        [turnId]: {
-          reasoning: prev[turnId]?.reasoning ?? '',
-          chunks: prev[turnId]?.chunks ?? [],
-          tools: [
-            ...(prev[turnId]?.tools ?? []),
-            {
-              tool: String(payload['tool'] ?? ''),
-              summary: '',
-              callId: String(payload['call_id'] ?? '') || null,
-              runId: null,
-            },
-          ],
-          runId: prev[turnId]?.runId ?? null,
-        },
-      }))
-    } else if (event.type === 'tool_result') {
-      setParts((prev) => {
-        const tools = [...(prev[turnId]?.tools ?? [])]
-        const callId = String(payload['call_id'] ?? '')
-        const idx = callId
-          ? tools.map((t) => t.callId).lastIndexOf(callId)
-          : tools.map((t) => t.tool).lastIndexOf(String(payload['tool'] ?? ''))
-        const rawSummary = payload['summary'] ?? payload['result'] ?? ''
-        const summary = typeof rawSummary === 'string'
-          ? rawSummary
-          : JSON.stringify(rawSummary)
-        if (idx >= 0) {
-          tools[idx] = { ...tools[idx], summary }
-          if (payload['run_id']) tools[idx] = { ...tools[idx], runId: String(payload['run_id']) }
-        }
-        return {
+  const applyEvent = useCallback(
+    (event: ChatEvent) => {
+      const turnId = event.turn_id
+      const payload = event.payload
+      if (event.type === 'reasoning') {
+        setParts((prev) => ({
+          ...prev,
+          [turnId]: {
+            reasoning:
+              (prev[turnId]?.reasoning ?? '') + String(payload['content'] ?? ''),
+            chunks: prev[turnId]?.chunks ?? [],
+            tools: prev[turnId]?.tools ?? [],
+            runId: prev[turnId]?.runId ?? null,
+          },
+        }))
+      } else if (event.type === 'assistant_chunk') {
+        setParts((prev) => ({
+          ...prev,
+          [turnId]: {
+            reasoning: prev[turnId]?.reasoning ?? '',
+            chunks: [...(prev[turnId]?.chunks ?? []), String(payload['content'] ?? '')],
+            tools: prev[turnId]?.tools ?? [],
+            runId: prev[turnId]?.runId ?? null,
+          },
+        }))
+      } else if (event.type === 'tool_call') {
+        setParts((prev) => ({
           ...prev,
           [turnId]: {
             reasoning: prev[turnId]?.reasoning ?? '',
             chunks: prev[turnId]?.chunks ?? [],
-            tools,
+            tools: [
+              ...(prev[turnId]?.tools ?? []),
+              {
+                tool: String(payload['tool'] ?? ''),
+                summary: '',
+                callId: String(payload['call_id'] ?? '') || null,
+                runId: null,
+              },
+            ],
             runId: prev[turnId]?.runId ?? null,
           },
+        }))
+      } else if (event.type === 'tool_result') {
+        setParts((prev) => {
+          const tools = [...(prev[turnId]?.tools ?? [])]
+          const callId = String(payload['call_id'] ?? '')
+          const idx = callId
+            ? tools.map((t) => t.callId).lastIndexOf(callId)
+            : tools.map((t) => t.tool).lastIndexOf(String(payload['tool'] ?? ''))
+          const rawSummary = payload['summary'] ?? payload['result'] ?? ''
+          const summary =
+            typeof rawSummary === 'string' ? rawSummary : JSON.stringify(rawSummary)
+          if (idx >= 0) {
+            tools[idx] = { ...tools[idx], summary }
+            if (payload['run_id'])
+              tools[idx] = { ...tools[idx], runId: String(payload['run_id']) }
+          }
+          return {
+            ...prev,
+            [turnId]: {
+              reasoning: prev[turnId]?.reasoning ?? '',
+              chunks: prev[turnId]?.chunks ?? [],
+              tools,
+              runId: prev[turnId]?.runId ?? null,
+            },
+          }
+        })
+      } else if (event.type === 'run.linked') {
+        const runId = String(payload['run_id'] ?? '')
+        setParts((prev) => ({
+          ...prev,
+          [turnId]: {
+            reasoning: prev[turnId]?.reasoning ?? '',
+            chunks: prev[turnId]?.chunks ?? [],
+            tools: prev[turnId]?.tools ?? [],
+            runId,
+          },
+        }))
+        if (runId) {
+          setCurrentThread((prev) => (prev ? { ...prev, last_run_id: runId } : prev))
+          setThreads((prev) =>
+            prev.map((thread) =>
+              thread.thread_id === currentThread?.thread_id
+                ? { ...thread, last_run_id: runId }
+                : thread,
+            ),
+          )
+          onRunLinkedRef.current?.(runId)
         }
-      })
-    } else if (event.type === 'run.linked') {
-      const runId = String(payload['run_id'] ?? '')
-      setParts((prev) => ({
-        ...prev,
-        [turnId]: {
-          reasoning: prev[turnId]?.reasoning ?? '',
-          chunks: prev[turnId]?.chunks ?? [],
-          tools: prev[turnId]?.tools ?? [],
-          runId,
-        },
-      }))
-      if (runId) {
-        setCurrentThread((prev) =>
-          prev ? { ...prev, last_run_id: runId } : prev,
+      } else if (event.type === 'turn.done') {
+        const patch: Partial<ChatTurn> = {
+          status: (payload['status'] as ChatTurn['status']) ?? 'completed',
+          final_reply: String(payload['final_reply'] ?? '') || null,
+          end_reason: String(payload['end_reason'] ?? '') || null,
+          error: String(payload['error'] ?? '') || null,
+        }
+        terminalTurnPatchesRef.current.set(turnId, patch)
+        setTurns((prev) =>
+          prev.map((turn) => (turn.id === turnId ? { ...turn, ...patch } : turn)),
         )
-        setThreads((prev) =>
-          prev.map((thread) =>
-            thread.thread_id === currentThread?.thread_id
-              ? { ...thread, last_run_id: runId }
-              : thread,
-          ),
-        )
-        onRunLinkedRef.current?.(runId)
+        setCurrentThread((prev) => (prev ? { ...prev, status: 'idle' } : prev))
       }
-    } else if (event.type === 'turn.done') {
-      const patch: Partial<ChatTurn> = {
-        status: (payload['status'] as ChatTurn['status']) ?? 'completed',
-        final_reply: String(payload['final_reply'] ?? '') || null,
-        end_reason: String(payload['end_reason'] ?? '') || null,
-        error: String(payload['error'] ?? '') || null,
-      }
-      terminalTurnPatchesRef.current.set(turnId, patch)
-      setTurns((prev) =>
-        prev.map((turn) =>
-          turn.id === turnId ? { ...turn, ...patch } : turn,
-        ),
-      )
-      setCurrentThread((prev) => (prev ? { ...prev, status: 'idle' } : prev))
-    }
-  }, [currentThread?.thread_id])
+    },
+    [currentThread?.thread_id],
+  )
 
   const connectStream = useCallback(
     (threadId: string, lastEventId: number) => {
@@ -251,7 +251,7 @@ export function useAgentChat(
   }, [selectThread])
 
   const send = useCallback(
-    async (content: string): Promise<void> => {
+    async (content: string, context?: PageContext): Promise<void> => {
       const text = content.trim()
       if (!text) return
       try {
@@ -268,7 +268,12 @@ export function useAgentChat(
           persistThreadId(created.thread_id)
           connectStream(created.thread_id, 0)
         }
-        const turn = await submitTurn(thread.thread_id, text, newIdempotencyKey())
+        const turn = await submitTurn(
+          thread.thread_id,
+          text,
+          newIdempotencyKey(),
+          context || contextRef.current,
+        )
         const terminalPatch = terminalTurnPatchesRef.current.get(turn.id)
         const mergedTurn = terminalPatch ? { ...turn, ...terminalPatch } : turn
         setTurns((prev) => {
@@ -301,9 +306,7 @@ export function useAgentChat(
     if (!currentThread) return
     try {
       const turn = await cancelTurn(currentThread.thread_id)
-      setTurns((prev) =>
-        prev.map((t) => (t.id === turn.id ? { ...t, ...turn } : t)),
-      )
+      setTurns((prev) => prev.map((t) => (t.id === turn.id ? { ...t, ...turn } : t)))
     } catch (exc) {
       setError(getApiErrorMessage(exc))
     }

@@ -121,20 +121,27 @@ def _check_data_staleness(
     """已同步股票最新 K 线陈旧检查。"""
     cutoff = date.today() - timedelta(days=max_days)
     stale: list[AlertDraft] = []
-    for stock in db.query(Stock).limit(100).all():
-        latest = (
-            db.query(DailyKline.date)
-            .filter(DailyKline.stock_code == stock.code)
-            .order_by(DailyKline.date.desc())
-            .first()
-        )
-        if latest is None or latest[0] < cutoff:
+    stocks = db.query(Stock).limit(100).all()
+    if not stocks:
+        return []
+
+    stock_codes = [s.code for s in stocks]
+    latest_dates = dict(
+        db.query(DailyKline.stock_code, func.max(DailyKline.date))
+        .filter(DailyKline.stock_code.in_(stock_codes))
+        .group_by(DailyKline.stock_code)
+        .all()
+    )
+
+    for stock in stocks:
+        latest_date = latest_dates.get(stock.code)
+        if latest_date is None or latest_date < cutoff:
             stale.append(
                 AlertDraft(
                     alert_type="data_staleness",
                     severity="warning",
                     message=(
-                        f"{stock.code} 最新 K 线 {latest[0] if latest else '缺失'}"
+                        f"{stock.code} 最新 K 线 {latest_date if latest_date else '缺失'}"
                         f" 早于 {cutoff.isoformat()}"
                     ),
                     data_ref=f"staleness:{stock.code}",

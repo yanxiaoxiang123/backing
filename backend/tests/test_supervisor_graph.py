@@ -71,7 +71,12 @@ def test_rule_based_routing_basic():
 
 
 def test_extract_stock_code_without_leading_space():
-    assert extract_stock_code("分析sz.000002") == "sz.000002"
+    assert extract_stock_code("分析sz000002") == "sz.000002"
+
+
+def test_extract_stock_code_does_not_fall_back_to_default():
+    with pytest.raises(ValueError, match="缺少有效股票代码"):
+        extract_stock_code("分析这只股票")
 
 
 def test_rule_based_routing_with_strategy_and_backtest():

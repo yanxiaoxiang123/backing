@@ -12,6 +12,7 @@ import json
 import logging
 import threading
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from typing import Any, Callable, Protocol
 
 from app.agent_api.pipelines import default_pipeline
@@ -35,6 +36,7 @@ from app.agent_chat.seam import (
 from app.agent_chat.stores import create_chat_stores
 from app.agent_runtime.runtime import CancelToken, RunExecutor
 from app.agent_runtime.stores import create_stores
+from app.domain.stock_codes import canonicalize_stock_code_in_text, stock_code_from_text
 from app.tools.base import ToolContext
 from app.tools.registry import DEFAULT_REGISTRY
 
@@ -186,7 +188,7 @@ class NativeAgentChatRuntime:
         timeout_s: float = 600,
         api_key: str | None = None,
         base_url: str = "https://api.deepseek.com/v1",
-        model_name: str = "deepseek-chat",
+        model_name: str = "deepseek-v4-flash",
     ):
         self._session_factory = session_factory
         self._model = model
@@ -226,7 +228,13 @@ class NativeAgentChatRuntime:
             self._cancel_events.clear()
 
     def run_turn(
-        self, session_id: str, user_message: str, *, turn_id: int, emit: EmitFn
+        self,
+        session_id: str,
+        user_message: str,
+        *,
+        turn_id: int,
+        emit: EmitFn,
+        context: dict[str, Any] | None = None,
     ) -> TurnOutcome:
         if not self.status["available"]:
             error = self._status_error(self.status["reason"])
@@ -250,7 +258,13 @@ class NativeAgentChatRuntime:
                 else admission
             )
             tools = self._tool_schemas(model_admission)
-            messages = [{"role": "system", "content": self._system_prompt(admission)}]
+            system_prompt = self._system_prompt(admission, tools)
+            if context:
+                system_prompt += (
+                    "\n当前研究上下文（仅用于理解用户意图，不要把它当作行情事实）："
+                    f"{json.dumps(context, ensure_ascii=False)}"
+                )
+            messages = [{"role": "system", "content": system_prompt}]
             messages.extend(history)
             messages.append({"role": "user", "content": user_message})
             final_text = ""
@@ -259,9 +273,9 @@ class NativeAgentChatRuntime:
             deadline.start()
             try:
                 if auto_run:
-                    target = stock_reference(user_message) or stock_reference(history_text)
-                    objective = user_message.strip()
-                    if target and not stock_reference(user_message):
+                    objective = self._canonicalize_objective(user_message.strip())
+                    target = stock_code_from_text(objective) or stock_reference(history_text)
+                    if target and not stock_code_from_text(objective):
                         objective = f"{objective}（股票：{target}）"
                     call = NativeToolCall(
                         call_id=f"auto-analysis-{turn_id}",
@@ -273,7 +287,12 @@ class NativeAgentChatRuntime:
                         session_id, call, admission, cancel_event
                     )
                     self._emit_tool_result(emit, turn_id, call, result)
-                    messages.extend(self._tool_exchange_messages(call, result))
+                    messages.append(
+                        {
+                            "role": "system",
+                            "content": self._analysis_result_context(result),
+                        }
+                    )
 
                 for step in range(self._max_steps):
                     if cancel_event.is_set():
@@ -377,33 +396,27 @@ class NativeAgentChatRuntime:
             emit(ChatEvent(RUN_LINKED, turn_id, {"run_id": payload["run_id"]}))
 
     @staticmethod
-    def _tool_exchange_messages(
-        call: NativeToolCall, result: Any
-    ) -> list[dict[str, Any]]:
-        return [
-            {
-                "role": "assistant",
-                "content": "",
-                "tool_calls": [
-                    {
-                        "id": call.call_id,
-                        "type": "function",
-                        "function": {
-                            "name": call.name,
-                            "arguments": json.dumps(
-                                call.arguments, ensure_ascii=False
-                            ),
-                        },
-                    }
-                ],
-            },
-            {
-                "role": "tool",
-                "tool_call_id": call.call_id,
-                "name": call.name,
-                "content": _json_text(result),
-            },
-        ]
+    def _analysis_result_context(result: Any) -> str:
+        if not isinstance(result, dict):
+            return "系统已执行结构化量化研究，但没有可用的运行摘要。"
+        summary = {
+            "ok": result.get("ok"),
+            "run_id": result.get("run_id"),
+            "status": result.get("status"),
+            "error": result.get("error"),
+        }
+        return (
+            "系统已在模型调用前执行 quant_run_analysis；这不是你调用的工具，"
+            "不要声称调用了未提供的工具。结构化研究摘要："
+            f"{json.dumps(summary, ensure_ascii=False)}"
+        )
+
+    def _canonicalize_objective(self, objective: str) -> str:
+        session = self._session_factory()
+        try:
+            return canonicalize_stock_code_in_text(objective, db=session)
+        finally:
+            session.close()
 
     def _status_error(self, reason: str | None) -> str:
         return {
@@ -500,12 +513,17 @@ class NativeAgentChatRuntime:
             })
         return schemas
 
-    def _system_prompt(self, admission: ToolAdmission) -> str:
+    def _system_prompt(
+        self, admission: ToolAdmission, tools: list[dict[str, Any]]
+    ) -> str:
+        tool_names = [item["function"]["name"] for item in tools]
+        tool_description = "、".join(tool_names) if tool_names else "无"
         return (
             "你是 Backing 的中文股票量化研究助手。先理解用户意图，再回答。"
             "普通问候、能力询问和感谢直接自然回复，不调用工具。信息不足时只追问缺少的股票、周期或研究目标。"
             "不得编造行情、财报、回测结果或收益承诺；使用工具得到的数据时说明来源和时间。"
-            f"本轮工具权限为 {admission.scope.value}，不要调用未提供的工具。"
+            f"本轮工具权限为 {admission.scope.value}；实际可调用工具仅有：{tool_description}。"
+            "不要调用或声称调用列表之外的工具。"
         )
 
     def _execute_tool(
@@ -568,7 +586,12 @@ class NativeAgentChatRuntime:
             result = DEFAULT_REGISTRY.invoke(
                 registry_name,
                 call.arguments,
-                ToolContext(db=session, stores=create_stores(session), granted_permissions={"read"}),
+                ToolContext(
+                    db=session,
+                    stores=create_stores(session),
+                    as_of=datetime.now(timezone.utc),
+                    granted_permissions={"read"},
+                ),
             )
             return result
         finally:

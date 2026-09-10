@@ -8,6 +8,7 @@ from sqlalchemy import (
     Column,
     DateTime,
     Float,
+    Index,
     Integer,
     String,
     Text,
@@ -37,6 +38,8 @@ class AlertRecord(Base):
     created_at = Column(DateTime, server_default=func.now())
 
     __table_args__ = (
+        Index("ix_alerts_dedup", "alert_type", "data_ref", "created_at"),
+        Index("ix_alerts_unread", "is_read", "created_at"),
         CheckConstraint(f"alert_type IN {ALERT_TYPES}", name="ck_alerts_type"),
         CheckConstraint(
             f"severity IN {ALERT_SEVERITIES}", name="ck_alerts_severity"

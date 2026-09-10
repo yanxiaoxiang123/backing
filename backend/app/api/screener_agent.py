@@ -66,7 +66,11 @@ def run_screener_job(job_id: str, payload: dict) -> None:
     def _check_cancelled():
         """检查 job 是否被用户取消 —— 避免与 cancel_job 端点的竞态条件。"""
         record = job_store.get(job_id)
-        return bool(record and record.status in ("failed", "cancelled") and "cancelled" in (record.error or ""))
+        if not record:
+            return False
+        if record.status == "cancelled":
+            return True
+        return record.status == "failed" and "cancelled" in (record.error or "").lower()
 
     def _safe_update(**changes):
         """取消后不再写入更新，避免覆盖取消状态。"""

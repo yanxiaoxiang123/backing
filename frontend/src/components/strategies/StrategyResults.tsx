@@ -1,6 +1,6 @@
 import { Card, Descriptions, Empty, Spin, Table, Tabs, Tag } from 'antd'
 import { LoadingOutlined } from '@ant-design/icons'
-import ReactECharts from 'echarts-for-react'
+import { LazyECharts } from '../charts/LazyECharts'
 import type { EChartsOption } from 'echarts'
 import { Link } from 'react-router-dom'
 import type {
@@ -16,7 +16,7 @@ interface StrategyResultsProps {
   signalStats: SignalStats | null
   backtestResult: StrategyBacktestResponse | null
   loading: { signals: boolean; backtest: boolean }
-  chartRef: React.RefObject<ReactECharts>
+  chartRef: React.RefObject<HTMLDivElement>
   chartOption: EChartsOption
   portfolioChartOption: EChartsOption
   children?: React.ReactNode
@@ -164,7 +164,7 @@ export function StrategyResults({
 
   return (
     <div className="strategy-results-panel" style={{ minWidth: 0 }}>
-      <Card title="研究结果" bodyStyle={{ padding: 'var(--space-md)' }}>
+      <Card title="研究结果" styles={{ body: { padding: 'var(--space-md)' } }}>
         <Tabs
           items={[
             {
@@ -180,7 +180,7 @@ export function StrategyResults({
                 >
                   <Card
                     title="信号预览"
-                    bodyStyle={{ padding: 0 }}
+                    styles={{ body: { padding: 0 } }}
                     style={{ minHeight: 400 }}
                   >
                     {isLoading ? (
@@ -190,7 +190,7 @@ export function StrategyResults({
                         />
                       </div>
                     ) : showChart ? (
-                      <ReactECharts
+                      <LazyECharts
                         ref={chartRef}
                         option={chartOption}
                         style={{ height: 400 }}
@@ -213,7 +213,7 @@ export function StrategyResults({
               label: '资金曲线',
               disabled: !backtestResult,
               children: backtestResult?.portfolio_values?.length ? (
-                <ReactECharts
+                <LazyECharts
                   option={portfolioChartOption}
                   style={{ height: 420 }}
                   opts={{ renderer: 'canvas' }}
@@ -239,7 +239,7 @@ export function StrategyResults({
                 <Table
                   dataSource={backtestResult.trades}
                   columns={tradeColumns}
-                  rowKey={(record, index) => `${record.date}-${index}`}
+                  rowKey={(record) => `${record.date}-${record.action}-${record.price}`}
                   size="small"
                   pagination={{ pageSize: 10 }}
                   scroll={{ y: 320 }}

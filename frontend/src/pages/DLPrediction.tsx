@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react'
+import { useMutation } from '@tanstack/react-query'
 import {
   Card,
   InputNumber,
@@ -16,13 +17,14 @@ import {
   LineChartOutlined,
   PlayCircleOutlined,
 } from '@ant-design/icons'
-import ReactECharts from 'echarts-for-react'
-import type { EChartsOption } from 'echarts'
-import { dlPredict, dlBacktest } from '../services/api'
+import { LazyECharts } from '../components/charts/LazyECharts'
+import type { EChartsOption, TooltipComponentFormatterCallbackParams } from 'echarts'
+import { dlPredict, dlBacktest } from '../services/dl'
 import StockSearch from '../components/StockSearch'
 import { logger } from '../utils/logger'
 import { usePersistedState } from '../hooks/usePersistedState'
 import dayjs from 'dayjs'
+import { PageHeader } from '../components/research/ResearchPrimitives'
 
 const { RangePicker } = DatePicker
 
@@ -65,11 +67,7 @@ interface DLBacktestResult {
 }
 
 function DLPrediction() {
-  const chartRef = useRef<ReactECharts>(null)
-
-  // State
-  const [loadingPredict, setLoadingPredict] = useState(false)
-  const [loadingBacktest, setLoadingBacktest] = useState(false)
+  const chartRef = useRef<HTMLDivElement>(null)
 
   // Form state
   const [stockCode, setStockCode] = usePersistedState<string | null>(
@@ -91,6 +89,10 @@ function DLPrediction() {
     null,
   )
   const [backtestResult, setBacktestResult] = useState<DLBacktestResult | null>(null)
+  const predictMutation = useMutation({ mutationFn: dlPredict })
+  const backtestMutation = useMutation({ mutationFn: dlBacktest })
+  const loadingPredict = predictMutation.isPending
+  const loadingBacktest = backtestMutation.isPending
 
   const handlePredict = async () => {
     if (!stockCode) {
@@ -98,10 +100,9 @@ function DLPrediction() {
       return
     }
 
-    setLoadingPredict(true)
     setBacktestResult(null)
     try {
-      const response = await dlPredict({
+      const response = await predictMutation.mutateAsync({
         stock_code: stockCode,
         kline_days: klineDays,
       })
@@ -114,8 +115,6 @@ function DLPrediction() {
     } catch (error) {
       message.error('预测失败')
       logger.error(error)
-    } finally {
-      setLoadingPredict(false)
     }
   }
 
@@ -125,10 +124,9 @@ function DLPrediction() {
       return
     }
 
-    setLoadingBacktest(true)
     setPredictionResult(null)
     try {
-      const response = await dlBacktest({
+      const response = await backtestMutation.mutateAsync({
         stock_code: stockCode,
         start_date: dateRange[0],
         end_date: dateRange[1],
@@ -143,8 +141,6 @@ function DLPrediction() {
     } catch (error) {
       message.error('回测失败')
       logger.error(error)
-    } finally {
-      setLoadingBacktest(false)
     }
   }
 
@@ -350,10 +346,13 @@ function DLPrediction() {
         backgroundColor: '#fff',
         borderColor: 'var(--color-border)',
         textStyle: { color: 'var(--color-text-primary)' },
-        formatter: (params: any) => {
-          if (!params || params.length === 0) return ''
-          const date = params[0].axisValue
-          const price = params[0].data[1]
+        formatter: (params: TooltipComponentFormatterCallbackParams) => {
+          const list = Array.isArray(params) ? params : [params]
+          if (list.length === 0) return ''
+          const date = String(
+            (list[0] as unknown as { axisValue?: string }).axisValue ?? '',
+          )
+          const price = (list[0].data as [string, number])[1]
           let html = `<div style="font-weight:500">${date}</div>`
           html += `<div>价格: <span style="color:#0071e3;font-weight:500">${price.toFixed(2)}</span></div>`
 
@@ -499,27 +498,13 @@ function DLPrediction() {
 
   return (
     <div className="fade-in">
-      {/* Page Header */}
-      <div className="page-header">
-        <div
-          className="flex flex-between"
-          style={{ flexWrap: 'wrap', gap: 'var(--space-md)' }}
-        >
-          <div>
-            <h1 className="page-title">DL 预测</h1>
-            <p className="page-subtitle">深度学习模型预测未来5天股票价格</p>
-          </div>
-        </div>
-      </div>
+      <PageHeader
+        eyebrow="MODEL LAB"
+        title="DL 预测"
+        subtitle="深度学习模型预测未来 5 天股票价格，并用历史区间验证策略"
+      />
 
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: '320px 1fr 1fr',
-          gap: 'var(--space-lg)',
-          alignItems: 'start',
-        }}
-      >
+      <div className="dl-lab-layout">
         {/* Left: Configuration */}
         <Card
           title={
@@ -659,7 +644,7 @@ function DLPrediction() {
               <Spin indicator={<LoadingOutlined style={{ fontSize: 32 }} spin />} />
             </div>
           ) : backtestResult ? (
-            <ReactECharts
+            <LazyECharts
               option={getBacktestChartOption()}
               style={{ height: 400 }}
               opts={{ renderer: 'canvas' }}
@@ -669,7 +654,7 @@ function DLPrediction() {
               <Spin indicator={<LoadingOutlined style={{ fontSize: 32 }} spin />} />
             </div>
           ) : predictionResult ? (
-            <ReactECharts
+            <LazyECharts
               ref={chartRef}
               option={getChartOption()}
               style={{ height: 400 }}
@@ -794,12 +779,38 @@ function DLPrediction() {
                 <Table
                   dataSource={backtestResult.trades}
                   columns={tradeColumns}
-                  rowKey={(record, index) => `${record.date}-${index}`}
+                  rowKey={(record) => `${record.date}-${record.action}-${record.price}`}
                   size="small"
                   pagination={{ pageSize: 10 }}
                   scroll={{ y: 300 }}
                 />
               </div>
+            </Card>
+          )}
+
+          {!predictionResult && !backtestResult && (
+            <Card className="dl-model-brief" title="模型状态">
+              <div className="dl-model-status">
+                <span className="status-dot status-dot--idle" />
+                <strong>等待实验</strong>
+              </div>
+              <p>
+                选择股票后可运行预测或回测。结果会保存在当前会话，不会覆盖历史数据。
+              </p>
+              <dl>
+                <div>
+                  <dt>预测范围</dt>
+                  <dd>未来 5 个交易日</dd>
+                </div>
+                <div>
+                  <dt>建议样本</dt>
+                  <dd>至少 60 个交易日</dd>
+                </div>
+                <div>
+                  <dt>数据来源</dt>
+                  <dd>本地行情服务</dd>
+                </div>
+              </dl>
             </Card>
           )}
         </div>

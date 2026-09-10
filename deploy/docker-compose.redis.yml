@@ -1,0 +1,10 @@
+services:
+  backing-redis:
+    image: redis:7.4-alpine
+    container_name: backing-redis
+    restart: unless-stopped
+    command: >-
+      redis-server --appendonly no --save "" --maxmemory 256mb
+      --maxmemory-policy allkeys-lru --protected-mode yes
+    ports:
+      - "127.0.0.1:6379:6379"

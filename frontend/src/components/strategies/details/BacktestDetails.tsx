@@ -1,6 +1,7 @@
 import { Button, Card, Descriptions, Table, Tabs } from 'antd'
+import type { ColumnsType } from 'antd/es/table'
 import { BarChartOutlined } from '@ant-design/icons'
-import ReactECharts from 'echarts-for-react'
+import { LazyECharts } from '../../charts/LazyECharts'
 import type {
   OptimizeResponse,
   CompareResponse,
@@ -49,16 +50,18 @@ const optimizeColumns = [
   },
 ]
 
-function getCompareColumns(onSelectStrategy?: (strategyName: string) => void): any[] {
-  const columns: any[] = [
+function getCompareColumns(
+  onSelectStrategy?: (strategyName: string) => void,
+): ColumnsType<CompareStrategyResult> {
+  const columns: ColumnsType<CompareStrategyResult> = [
     {
       title: '策略',
       dataIndex: 'strategy_name',
       key: 'strategy_name',
-      render: (name: string, _: unknown, index: number) => (
+      render: (name: string, _: unknown, index?: number) => (
         <span
           style={{
-            color: COMPARE_COLORS[index % COMPARE_COLORS.length],
+            color: COMPARE_COLORS[(index ?? 0) % COMPARE_COLORS.length],
             fontWeight: 600,
           }}
         >
@@ -176,7 +179,7 @@ export function BacktestDetails({
           <Table
             dataSource={optimizeResult.all_results}
             columns={optimizeColumns}
-            rowKey={(record, index) => JSON.stringify(record.params) + index}
+            rowKey={(record) => JSON.stringify(record.params)}
             size="small"
             pagination={{
               pageSize: 20,
@@ -233,7 +236,7 @@ export function BacktestDetails({
                 key: 'chart',
                 label: '资金曲线叠加',
                 children: (
-                  <ReactECharts
+                  <LazyECharts
                     option={getCompareChartOption(compareResult)}
                     style={{ height: 400 }}
                     opts={{ renderer: 'canvas' }}

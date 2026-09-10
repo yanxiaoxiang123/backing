@@ -1,6 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import userEvent from '@testing-library/user-event'
 import { AxiosError } from 'axios'
 
@@ -14,28 +15,27 @@ vi.mock('../../services/api', async () => {
     getRealtimeIndices: vi.fn(),
     getWatchlist: vi.fn(),
     getRealtimeBars: vi.fn(),
+    getDashboardSummary: vi.fn(),
   }
 })
 
 // jsdom 无 canvas 2d 上下文，echarts 渲染会随机崩溃（"Cannot set properties
 // of null (setting 'dpr')"）。该测试只断言功能行为，不测图表渲染，故 mock 掉
 // echarts 组件以消除基线 flake。
-vi.mock('echarts-for-react', () => ({
-  default: () => <div data-testid="echarts-stub" />,
-}))
-
 import Dashboard from '../Dashboard'
 import {
   getRealtimeQuotes,
   getRealtimeIndices,
   getWatchlist,
   getRealtimeBars,
+  getDashboardSummary,
 } from '../../services/api'
 
 const mockedQuotes = vi.mocked(getRealtimeQuotes)
 const mockedIndices = vi.mocked(getRealtimeIndices)
 const mockedWatchlist = vi.mocked(getWatchlist)
 const mockedBars = vi.mocked(getRealtimeBars)
+const mockedDashboardSummary = vi.mocked(getDashboardSummary)
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -43,6 +43,7 @@ beforeEach(() => {
   mockedQuotes.mockReset()
   mockedIndices.mockReset()
   mockedBars.mockReset()
+  mockedDashboardSummary.mockReset()
   mockedWatchlist.mockResolvedValue({
     items: [
       {
@@ -110,13 +111,26 @@ beforeEach(() => {
       },
     ],
   })
+  mockedDashboardSummary.mockResolvedValue({
+    as_of: '2026-08-14T09:30:00Z',
+    market_stats: { up: 0, down: 0, flat: 0, total: 0 },
+    indices: [],
+    trend: { name: '', dates: [], values: [] },
+    watchlist: [],
+    research_queue: [],
+    recent_activity: [],
+    alerts: [],
+  })
 })
 
 function renderDashboard() {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
-    <MemoryRouter>
-      <Dashboard />
-    </MemoryRouter>,
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+        <Dashboard />
+      </MemoryRouter>
+    </QueryClientProvider>,
   )
 }
 
@@ -213,5 +227,17 @@ describe('Dashboard partial degrade', () => {
     await userEvent.click(retryButtons[0])
 
     await waitFor(() => expect(mockedBars).toHaveBeenCalledTimes(2))
+  })
+
+  it('研究摘要失败时仅降级动态模块，不影响行情概览', async () => {
+    mockedDashboardSummary.mockRejectedValueOnce(new Error('研究摘要暂不可用'))
+
+    renderDashboard()
+
+    await waitFor(() => expect(screen.getByText('上证指数')).toBeInTheDocument())
+    expect(screen.getAllByText('研究摘要暂不可用')).toHaveLength(2)
+    expect(
+      screen.getAllByRole('button', { name: /重试/ }).length,
+    ).toBeGreaterThanOrEqual(2)
   })
 })

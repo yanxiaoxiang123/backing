@@ -1,6 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   Card,
+  Alert,
   Select,
   Button,
   Table,
@@ -8,6 +10,7 @@ import {
   message,
   Tabs,
   Progress,
+  Spin,
   Row,
   Col,
   Modal,
@@ -24,18 +27,20 @@ import {
   CopyOutlined,
   DownloadOutlined,
 } from '@ant-design/icons'
-import ReactECharts from 'echarts-for-react'
-import type { EChartsOption } from 'echarts'
+import { LazyECharts } from '../components/charts/LazyECharts'
+import type { EChartsOption, TooltipComponentFormatterCallbackParams } from 'echarts'
 import {
   submitAnalyzeStock,
   getAnalysisHistory,
   getAnalysisDetail,
-  cancelJob,
-  getStockIndicators,
   getApiErrorMessage,
-} from '../services/api'
+} from '../services/agent'
+import { cancelJob } from '../services/jobs'
+import { getStockIndicators } from '../services/stocks'
 import StockSearch from '../components/StockSearch'
 import { useJobPolling } from '../hooks/useJobPolling'
+import { agentKeys } from '../services/queryKeys'
+import { useNavigate } from 'react-router-dom'
 import type {
   AgentAnalyzeRequest,
   AnalysisRecord,
@@ -47,6 +52,8 @@ import { logger } from '../utils/logger'
 import { DecisionCard } from '../components/analysis/DecisionCard'
 import { StageCard } from '../components/analysis/StageCard'
 import { NewsSection } from '../components/analysis/NewsSection'
+import { buildAgentReportHtml } from '../utils/reportHtml'
+import { PageHeader } from '../components/research/ResearchPrimitives'
 
 const { Option } = Select
 
@@ -65,31 +72,28 @@ export default function AgentAnalysis() {
   const [mode, setMode] = useState<AnalysisMode>('standard')
   const [analyzing, setAnalyzing] = useState(false)
   const [result, setResult] = useState<AgentAnalyzeResponse | null>(null)
-  const [history, setHistory] = useState<AnalysisRecord[]>([])
-  const [activeTab, setActiveTab] = useState('analyze')
+  const [activeTab, setActiveTab] = useState('history')
   const [detailModalVisible, setDetailModalVisible] = useState(false)
-  const [selectedDetail, setSelectedDetail] = useState<AgentAnalyzeResponse | null>(
-    null,
-  )
-  const [detailLoading, setDetailLoading] = useState(false)
+  const [selectedDetailId, setSelectedDetailId] = useState<number | null>(null)
   const [jobProgress, setJobProgress] = useState(0)
   const [jobStages, setJobStages] = useState<AgentStage[]>([])
   const [currentJobId, setCurrentJobId] = useState<string | null>(null)
   const [stockIndicators, setStockIndicators] = useState<KlineIndicator[]>([])
-
-  // 加载历史记录
-  useEffect(() => {
-    loadHistory()
-  }, [])
-
-  const loadHistory = async () => {
-    try {
-      const data = await getAnalysisHistory(undefined, 0, 20)
-      setHistory(data)
-    } catch (error) {
-      logger.error('Failed to load history:', error)
-    }
-  }
+  const navigate = useNavigate()
+  const queryClient = useQueryClient()
+  const historyQuery = useQuery({
+    queryKey: agentKeys.history(0, 20),
+    queryFn: () => getAnalysisHistory(undefined, 0, 20),
+    staleTime: 30_000,
+  })
+  const history = historyQuery.data ?? []
+  const detailQuery = useQuery({
+    queryKey: agentKeys.detail(selectedDetailId ?? 0),
+    queryFn: () => getAnalysisDetail(selectedDetailId as number),
+    enabled: selectedDetailId !== null && detailModalVisible,
+    staleTime: 5 * 60_000,
+  })
+  const selectedDetail = detailQuery.data ?? null
 
   const handleAnalyze = async () => {
     if (!selectedStock) {
@@ -144,8 +148,7 @@ export default function AgentAnalysis() {
         message.error(data.error || '分析失败')
       }
 
-      // 刷新历史记录
-      loadHistory()
+      await queryClient.invalidateQueries({ queryKey: agentKeys.history(0, 20) })
     } catch (error: unknown) {
       const err = error as {
         response?: { data?: { detail?: string } }
@@ -231,10 +234,13 @@ export default function AgentAnalysis() {
         backgroundColor: 'var(--color-canvas-lifted)',
         borderColor: 'var(--color-border)',
         textStyle: { color: 'var(--color-text-primary)' },
-        formatter: (params: any) => {
-          if (!params || params.length === 0) return ''
-          const date = params[0].axisValue
-          const kline = params.find((p: any) => p.seriesName === 'K线')
+        formatter: (params: TooltipComponentFormatterCallbackParams) => {
+          const list = Array.isArray(params) ? params : [params]
+          if (list.length === 0) return ''
+          const date = String(
+            (list[0] as unknown as { axisValue?: string }).axisValue ?? '',
+          )
+          const kline = list.find((p) => p.seriesName === 'K线')
           if (!kline) return ''
           const [o, c, l, h] = kline.data as number[]
           const color = c >= o ? '#ff3b30' : '#34c759'
@@ -300,103 +306,8 @@ export default function AgentAnalysis() {
     }
   }
 
-  const buildReportHtml = (r: AgentAnalyzeResponse) => {
-    const stageLabels: Record<string, string> = {
-      technical_analysis: '技术分析',
-      intel: '情报分析',
-      risk: '风险评估',
-      strategy: '策略评估',
-      decision: '决策',
-    }
-    const signalLabel = getSignalLabel(r.final_signal)
-    const signalColor =
-      r.final_signal === 'buy'
-        ? '#52c41a'
-        : r.final_signal === 'sell'
-          ? '#ff4d4f'
-          : '#8c8c8c'
-    const signalArrow =
-      r.final_signal === 'buy' ? '↑' : r.final_signal === 'sell' ? '↓' : '→'
-
-    const stageRows = r.stages
-      .map((s) => {
-        const name = stageLabels[s.stage_name] || s.stage_name
-        if (s.opinion) {
-          const sc =
-            s.opinion.signal === 'buy'
-              ? '#52c41a'
-              : s.opinion.signal === 'sell'
-                ? '#ff4d4f'
-                : '#8c8c8c'
-          const sl = getSignalLabel(s.opinion.signal)
-          return `<tr>
-          <td style="padding:8px 12px;border:1px solid #e8e8e8;font-weight:600">${name}</td>
-          <td style="padding:8px 12px;border:1px solid #e8e8e8"><span style="color:${sc};font-weight:600">${sl}</span></td>
-          <td style="padding:8px 12px;border:1px solid #e8e8e8">${Math.round(s.opinion.confidence * 100)}%</td>
-          <td style="padding:8px 12px;border:1px solid #e8e8e8">${s.opinion.reason || '—'}</td>
-        </tr>`
-        }
-        return `<tr>
-        <td style="padding:8px 12px;border:1px solid #e8e8e8;font-weight:600">${name}</td>
-        <td colspan="3" style="padding:8px 12px;border:1px solid #e8e8e8;color:#999">${s.error || '无结果'}</td>
-      </tr>`
-      })
-      .join('')
-
-    const newsSection = r.news_items?.length
-      ? `<h2 style="font-size:16px;margin:24px 0 12px">相关新闻</h2>
-         <ul style="padding-left:20px">
-           ${r.news_items.map((n) => `<li style="margin-bottom:8px"><a href="${n.url}" style="color:#1677ff">${n.title || '新闻'}</a><br/><span style="font-size:13px;color:#666">${n.content ? n.content.slice(0, 200) : ''}</span></li>`).join('')}
-         </ul>`
-      : ''
-
-    return `<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-<meta charset="UTF-8">
-<title>AI Agent 分析报告 - ${r.stock_code}</title>
-<style>
-  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 40px; color: #222; line-height: 1.6; }
-  h1 { font-size: 22px; margin-bottom: 4px; }
-  .subtitle { color: #666; font-size: 14px; margin-bottom: 24px; }
-  .signal-card { text-align: center; padding: 24px; background: #f5f5f5; border-radius: 8px; margin-bottom: 24px; }
-  .signal-card .arrow { font-size: 48px; font-weight: 700; }
-  .signal-card .label { font-size: 20px; font-weight: 600; margin: 8px 0 4px; }
-  .signal-card .meta { font-size: 14px; color: #666; }
-  .reason-box { background: #fafafa; border: 1px solid #e8e8e8; border-radius: 6px; padding: 12px 16px; margin: 16px 0; font-size: 14px; }
-  table { width: 100%; border-collapse: collapse; margin-top: 16px; }
-  th { background: #fafafa; padding: 8px 12px; border: 1px solid #e8e8e8; text-align: left; font-weight: 600; font-size: 13px; }
-  @media print { body { margin: 20px; } }
-</style>
-</head>
-<body>
-  <h1>AI Agent 分析报告</h1>
-  <div class="subtitle">${r.stock_name} (${r.stock_code}) | ${r.mode}模式 | ${r.duration_s.toFixed(1)}s</div>
-
-  <div class="signal-card">
-    <div class="arrow" style="color:${signalColor}">${signalArrow}</div>
-    <div class="label" style="color:${signalColor}">${signalLabel}</div>
-    <div class="meta">置信度: ${Math.round(r.final_confidence * 100)}%</div>
-  </div>
-
-  <h2 style="font-size:16px;margin-bottom:8px">结论</h2>
-  <div class="reason-box">${r.final_reason || '无'}</div>
-
-  <h2 style="font-size:16px;margin:24px 0 12px">各阶段详情</h2>
-  <table>
-    <thead><tr><th style="width:22%">阶段</th><th style="width:10%">信号</th><th style="width:10%">置信度</th><th>分析理由</th></tr></thead>
-    <tbody>${stageRows}</tbody>
-  </table>
-
-  ${newsSection}
-
-  <p style="margin-top:32px;font-size:12px;color:#999;text-align:center">由 Backing AI Agent 系统生成</p>
-</body>
-</html>`
-  }
-
   const exportPdf = (r: AgentAnalyzeResponse) => {
-    const html = buildReportHtml(r)
+    const html = buildAgentReportHtml(r)
     const win = window.open('', '_blank')
     if (!win) {
       message.error('无法打开新窗口，请检查弹窗拦截设置')
@@ -409,17 +320,9 @@ export default function AgentAnalysis() {
     setTimeout(() => win.print(), 500)
   }
 
-  const handleViewDetail = async (record: AnalysisRecord) => {
-    try {
-      setDetailLoading(true)
-      const data = await getAnalysisDetail(record.id)
-      setSelectedDetail(data)
-      setDetailModalVisible(true)
-    } catch {
-      message.error('获取详情失败')
-    } finally {
-      setDetailLoading(false)
-    }
+  const handleViewDetail = (record: AnalysisRecord) => {
+    setSelectedDetailId(record.id)
+    setDetailModalVisible(true)
   }
 
   const historyColumns = [
@@ -485,7 +388,7 @@ export default function AgentAnalysis() {
           type="link"
           icon={<EyeOutlined />}
           onClick={() => handleViewDetail(record)}
-          loading={detailLoading}
+          loading={detailQuery.isFetching}
         >
           查看
         </Button>
@@ -563,7 +466,7 @@ export default function AgentAnalysis() {
                 </a>
               }
             >
-              <ReactECharts
+              <LazyECharts
                 option={getLightChartOption(stockIndicators)}
                 style={{ height: 300 }}
                 opts={{ renderer: 'canvas' }}
@@ -844,7 +747,39 @@ export default function AgentAnalysis() {
   )
 
   const renderDetailModal = () => {
-    if (!selectedDetail) return null
+    if (detailQuery.isError) {
+      return (
+        <Modal
+          title="分析详情"
+          open={detailModalVisible}
+          onCancel={() => setDetailModalVisible(false)}
+          footer={null}
+          width={800}
+        >
+          <Alert
+            type="error"
+            showIcon
+            message="获取详情失败"
+            action={<Button onClick={() => void detailQuery.refetch()}>重试</Button>}
+          />
+        </Modal>
+      )
+    }
+    if (!selectedDetail) {
+      return detailModalVisible ? (
+        <Modal
+          title="加载分析详情"
+          open
+          onCancel={() => setDetailModalVisible(false)}
+          footer={null}
+          width={800}
+        >
+          <div className="loading-container" aria-busy="true" aria-live="polite">
+            <Spin size="large" />
+          </div>
+        </Modal>
+      ) : null
+    }
 
     return (
       <Modal
@@ -873,10 +808,16 @@ export default function AgentAnalysis() {
 
   return (
     <div>
-      <div className="page-header">
-        <h1 className="page-title">AI Agent 分析</h1>
-        <p className="page-subtitle">基于 DeepSeek + Tavily 的智能股票分析系统</p>
-      </div>
+      <PageHeader
+        eyebrow="RESEARCH REPORTS"
+        title="分析报告"
+        subtitle="查看历史研究结论，或在 Agent 工作台开启新的多轮研究"
+        actions={
+          <Button type="primary" onClick={() => navigate('/workspace')}>
+            新建工作台研究
+          </Button>
+        }
+      />
 
       <Tabs
         activeKey={activeTab}

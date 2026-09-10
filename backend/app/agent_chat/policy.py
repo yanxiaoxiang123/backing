@@ -11,6 +11,8 @@ import re
 from dataclasses import dataclass
 from enum import StrEnum
 
+from app.domain.stock_codes import stock_code_from_text
+
 
 class ToolScope(StrEnum):
     NONE = "none"
@@ -30,7 +32,7 @@ _ANALYSIS = re.compile(
     re.IGNORECASE,
 )
 _STOCK = re.compile(
-    r"(?:(?<![A-Za-z0-9_])(?:sh|sz|bj)\.\d{6}(?!\d)|(?<!\d)\d{6}(?!\d)|上证|深证|创业板|科创板)",
+    r"(?:(?<![A-Za-z0-9_])(?:sh|sz|bj)\.?\d{6}(?!\d)|(?<!\d)\d{6}(?!\d)|上证|深证|创业板|科创板)",
     re.IGNORECASE,
 )
 
@@ -69,11 +71,4 @@ class TurnToolPolicy:
 
 def stock_reference(text: str) -> str | None:
     """Return a normalized A-share reference when one is present."""
-
-    match = re.search(
-        r"(?<![A-Za-z0-9_])(sh|sz|bj)\.(\d{6})(?!\d)", text, re.IGNORECASE
-    )
-    if match:
-        return f"{match.group(1).lower()}.{match.group(2)}"
-    match = re.search(r"(?<!\d)(\d{6})(?!\d)", text)
-    return match.group(1) if match else None
+    return stock_code_from_text(text)

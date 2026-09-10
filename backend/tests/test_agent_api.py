@@ -45,7 +45,7 @@ def client():
 
 
 def _create(client, **overrides):
-    payload = {"objective": "研究测试", "execute_inline": True}
+    payload = {"objective": "研究 sh.600000 测试", "execute_inline": True}
     payload.update(overrides)
     return client.post("/api/v1/agent-runs", json=payload)
 
@@ -158,6 +158,20 @@ def test_validation_errors(client):
     assert resp.status_code == 422
     resp = client.post(
         "/api/v1/agent-runs",
+        json={"objective": "研究这只股票", "execute_inline": True},
+    )
+    assert resp.status_code == 422
+    assert "缺少有效股票代码" in resp.json()["detail"]
+
+
+def test_create_run_canonicalizes_compact_stock_code(client):
+    resp = _create(client, objective="研究一下SH600000")
+
+    assert resp.status_code == 201
+    run = client.get(f"/api/v1/agent-runs/{resp.json()['run_id']}?include_steps=false").json()
+    assert run["objective"] == "研究一下sh.600000"
+    resp = client.post(
+        "/api/v1/agent-runs",
         json={"objective": "x", "budget": {"max_rounds": 0}},
     )
     assert resp.status_code == 422
@@ -178,3 +192,39 @@ def test_create_run_with_strategy_params(client):
     }
     backtest = next(s for s in detail["steps"] if s["node"] == "backtest_critic")
     assert backtest["output_json"]["metrics"] is not None
+
+
+def test_lock_and_cancel_token_eviction_protects_active_runs(monkeypatch):
+    from app.agent_api import routes
+
+    monkeypatch.setattr(routes, "_MAX_TRACKED_RUNS", 3)
+    with routes._tokens_lock:
+        routes._cancel_tokens.clear()
+    with routes._execution_locks_guard:
+        routes._execution_locks.clear()
+
+    # 活跃的 run 获取锁
+    active_lock = routes._execution_lock("run_active")
+    assert active_lock.acquire(blocking=False)
+    active_token = routes._cancel_token("run_active")
+
+    # 非活跃的 run
+    routes._execution_lock("run_inactive")
+    routes._cancel_token("run_inactive")
+
+    # 第三个 run
+    routes._execution_lock("run_3")
+    routes._cancel_token("run_3")
+
+    # 插入第四个 run，超过上限 3
+    routes._execution_lock("run_4")
+    routes._cancel_token("run_4")
+
+    # 活跃的任务锁与 cancel token 绝不能被淘汰
+    assert routes._execution_lock("run_active") is active_lock
+    assert routes._cancel_token("run_active") is active_token
+    assert active_lock.locked()
+
+    # 释放并清理
+    routes._release_execution_lock("run_active", active_lock)
+    routes._cleanup_cancel_token("run_active")

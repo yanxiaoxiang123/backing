@@ -9,6 +9,8 @@ export interface JobPollingOptions {
   timeoutMs?: number
   /** Cap for exponential backoff on transient request errors (default 15000). */
   maxIntervalMs?: number
+  /** Optional endpoint adapter for domain-specific jobs. */
+  getStatus?: (jobId: string, signal: AbortSignal) => Promise<JobStatus<unknown>>
 }
 
 export interface WaitJobOptions<T> {
@@ -47,7 +49,12 @@ function jobError(
 export function useJobPolling<T = Record<string, unknown>>(
   options: JobPollingOptions = {},
 ) {
-  const { intervalMs = 1500, timeoutMs = 600000, maxIntervalMs = 15000 } = options
+  const {
+    intervalMs = 1500,
+    timeoutMs = 600000,
+    maxIntervalMs = 15000,
+    getStatus: getStatusOverride,
+  } = options
 
   const controllerRef = useRef<AbortController | null>(null)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -125,7 +132,9 @@ export function useJobPolling<T = Record<string, unknown>>(
 
           let job: JobStatus<TResult>
           try {
-            job = await getJobStatus<TResult>(jobId, controller.signal)
+            job = (await (getStatusOverride
+              ? getStatusOverride(jobId, controller.signal)
+              : getJobStatus<TResult>(jobId, controller.signal))) as JobStatus<TResult>
           } catch (error) {
             if (controller.signal.aborted) {
               throw jobError('任务轮询已取消', 'canceled', jobId)
@@ -175,7 +184,7 @@ export function useJobPolling<T = Record<string, unknown>>(
         }
       }
     },
-    [intervalMs, maxIntervalMs, stop, timeoutMs],
+    [clearTimer, getStatusOverride, intervalMs, maxIntervalMs, stop, timeoutMs],
   )
 
   return { waitForJob, isPolling, lastStatus, cancel: stop }

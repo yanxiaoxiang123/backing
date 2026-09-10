@@ -9,6 +9,7 @@ from typing import Any, ClassVar
 import pandas as pd
 
 from app.config import settings
+from app.services.cache import market_cache
 from app.services.tasks.metrics import task_metrics
 
 logger = logging.getLogger(__name__)
@@ -28,7 +29,9 @@ ENDPOINT_INDICES = "indices"
 # Short-term cache TTL for the realtime endpoints. Smaller than the WS poll
 # cadence (10s) so the client always sees fresh data when it polls, but large
 # enough to dedupe concurrent calls from a single Dashboard render.
-_CACHE_TTL_S = 2.0
+_FULL_CACHE_TTL_S = 60.0
+_TAIL_CACHE_TTL_S = 10.0
+_STALE_RETENTION_S = 7 * 24 * 60 * 60.0
 
 
 @dataclass(frozen=True)
@@ -48,6 +51,10 @@ class FetchResult:
     selected_server: Server | None = None
     served_at: float = field(default_factory=time.time)
     cache_age_ms: int = 0
+    fetched_at: float | None = None
+    market_at: str | None = None
+    stale: bool = False
+    cache_source: str = "provider"
 
     def to_dict(self) -> dict[str, Any]:
         """Return a JSON-serialisable snapshot for the HTTP layer."""
@@ -65,6 +72,10 @@ class FetchResult:
             "selected_server": server,
             "served_at": self.served_at,
             "cache_age_ms": self.cache_age_ms,
+            "fetched_at": self.fetched_at,
+            "market_at": self.market_at,
+            "stale": self.stale,
+            "cache_source": self.cache_source,
         }
 
 
@@ -78,7 +89,7 @@ class RealtimeService:
     _unhealthy_ttl_s = 60.0
 
     # Short-term caches keyed by (endpoint, key). Values are (FetchResult, ts).
-    _bars_cache: ClassVar[dict[tuple[str, str, str], tuple[FetchResult, float]]] = {}
+    _bars_cache: ClassVar[dict[tuple[str, str, str, str], tuple[FetchResult, float]]] = {}
     _snapshot_cache: ClassVar[dict[str, tuple[FetchResult, float]]] = {}
 
     # Aggregated counters mirrored into ``task_metrics`` for the /jobs/metrics
@@ -88,6 +99,13 @@ class RealtimeService:
     _cache_hit_count: int = 0
     _provider_unavailable_count: int = 0
     _last_failure_reason: ClassVar[dict[str, str]] = {}
+    _cache_lock = threading.RLock()
+    _fetch_locks: ClassVar[dict[tuple[str, str, str], threading.Lock]] = {}
+
+    @classmethod
+    def _fetch_lock(cls, symbol: str, period: str, scope: str) -> threading.Lock:
+        with cls._cache_lock:
+            return cls._fetch_locks.setdefault((symbol, period, scope), threading.Lock())
 
     @classmethod
     def _server_candidates(cls) -> list[Server]:
@@ -238,56 +256,198 @@ class RealtimeService:
     def _cache_age_ms(self, stored_at: float) -> int:
         return max(0, int((time.time() - stored_at) * 1000))
 
-    def _cache_get_bars(self, symbol: str, period: str) -> FetchResult | None:
-        key = (ENDPOINT_BARS, symbol, period)
-        entry = self._bars_cache.get(key)
-        if entry is None:
+    def _cache_get_bars(
+        self, symbol: str, period: str, *, tail: bool = False, allow_stale: bool = True
+    ) -> FetchResult | None:
+        scope = "tail" if tail else "full"
+        key = (ENDPOINT_BARS, symbol, period, scope)
+        with self._cache_lock:
+            entry = self._bars_cache.get(key)
+        if entry is not None:
+            result, stored_at = entry
+            age = self._cache_age_ms(stored_at)
+            stale = age / 1000 > (_TAIL_CACHE_TTL_S if tail else _FULL_CACHE_TTL_S)
+            if age / 1000 <= _STALE_RETENTION_S and (allow_stale or not stale):
+                return FetchResult(
+                    status=result.status,
+                    data=result.data,
+                    provider=result.provider,
+                    reason=result.reason,
+                    selected_server=result.selected_server,
+                    served_at=result.served_at,
+                    cache_age_ms=age,
+                    fetched_at=result.fetched_at,
+                    market_at=result.market_at,
+                    stale=stale,
+                    cache_source="memory",
+                )
+            if not allow_stale:
+                return None
+            with self._cache_lock:
+                self._bars_cache.pop(key, None)
+
+        if not market_cache.enabled:
             return None
-        result, stored_at = entry
-        if time.time() - stored_at > _CACHE_TTL_S:
-            self._bars_cache.pop(key, None)
+        record = market_cache.get(self._cache_key(symbol, period, scope), allow_stale=allow_stale)
+        if record is None:
             return None
-        return FetchResult(
+        payload = record.get("payload") or {}
+        try:
+            result = FetchResult(**payload)
+        except (TypeError, ValueError):
+            market_cache.delete(self._cache_key(symbol, period, scope))
+            return None
+        selected_server = result.selected_server
+        if isinstance(selected_server, dict):
+            selected_server = (selected_server.get("host", ""), int(selected_server.get("port", 0)))
+        elif isinstance(selected_server, list):
+            selected_server = tuple(selected_server)  # type: ignore[assignment]
+        age = self._cache_age_ms(float(record.get("stored_at", time.time())))
+        stale = time.time() >= float(record.get("fresh_until", 0))
+        result = FetchResult(
             status=result.status,
             data=result.data,
             provider=result.provider,
             reason=result.reason,
-            selected_server=result.selected_server,
+            selected_server=selected_server,
             served_at=result.served_at,
-            cache_age_ms=self._cache_age_ms(stored_at),
+            cache_age_ms=age,
+            fetched_at=result.fetched_at,
+            market_at=result.market_at,
+            stale=stale,
+            cache_source="redis",
         )
+        with self._cache_lock:
+            self._bars_cache[key] = (result, time.time() - age / 1000)
+        return result
 
-    def _cache_put_bars(self, symbol: str, period: str, result: FetchResult) -> None:
-        self._bars_cache[(ENDPOINT_BARS, symbol, period)] = (result, time.time())
+    @staticmethod
+    def _cache_key(symbol: str, period: str, scope: str) -> str:
+        return f"bars:v2:{symbol}:{period}:{scope}"
 
-    def _cache_get_snapshot(self, endpoint: str) -> FetchResult | None:
+    def _cache_put_bars(
+        self, symbol: str, period: str, result: FetchResult, *, tail: bool = False
+    ) -> None:
+        scope = "tail" if tail else "full"
+        stored_at = time.time()
+        key = (ENDPOINT_BARS, symbol, period, scope)
+        with self._cache_lock:
+            self._bars_cache[key] = (result, stored_at)
+        if market_cache.enabled:
+            market_cache.set(
+                self._cache_key(symbol, period, scope),
+                result.to_dict(),
+                fresh_ttl_s=_TAIL_CACHE_TTL_S if tail else _FULL_CACHE_TTL_S,
+                stale_ttl_s=_STALE_RETENTION_S,
+            )
+
+    def _merge_tail_into_full(self, symbol: str, period: str, tail: FetchResult) -> None:
+        if tail.status != STATUS_OK or not tail.data:
+            return
+        full = self._cache_get_bars(symbol, period, tail=False, allow_stale=True)
+        if full is None or full.status != STATUS_OK:
+            return
+        by_date = {str(item.get("date")): item for item in full.data}
+        by_date.update({str(item.get("date")): item for item in tail.data})
+        merged = FetchResult(
+            status=STATUS_OK,
+            data=[by_date[key] for key in sorted(by_date)],
+            provider=tail.provider,
+            selected_server=tail.selected_server or full.selected_server,
+            served_at=tail.served_at,
+            fetched_at=tail.fetched_at,
+            market_at=tail.market_at,
+            cache_source=tail.cache_source,
+        )
+        self._cache_put_bars(symbol, period, merged, tail=False)
+
+    def _cache_get_snapshot(self, endpoint: str, *, allow_stale: bool = False) -> FetchResult | None:
         entry = self._snapshot_cache.get(endpoint)
         if entry is None:
-            return None
-        result, stored_at = entry
-        if time.time() - stored_at > _CACHE_TTL_S:
+            entry = None
+        if entry is not None:
+            result, stored_at = entry
+            age = self._cache_age_ms(stored_at)
+            stale = age / 1000 > _TAIL_CACHE_TTL_S
+            if age / 1000 <= _STALE_RETENTION_S and (allow_stale or not stale):
+                return FetchResult(
+                    status=result.status,
+                    data=result.data,
+                    provider=result.provider,
+                    reason=result.reason,
+                    selected_server=result.selected_server,
+                    served_at=result.served_at,
+                    cache_age_ms=age,
+                    fetched_at=result.fetched_at,
+                    market_at=result.market_at,
+                    stale=stale,
+                    cache_source="memory",
+                )
             self._snapshot_cache.pop(endpoint, None)
+
+        if not market_cache.enabled:
             return None
-        return FetchResult(
+        record = market_cache.get(f"snapshot:v2:{endpoint}", allow_stale=allow_stale)
+        if record is None:
+            return None
+        payload = record.get("payload") or {}
+        try:
+            result = FetchResult(**payload)
+        except (TypeError, ValueError):
+            market_cache.delete(f"snapshot:v2:{endpoint}")
+            return None
+        selected_server = result.selected_server
+        if isinstance(selected_server, dict):
+            selected_server = (selected_server.get("host", ""), int(selected_server.get("port", 0)))
+        elif isinstance(selected_server, list):
+            selected_server = tuple(selected_server)  # type: ignore[assignment]
+        age = self._cache_age_ms(float(record.get("stored_at", time.time())))
+        result = FetchResult(
             status=result.status,
             data=result.data,
             provider=result.provider,
             reason=result.reason,
-            selected_server=result.selected_server,
+            selected_server=selected_server,
             served_at=result.served_at,
-            cache_age_ms=self._cache_age_ms(stored_at),
+            cache_age_ms=age,
+            fetched_at=result.fetched_at,
+            market_at=result.market_at,
+            stale=time.time() >= float(record.get("fresh_until", 0)),
+            cache_source="redis",
         )
+        self._snapshot_cache[endpoint] = (result, time.time() - age / 1000)
+        return result
 
     def _cache_put_snapshot(self, endpoint: str, result: FetchResult) -> None:
-        self._snapshot_cache[endpoint] = (result, time.time())
+        stored_at = time.time()
+        self._snapshot_cache[endpoint] = (result, stored_at)
+        if market_cache.enabled:
+            market_cache.set(
+                f"snapshot:v2:{endpoint}",
+                result.to_dict(),
+                fresh_ttl_s=_TAIL_CACHE_TTL_S,
+                stale_ttl_s=_STALE_RETENTION_S,
+            )
 
     # ------------------------------------------------------------------
     # Public envelope-returning methods
     # ------------------------------------------------------------------
 
     def fetch_bars(self, symbol: str, period: str = "daily") -> FetchResult:
-        """Fetch bars wrapped in a ``FetchResult`` with status and metadata."""
-        cached = self._cache_get_bars(symbol, period)
+        cached = self._cache_get_bars(symbol, period, tail=False, allow_stale=False)
+        if cached is not None:
+            self._record_cache_hit(ENDPOINT_BARS)
+            return cached
+        with self._fetch_lock(symbol, period, "full"):
+            cached = self._cache_get_bars(symbol, period, tail=False, allow_stale=False)
+            if cached is not None:
+                self._record_cache_hit(ENDPOINT_BARS)
+                return cached
+            return self._fetch_bars_uncached(symbol, period)
+
+    def _fetch_bars_uncached(self, symbol: str, period: str = "daily") -> FetchResult:
+        """Fetch a full historical snapshot, with a seven-day stale fallback."""
+        cached = self._cache_get_bars(symbol, period, tail=False, allow_stale=False)
         if cached is not None:
             self._record_cache_hit(ENDPOINT_BARS)
             return cached
@@ -325,17 +485,114 @@ class RealtimeService:
                 status=STATUS_OK,
                 data=records,
                 selected_server=type(self)._selected_server,
+                fetched_at=time.time(),
+                market_at=records[-1].get("date") if records else None,
             )
 
-        self._cache_put_bars(symbol, period, result)
+        # A provider failure must not erase a good snapshot.  Return the last
+        # successful record as stale when one exists.
+        if result.status == STATUS_UNAVAILABLE:
+            stale = self._cache_get_bars(symbol, period, tail=False, allow_stale=True)
+            if stale is not None and stale.status == STATUS_OK:
+                result = FetchResult(
+                    status=STATUS_OK,
+                    data=stale.data,
+                    provider=stale.provider,
+                    reason=result.reason,
+                    selected_server=stale.selected_server,
+                    served_at=time.time(),
+                    cache_age_ms=stale.cache_age_ms,
+                    fetched_at=stale.fetched_at,
+                    market_at=stale.market_at,
+                    stale=True,
+                    cache_source=stale.cache_source,
+                )
+                task_metrics.inc("realtime.stale_fallback", endpoint=ENDPOINT_BARS)
+                return result
+
+        if result.status != STATUS_UNAVAILABLE:
+            self._cache_put_bars(symbol, period, result, tail=False)
+        return result
+
+    def fetch_bars_tail(self, symbol: str, period: str = "daily") -> FetchResult:
+        cached = self._cache_get_bars(symbol, period, tail=True, allow_stale=False)
+        if cached is not None:
+            self._record_cache_hit(ENDPOINT_BARS)
+            return cached
+        with self._fetch_lock(symbol, period, "tail"):
+            cached = self._cache_get_bars(symbol, period, tail=True, allow_stale=False)
+            if cached is not None:
+                self._record_cache_hit(ENDPOINT_BARS)
+                return cached
+            return self._fetch_bars_tail_uncached(symbol, period)
+
+    def _fetch_bars_tail_uncached(self, symbol: str, period: str = "daily") -> FetchResult:
+        """Fetch only the newest two bars used by WebSocket updates."""
+        cached = self._cache_get_bars(symbol, period, tail=True, allow_stale=False)
+        if cached is not None:
+            self._record_cache_hit(ENDPOINT_BARS)
+            return cached
+
+        self._bump_request(ENDPOINT_BARS, period=period, scope="tail")
+        frequency = {"daily": 9, "weekly": 5, "monthly": 6}.get(period, 9)
+        df = self._fetch_frame("bars", symbol=symbol, frequency=frequency, offset=2)
+        if df.empty:
+            client_available = self.get_client() is not None
+            result = FetchResult(
+                status=STATUS_UNAVAILABLE if not client_available else STATUS_EMPTY,
+                data=[],
+                reason="no_healthy_server" if not client_available else None,
+                selected_server=type(self)._selected_server,
+            )
+            if result.status == STATUS_UNAVAILABLE:
+                self._record_unavailable(ENDPOINT_BARS, result.reason or "")
+            stale = self._cache_get_bars(symbol, period, tail=True, allow_stale=True)
+            if stale is not None and stale.status == STATUS_OK:
+                return FetchResult(
+                    status=STATUS_OK,
+                    data=stale.data,
+                    provider=stale.provider,
+                    reason=result.reason,
+                    selected_server=stale.selected_server,
+                    served_at=time.time(),
+                    cache_age_ms=stale.cache_age_ms,
+                    fetched_at=stale.fetched_at,
+                    market_at=stale.market_at,
+                    stale=True,
+                    cache_source=stale.cache_source,
+                )
+        else:
+            records = self._normalise_frame(df, symbol)
+            result = FetchResult(
+                status=STATUS_OK,
+                data=records,
+                selected_server=type(self)._selected_server,
+                fetched_at=time.time(),
+                market_at=records[-1].get("date") if records else None,
+            )
+        if result.status != STATUS_UNAVAILABLE:
+            self._cache_put_bars(symbol, period, result, tail=True)
+            self._merge_tail_into_full(symbol, period, result)
         return result
 
     def fetch_quotes(self, symbols: list[str]) -> FetchResult:
         """Fetch latest quotes for ``symbols`` (each is a single call)."""
-        cached = self._cache_get_snapshot(ENDPOINT_QUOTES)
+        cache_key = f"{ENDPOINT_QUOTES}:{','.join(sorted(set(symbols)))}"
+        cached = self._cache_get_snapshot(cache_key)
         if cached is not None:
             self._record_cache_hit(ENDPOINT_QUOTES)
             return cached
+
+        with self._fetch_lock(cache_key, "snapshot", "quotes"):
+            cached = self._cache_get_snapshot(cache_key)
+            if cached is not None:
+                self._record_cache_hit(ENDPOINT_QUOTES)
+                return cached
+            return self._fetch_quotes_uncached(symbols, cache_key)
+
+    def _fetch_quotes_uncached(
+        self, symbols: list[str], cache_key: str
+    ) -> FetchResult:
 
         self._bump_request(ENDPOINT_QUOTES)
         selected_before = type(self)._selected_server
@@ -385,9 +642,28 @@ class RealtimeService:
                 status=STATUS_OK,
                 data=results,
                 selected_server=type(self)._selected_server,
+                fetched_at=time.time(),
+                market_at=str(results[-1].get("date")) if results else None,
             )
 
-        self._cache_put_snapshot(ENDPOINT_QUOTES, result)
+        if result.status == STATUS_UNAVAILABLE:
+            stale = self._cache_get_snapshot(cache_key, allow_stale=True)
+            if stale is not None and stale.status == STATUS_OK:
+                return FetchResult(
+                    status=STATUS_OK,
+                    data=stale.data,
+                    provider=stale.provider,
+                    reason=result.reason,
+                    selected_server=stale.selected_server,
+                    served_at=time.time(),
+                    cache_age_ms=stale.cache_age_ms,
+                    fetched_at=stale.fetched_at,
+                    market_at=stale.market_at,
+                    stale=True,
+                    cache_source=stale.cache_source,
+                )
+        if result.status != STATUS_UNAVAILABLE:
+            self._cache_put_snapshot(cache_key, result)
         return result
 
     def fetch_indices(self) -> FetchResult:
@@ -396,6 +672,15 @@ class RealtimeService:
         if cached is not None:
             self._record_cache_hit(ENDPOINT_INDICES)
             return cached
+
+        with self._fetch_lock(ENDPOINT_INDICES, "snapshot", "indices"):
+            cached = self._cache_get_snapshot(ENDPOINT_INDICES)
+            if cached is not None:
+                self._record_cache_hit(ENDPOINT_INDICES)
+                return cached
+            return self._fetch_indices_uncached()
+
+    def _fetch_indices_uncached(self) -> FetchResult:
 
         self._bump_request(ENDPOINT_INDICES)
         selected_before = type(self)._selected_server
@@ -450,9 +735,28 @@ class RealtimeService:
                 status=STATUS_OK,
                 data=results,
                 selected_server=type(self)._selected_server,
+                fetched_at=time.time(),
+                market_at=str(results[-1].get("date")) if results else None,
             )
 
-        self._cache_put_snapshot(ENDPOINT_INDICES, result)
+        if result.status == STATUS_UNAVAILABLE:
+            stale = self._cache_get_snapshot(ENDPOINT_INDICES, allow_stale=True)
+            if stale is not None and stale.status == STATUS_OK:
+                return FetchResult(
+                    status=STATUS_OK,
+                    data=stale.data,
+                    provider=stale.provider,
+                    reason=result.reason,
+                    selected_server=stale.selected_server,
+                    served_at=time.time(),
+                    cache_age_ms=stale.cache_age_ms,
+                    fetched_at=stale.fetched_at,
+                    market_at=stale.market_at,
+                    stale=True,
+                    cache_source=stale.cache_source,
+                )
+        if result.status != STATUS_UNAVAILABLE:
+            self._cache_put_snapshot(ENDPOINT_INDICES, result)
         return result
 
     # ------------------------------------------------------------------
@@ -496,7 +800,11 @@ class RealtimeService:
         """
         # Map frequency to period so we can share the envelope cache.
         period = {9: "daily", 5: "weekly", 6: "monthly"}.get(frequency, "daily")
-        result = self.fetch_bars(symbol, period)
+        result = (
+            self.fetch_bars_tail(symbol, period)
+            if offset <= 2
+            else self.fetch_bars(symbol, period)
+        )
         # Trim to the requested ``offset`` so callers asking for a 2-bar tail
         # don't accidentally get the full 750-bar cache record.
         return list(result.data[-offset:]) if offset else result.data
@@ -535,6 +843,7 @@ class RealtimeService:
                 "provider_unavailable": cls._provider_unavailable_count,
             },
             "last_failure_reason": dict(cls._last_failure_reason),
+            "cache": market_cache.stats(),
         }
 
 

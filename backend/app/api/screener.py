@@ -425,16 +425,18 @@ def run_screener(
             matched_conditions=matched_conds,
         )
 
-    with ThreadPoolExecutor(max_workers=10) as executor:
+    executor = ThreadPoolExecutor(max_workers=10)
+    try:
         futures = {executor.submit(process_stock, s): s for s in stocks}
         for future in as_completed(futures):
             if len(matched) >= req.max_results:
-                executor.shutdown(wait=False)
                 break
             result_item = future.result()
             total_scanned += 1
             if result_item is not None:
                 matched.append(result_item)
+    finally:
+        executor.shutdown(wait=False, cancel_futures=True)
 
     elapsed = round(time.monotonic() - t0, 2)
     return ScreenerResponse(

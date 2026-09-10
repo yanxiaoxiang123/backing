@@ -16,7 +16,9 @@ class BacktestRunParams(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     strategy_name: str = Field(..., min_length=1)
-    stock_code: str = Field(..., min_length=1)
+    stock_code: str = Field(
+        ..., min_length=1, description="股票代码，支持 sh.600000、sh600000、SH600000 或 600000"
+    )
     start_date: str = Field(..., pattern=r"^\d{4}-\d{2}-\d{2}$")
     end_date: str = Field(..., pattern=r"^\d{4}-\d{2}-\d{2}$")
     initial_capital: float = Field(default=100_000, gt=0)

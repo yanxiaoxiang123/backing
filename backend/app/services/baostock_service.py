@@ -5,7 +5,7 @@ from typing import List, Optional, Tuple
 
 import baostock as bs
 import pandas as pd
-from sqlalchemy import func
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 
 from app.config import settings
@@ -319,10 +319,7 @@ class BaostockService:
         count = 0
 
         # Check if already synced
-        existing_count = db.query(Stock).count()
-        if existing_count >= len(stocks):
-            return 0, f"股票列表已是最新 (共 {existing_count} 只)"
-
+        existing_codes = set(db.scalars(select(Stock.code)).all())
         for stock in stocks:
             code = stock.get("code")
             name = stock.get("name")
@@ -331,12 +328,10 @@ class BaostockService:
                 code.split(".")[0] if code and "." in code else "sh"
             )
 
-            if not code or not name:
+            if not code or not name or code in existing_codes:
                 continue
 
-            existing = db.query(Stock).filter(Stock.code == code).first()
-            if existing:
-                continue
+            existing_codes.add(code)
 
             parsed_date = None
             if list_date:

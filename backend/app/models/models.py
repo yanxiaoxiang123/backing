@@ -203,6 +203,7 @@ class BacktestResult(Base):
         return self.strategy.name if self.strategy is not None else None
 
     __table_args__ = (
+        Index("ix_backtest_results_strategy_id", "strategy_id"),
         Index("idx_backtest_stock_created", "stock_code", "created_at"),
         CheckConstraint(
             "initial_capital > 0 AND final_capital >= 0",
@@ -262,6 +263,7 @@ class JobDbRecord(Base):
     __tablename__ = "jobs"
     __table_args__ = (
         Index("uq_jobs_job_key", "job_key", unique=True),
+        Index("ix_jobs_status_created", "status", "created_at"),
         CheckConstraint(
             "status IN ('pending', 'running', 'completed', 'failed', 'cancelled')",
             name="ck_jobs_status",

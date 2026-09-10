@@ -18,6 +18,7 @@ from sqlalchemy import (
     Column,
     DateTime,
     ForeignKey,
+    Index,
     Integer,
     String,
     Text,
@@ -76,6 +77,7 @@ class AgentChatTurn(Base):
         index=True,
     )
     user_input = Column(Text, nullable=False)
+    context_json = Column(JSON, nullable=True)
     status = Column(String(20), nullable=False, default="queued")
     final_reply = Column(Text, nullable=True)  # 助手最终 Markdown 回复
     finish_reason = Column(String(50), nullable=True)  # stop/tool_calls/error/...
@@ -88,6 +90,7 @@ class AgentChatTurn(Base):
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
     __table_args__ = (
+        Index("ix_agent_chat_turns_status", "status"),
         CheckConstraint(
             f"status IN {TURN_STATUSES}", name="ck_agent_chat_turns_status"
         ),

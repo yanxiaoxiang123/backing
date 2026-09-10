@@ -13,7 +13,9 @@ MAX_EVENT_ROWS = 50
 class EventNewsParams(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    stock_code: str = Field(..., min_length=1)
+    stock_code: str = Field(
+        ..., min_length=1, description="股票代码，支持 sh.600000、sh600000、SH600000 或 600000"
+    )
     limit: int = Field(default=10, ge=1, le=50)
 
 
@@ -35,7 +37,9 @@ def _event_news(params: EventNewsParams, context: ToolContext) -> dict:
 class EventAnnouncementParams(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    stock_code: str = Field(..., min_length=1)
+    stock_code: str = Field(
+        ..., min_length=1, description="股票代码，支持 sh.600000、sh600000、SH600000 或 600000"
+    )
     date: str = Field(
         default_factory=lambda: datetime.now().strftime("%Y-%m-%d"),
         pattern=r"^\d{4}-\d{2}-\d{2}$",

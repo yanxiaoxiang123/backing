@@ -14,9 +14,11 @@ import json
 import logging
 import time
 from collections.abc import Iterable
+from copy import deepcopy
 from datetime import datetime
 from typing import Any
 
+from app.domain.stock_codes import StockCodeError, normalize_stock_code
 from app.tools.base import Tool, ToolContext
 
 logger = logging.getLogger(__name__)
@@ -91,12 +93,39 @@ class ToolRegistry:
                 status="denied",
             )
 
+        effective_params = deepcopy(params)
+        try:
+            if "stock_code" in effective_params:
+                effective_params["stock_code"] = normalize_stock_code(
+                    effective_params["stock_code"], db=context.db
+                )
+            positions = effective_params.get("positions")
+            if isinstance(positions, list):
+                for position in positions:
+                    if isinstance(position, dict) and "code" in position:
+                        position["code"] = normalize_stock_code(
+                            position["code"], db=context.db
+                        )
+        except StockCodeError as exc:
+            return self._record_and_return(
+                context,
+                tool,
+                params,
+                started,
+                {
+                    "ok": False,
+                    "tool": name,
+                    "error": {"code": "validation", "message": str(exc)},
+                },
+                status="failed",
+            )
+
         # 参数校验
         try:
-            validated = tool.input_schema.model_validate(params)
+            validated = tool.input_schema.model_validate(effective_params)
         except Exception as exc:
             return self._record_and_return(
-                context, tool, params, started,
+                context, tool, effective_params, started,
                 {
                     "ok": False,
                     "tool": name,
@@ -114,7 +143,7 @@ class ToolRegistry:
         except Exception as exc:
             logger.warning("tool %s handler failed: %s", name, exc)
             return self._record_and_return(
-                context, tool, params, started,
+                context, tool, effective_params, started,
                 {
                     "ok": False,
                     "tool": name,
@@ -131,7 +160,7 @@ class ToolRegistry:
         # 输出大小限制
         if _size_bytes(data) > tool.max_output_bytes:
             return self._record_and_return(
-                context, tool, params, started,
+                context, tool, effective_params, started,
                 {
                     "ok": False,
                     "tool": name,
@@ -156,7 +185,9 @@ class ToolRegistry:
             ),
             "vendor": context.vendor,
         }
-        return self._record_and_return(context, tool, params, started, envelope, status="ok")
+        return self._record_and_return(
+            context, tool, effective_params, started, envelope, status="ok"
+        )
 
     def _record_and_return(
         self,

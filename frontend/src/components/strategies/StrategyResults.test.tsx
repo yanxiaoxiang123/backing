@@ -5,10 +5,6 @@ import { describe, expect, it, vi } from 'vitest'
 import { StrategyResults } from './StrategyResults'
 import { BacktestDetails } from './details/BacktestDetails'
 
-vi.mock('echarts-for-react', () => ({
-  default: () => <div data-testid="chart" />,
-}))
-
 const result = {
   success: true,
   result_id: 42,
@@ -50,7 +46,7 @@ const result = {
 describe('StrategyResults', () => {
   it('exposes the four research result tabs and saved history link', async () => {
     render(
-      <MemoryRouter>
+      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <StrategyResults
           klineData={[]}
           signals={[]}

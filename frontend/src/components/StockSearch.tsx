@@ -1,7 +1,13 @@
-import { useState, useCallback, useMemo } from 'react'
-import { Select, Spin } from 'antd'
+import { useCallback, useMemo } from 'react'
+import { Button, Select, Spin } from 'antd'
+import type { DefaultOptionType } from 'antd/es/select'
 import { HistoryOutlined, StarOutlined } from '@ant-design/icons'
-import { useStockSearch, type StockOption } from '../hooks/useStockSearch'
+import {
+  useStockSearch,
+  type StockOption,
+  type StockSearchResult,
+} from '../hooks/useStockSearch'
+import { sameStock } from '../utils/stockIdentity'
 
 interface StockSearchProps {
   value?: string
@@ -22,23 +28,27 @@ export default function StockSearch({
   disabled,
   autoFocus,
 }: StockSearchProps) {
-  const { loading, search, trackSelection } = useStockSearch()
-  const [query, setQuery] = useState('')
+  const { query, setQuery, loading, error, search, trackSelection, reload } =
+    useStockSearch()
 
-  const options = useMemo(
+  const options = useMemo<StockSearchResult[]>(
     () => search(query, watchlistCodes),
     [query, search, watchlistCodes],
   )
   const selectedLabel = useMemo(
-    () => options.find((o) => o.code === value)?.label,
+    () => options.find((o) => sameStock(o.code, value))?.label,
     [value, options],
   )
 
   const handleChange = useCallback(
-    (_: string, option: any) => {
-      const opt: StockOption = Array.isArray(option) ? option[0] : option
+    (selectedValue: string, option?: DefaultOptionType | DefaultOptionType[]) => {
+      const selectedOption = Array.isArray(option) ? option[0] : option
+      const opt = selectedOption?.stock as StockOption | undefined
       if (opt?.code) trackSelection(opt)
-      onChange?.(opt?.code ?? _, opt)
+      onChange?.(
+        opt?.code ?? selectedValue,
+        opt ?? { code: selectedValue, name: '', label: selectedValue },
+      )
     },
     [onChange, trackSelection],
   )
@@ -53,7 +63,15 @@ export default function StockSearch({
       onSearch={setQuery}
       filterOption={false}
       notFoundContent={
-        loading ? <Spin size="small" /> : query ? '无匹配结果' : undefined
+        loading ? (
+          <Spin size="small" />
+        ) : error ? (
+          <Button type="link" size="small" onClick={() => void reload()}>
+            加载失败，点击重试
+          </Button>
+        ) : query ? (
+          '无匹配结果'
+        ) : undefined
       }
       loading={loading}
       disabled={disabled}
@@ -62,12 +80,14 @@ export default function StockSearch({
       options={options.map((o) => ({
         value: o.code,
         label: o.label,
-        __isRecent: false,
+        __isRecent: o.isRecent,
+        stock: o,
       }))}
       optionRender={(option) => {
         const isRecent = option?.data?.__isRecent
         const isWatchlist =
-          !isRecent && watchlistCodes?.includes(String(option?.value ?? ''))
+          !isRecent &&
+          watchlistCodes?.some((code) => sameStock(code, String(option?.value ?? '')))
         return (
           <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             {isRecent && <HistoryOutlined style={{ color: '#999', fontSize: 12 }} />}

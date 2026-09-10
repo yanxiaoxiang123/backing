@@ -93,6 +93,7 @@ pytz==2026.3.post1
 PyYAML==6.0.3
 questionary==2.1.1
 regex==2026.7.19
+redis==5.3.1
 requests==2.34.2
 requests-toolbelt==1.0.0
 rich==15.0.0

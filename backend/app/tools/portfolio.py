@@ -13,7 +13,9 @@ Action = Literal["buy", "sell"]
 class PositionParam(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    code: str = Field(..., min_length=1)
+    code: str = Field(
+        ..., min_length=1, description="股票代码，支持 sh.600000、sh600000、SH600000 或 600000"
+    )
     action: Action
     weight: float = Field(..., ge=0, le=1)
     shares: int | None = Field(default=None, ge=0)
