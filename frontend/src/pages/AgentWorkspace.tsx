@@ -115,6 +115,7 @@ export default function AgentWorkspace() {
   const [researchCollapsed, setResearchCollapsed] = useState(() =>
     readPanelPreference(RESEARCH_COLLAPSED_KEY),
   )
+  const [researchMobileOpen, setResearchMobileOpen] = useState(false)
   const [researchTab, setResearchTab] = useState('market')
 
   const stockCode = useMemo(() => {
@@ -170,7 +171,7 @@ export default function AgentWorkspace() {
 
   return (
     <div
-      className={`agent-workspace${sidebarCollapsed ? ' is-sidebar-collapsed' : ''}${researchCollapsed ? ' is-research-collapsed' : ''}`}
+      className={`agent-workspace${sidebarCollapsed ? ' is-sidebar-collapsed' : ''}${researchCollapsed ? ' is-research-collapsed' : ''}${researchMobileOpen ? ' is-research-mobile-open' : ''}`}
     >
       <aside className="agent-workspace-chat-sidebar" aria-label="会话列表">
         <ChatSidebar
@@ -190,6 +191,15 @@ export default function AgentWorkspace() {
             <span className="chat-conversation-kicker">RESEARCH SESSION</span>
             <strong>{chat.currentThread?.title || '新对话'}</strong>
           </div>
+          <Button
+            type="text"
+            className="agent-mobile-research-toggle"
+            icon={<MenuUnfoldOutlined />}
+            aria-label="打开研究面板"
+            onClick={() => setResearchMobileOpen(true)}
+          >
+            研究
+          </Button>
         </div>
         {!chat.runtimeStatus?.available && chat.runtimeStatus ? (
           <Alert
@@ -210,6 +220,8 @@ export default function AgentWorkspace() {
           running={chat.running}
           streamState={chat.streamState}
           error={chat.error}
+          hasOlder={chat.hasMoreHistory}
+          onLoadOlder={() => void chat.loadOlder()}
         />
         <ChatInput
           running={chat.running}
@@ -245,13 +257,22 @@ export default function AgentWorkspace() {
                 <span className="agent-research-kicker">RESEARCH</span>
                 <strong>研究面板</strong>
               </div>
-              <Button
-                type="text"
-                icon={<MenuFoldOutlined />}
-                aria-label="收起研究区"
-                title="收起研究区"
-                onClick={() => setResearchCollapsed(true)}
-              />
+              <div className="agent-research-header-actions">
+                <Button
+                  type="text"
+                  className="agent-mobile-research-close"
+                  onClick={() => setResearchMobileOpen(false)}
+                >
+                  关闭
+                </Button>
+                <Button
+                  type="text"
+                  icon={<MenuFoldOutlined />}
+                  aria-label="收起研究区"
+                  title="收起研究区"
+                  onClick={() => setResearchCollapsed(true)}
+                />
+              </div>
             </div>
             <Tabs
               activeKey={researchTab}

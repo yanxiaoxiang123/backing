@@ -159,6 +159,18 @@ redis-cli ping
 
 如果暂时不使用 Redis，请不要设置 `REDIS_URL`；后端会自动使用有容量上限的内存缓存。Redis 连接失败时也会自动降级，不影响应用启动。
 
+#### 内存基线
+
+可用脚本记录进程 RSS 和 Python 分配峰值，比较冷启动或固定观察窗口的变化：
+
+```bash
+cd backend
+python scripts/memory_baseline.py --import-app --seconds 30
+```
+
+实时行情缓存的条目数、估算字节数和淘汰次数可通过认证接口
+`GET /api/v1/realtime/health` 的 `memory_cache` 字段查看。
+
 ### 2. 前端
 
 ```bash

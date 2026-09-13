@@ -12,6 +12,8 @@ LLM_DIR = BACKEND_DIR / "models" / "llm"
 
 class Settings(BaseSettings):
     DATABASE_URL: str = "sqlite:///./stock_backtest.db"
+    DB_POOL_SIZE: int = 10
+    DB_MAX_OVERFLOW: int = 10
     DB_BOOTSTRAP_URL: str | None = None
     HOST: str = "0.0.0.0"
     PORT: int = 8808
@@ -25,6 +27,8 @@ class Settings(BaseSettings):
     MOOTDX_TIMEOUT_S: float = 3.0
     # WebSocket 实时行情增量推送间隔（秒）
     REALTIME_WS_POLL_S: float = 10.0
+    REALTIME_MEMORY_CACHE_MAX_ENTRIES: int = 512
+    REALTIME_MEMORY_CACHE_MAX_BYTES: int = 64 * 1024 * 1024
 
     # API 认证配置
     API_KEY: str | None = None  # 用于 API 认证的密钥，为 None 时表示禁用认证
@@ -76,6 +80,7 @@ class Settings(BaseSettings):
     TASK_LEASE_SECONDS: int = 120  # 租约时长，超时视为执行者失联
     TASK_HEARTBEAT_INTERVAL_S: float = 15.0  # 心跳间隔
     TASK_SWEEP_INTERVAL_S: float = 5.0  # 重试扫描间隔
+    TASK_MAX_WORKERS: int = 8  # 进程内任务执行器并发上限
 
     # DL 模型配置
     DL_MODEL_PATH: str = str(LLM_DIR / "mg/000001/mg")
@@ -158,8 +163,8 @@ _engine_kwargs: dict = {
 if not settings.DATABASE_URL.startswith("sqlite"):
     _engine_kwargs.update(
         {
-            "pool_size": 20,
-            "max_overflow": 20,
+            "pool_size": max(1, settings.DB_POOL_SIZE),
+            "max_overflow": max(0, settings.DB_MAX_OVERFLOW),
             "pool_timeout": 30,
         }
     )

@@ -5,6 +5,7 @@ Provides grid search and random search optimization for strategy parameters.
 """
 
 import logging
+import math
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from itertools import product
@@ -372,10 +373,13 @@ class GridSearchOptimizer(ParameterOptimizer):
         # Generate all parameter combinations
         param_names = list(param_grid.keys())
         param_values = list(param_grid.values())
-        combinations = list(product(*param_values))
+        total_combinations = math.prod(len(values) for values in param_values)
+        if total_combinations == 0:
+            raise ValueError("Parameter grid must contain at least one value per parameter")
+        combinations = product(*param_values)
 
         logger.info(
-            f"Starting grid search: {len(combinations)} combinations for strategy '{strategy_name}'"
+            f"Starting grid search: {total_combinations} combinations for strategy '{strategy_name}'"
         )
 
         all_results: List[OptimizationResult] = []
@@ -392,18 +396,13 @@ class GridSearchOptimizer(ParameterOptimizer):
                 )
 
                 # For max_drawdown, lower is better (we minimize)
-                if metric == "max_drawdown":
-                    score = -metrics[metric]  # Negative because we want to minimize
-                else:
-                    score = metrics[metric]
+                score = metrics[metric]
 
                 result = OptimizationResult(params=params, metrics=metrics, score=score)
                 all_results.append(result)
 
                 # Update best
-                is_better = (metric != "max_drawdown" and score > best_score) or (
-                    metric == "max_drawdown" and score < best_score
-                )
+                is_better = score < best_score if metric == "max_drawdown" else score > best_score
 
                 if is_better or best_params is None:
                     best_score = score
@@ -431,7 +430,7 @@ class GridSearchOptimizer(ParameterOptimizer):
             best_score=best_score,
             best_metrics=best_metrics,
             all_results=all_results,
-            total_combinations=len(combinations),
+            total_combinations=total_combinations,
         )
 
 
@@ -536,18 +535,13 @@ class RandomSearchOptimizer(ParameterOptimizer):
                 )
 
                 # For max_drawdown, lower is better (we minimize)
-                if metric == "max_drawdown":
-                    score = -metrics[metric]
-                else:
-                    score = metrics[metric]
+                score = metrics[metric]
 
                 result = OptimizationResult(params=params, metrics=metrics, score=score)
                 all_results.append(result)
 
                 # Update best
-                is_better = (metric != "max_drawdown" and score > best_score) or (
-                    metric == "max_drawdown" and score < best_score
-                )
+                is_better = score < best_score if metric == "max_drawdown" else score > best_score
 
                 if is_better or best_params is None:
                     best_score = score

@@ -42,6 +42,10 @@ from app.tools.registry import DEFAULT_REGISTRY
 
 logger = logging.getLogger(__name__)
 
+_HISTORY_MAX_TURNS = 40
+_HISTORY_MAX_CHARS = 24_000
+_HISTORY_MAX_EVENTS_PER_TURN = 64
+
 MAX_MODEL_RESULT_BYTES = 32_000
 READ_TOOL_NAMES = {
     "market.kline",
@@ -429,55 +433,101 @@ class NativeAgentChatRuntime:
         session = self._session_factory()
         try:
             stores = create_chat_stores(session)
-            turns = stores.turns.list_turns(session_id)
-            events = stores.events.list_events(session_id)
-            messages: list[dict[str, Any]] = []
-            text_parts: list[str] = []
-            for turn in turns:
-                if turn["id"] == current_turn_id or turn["status"] not in ("completed", "failed"):
-                    continue
-                messages.append({"role": "user", "content": turn["user_input"]})
-                text_parts.append(turn["user_input"])
-                # A failed turn may contain an orphan tool_call whose result
-                # could not be persisted.  Replaying that partial protocol
-                # makes the next OpenAI-compatible request invalid.  Preserve
-                # the user's intent, but only replay tools from completed turns.
-                if turn["status"] == "failed":
-                    continue
-                tool_events = sorted(
-                    (event for event in events if event["turn_pk"] == turn["id"]),
-                    key=lambda item: item["seq"],
+            turns = [
+                turn
+                for turn in stores.turns.list_turns(
+                    session_id, limit=_HISTORY_MAX_TURNS
                 )
-                for event in tool_events:
-                    payload = event["payload"]
-                    if event["event_type"] == TOOL_CALL:
-                        messages.append(
-                            {
-                                "role": "assistant",
-                                "content": "",
-                                "tool_calls": [{
-                                    "id": payload.get("call_id", f"history-{turn['id']}"),
-                                    "type": "function",
-                                    "function": {
-                                        "name": payload.get("tool", ""),
-                                        "arguments": json.dumps(payload.get("args", {}), ensure_ascii=False),
-                                    },
-                                }],
-                            }
+                if turn["id"] != current_turn_id
+                and turn["status"] in ("completed", "failed")
+            ]
+            if not turns:
+                return [], ""
+
+            events_by_turn: dict[int, list[dict[str, Any]]] = {}
+            for turn in turns:
+                # Read per turn so a global LIMIT cannot cut a tool-call pair
+                # in half or preferentially return only old events.
+                events_by_turn[turn["id"]] = stores.events.list_events(
+                    session_id,
+                    turn_ids=[turn["id"]],
+                    limit=_HISTORY_MAX_EVENTS_PER_TURN,
+                )
+
+            # Build from newest to oldest until the character budget is full,
+            # then restore chronological order. This bounds both SQL result
+            # size and the prompt sent to the model while preserving complete
+            # tool-call/tool-result pairs from selected turns.
+            selected: list[list[dict[str, Any]]] = []
+            used_chars = 0
+            for turn in reversed(turns):
+                turn_messages: list[dict[str, Any]] = [
+                    {"role": "user", "content": turn["user_input"]}
+                ]
+                if turn["status"] == "completed":
+                    for event in sorted(
+                        events_by_turn.get(turn["id"], []), key=lambda item: item["seq"]
+                    ):
+                        payload = event["payload"]
+                        if event["event_type"] == TOOL_CALL:
+                            turn_messages.append(
+                                {
+                                    "role": "assistant",
+                                    "content": "",
+                                    "tool_calls": [{
+                                        "id": payload.get("call_id", f"history-{turn['id']}"),
+                                        "type": "function",
+                                        "function": {
+                                            "name": payload.get("tool", ""),
+                                            "arguments": json.dumps(
+                                                payload.get("args", {}), ensure_ascii=False
+                                            )[:2_000],
+                                        },
+                                    }],
+                                }
+                            )
+                        elif event["event_type"] == TOOL_RESULT:
+                            turn_messages.append(
+                                {
+                                    "role": "tool",
+                                    "tool_call_id": payload.get("call_id", f"history-{turn['id']}"),
+                                    "name": payload.get("tool", ""),
+                                    "content": _json_text(
+                                        payload.get("result", payload.get("summary", "")),
+                                        limit=4_000,
+                                    ),
+                                }
+                            )
+                    if turn.get("final_reply"):
+                        turn_messages.append(
+                            {"role": "assistant", "content": turn["final_reply"]}
                         )
-                    elif event["event_type"] == TOOL_RESULT:
-                        messages.append(
-                            {
-                                "role": "tool",
-                                "tool_call_id": payload.get("call_id", f"history-{turn['id']}"),
-                                "name": payload.get("tool", ""),
-                                "content": _json_text(payload.get("result", payload.get("summary", ""))),
-                            }
-                        )
-                if turn.get("final_reply"):
-                    messages.append({"role": "assistant", "content": turn["final_reply"]})
-                    text_parts.append(turn["final_reply"])
-            return messages, "\n".join(text_parts)[-12_000:]
+                turn_chars = sum(
+                    len(str(message.get("content", ""))) for message in turn_messages
+                )
+                if not selected and turn_chars > _HISTORY_MAX_CHARS:
+                    # Always keep the newest turn, but cap its text so one
+                    # unusually large tool response cannot exceed the prompt
+                    # budget by itself.
+                    remaining = _HISTORY_MAX_CHARS
+                    for message in turn_messages:
+                        content = str(message.get("content", ""))
+                        clipped = content[: max(0, remaining)]
+                        message["content"] = clipped
+                        remaining -= len(clipped)
+                    turn_chars = _HISTORY_MAX_CHARS
+                if selected and used_chars + turn_chars > _HISTORY_MAX_CHARS:
+                    break
+                selected.append(turn_messages)
+                used_chars += turn_chars
+
+            messages = [message for group in reversed(selected) for message in group]
+            text_parts = [
+                str(message.get("content", ""))
+                for message in messages
+                if message.get("content")
+            ]
+            return messages, "\n".join(text_parts)[-_HISTORY_MAX_CHARS:]
         finally:
             session.close()
 

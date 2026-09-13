@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { memo, useEffect, useMemo, useRef, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Button, Empty, Tag } from 'antd'
@@ -11,6 +11,8 @@ interface ChatConversationProps {
   running: boolean
   streamState: ChatStreamState
   error: string | null
+  onLoadOlder?: () => void
+  hasOlder?: boolean
 }
 
 function ToolRows({ tools }: { tools: ToolRow[] }) {
@@ -58,15 +60,47 @@ function ReasoningBlock({ text }: { text: string }) {
   )
 }
 
+const ChatMessageRow = memo(function ChatMessageRow({ msg }: { msg: ChatMessage }) {
+  if (msg.role === 'user') {
+    return (
+      <div className="chat-msg chat-msg-user">
+        <div className="chat-bubble">{msg.content}</div>
+      </div>
+    )
+  }
+  return (
+    <div className="chat-msg chat-msg-assistant">
+      <div className="chat-bubble">
+        {msg.reasoning ? <ReasoningBlock text={msg.reasoning} /> : null}
+        {msg.tools.length > 0 ? <ToolRows tools={msg.tools} /> : null}
+        <div className="chat-markdown">
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
+        </div>
+        {msg.status === 'failed' || msg.status === 'interrupted' ? (
+          <div className="chat-msg-error">{msg.error || `状态：${msg.status}`}</div>
+        ) : null}
+      </div>
+    </div>
+  )
+})
+
 export function ChatConversation({
   messages,
   running,
   streamState,
   error,
+  onLoadOlder,
+  hasOlder = false,
 }: ChatConversationProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const [pinned, setPinned] = useState(true)
   const [showJump, setShowJump] = useState(false)
+  const [showAll, setShowAll] = useState(false)
+
+  const visibleMessages = useMemo(() => {
+    if (showAll || messages.length <= 200) return messages
+    return messages.slice(-200)
+  }, [messages, showAll])
 
   const handleScroll = () => {
     const el = scrollRef.current
@@ -91,33 +125,31 @@ export function ChatConversation({
             className="chat-conversation-empty"
           />
         ) : (
-          messages.map((msg, idx) =>
-            msg.role === 'user' ? (
-              <div key={`u-${msg.turnId}-${idx}`} className="chat-msg chat-msg-user">
-                <div className="chat-bubble">{msg.content}</div>
-              </div>
-            ) : (
-              <div
-                key={`a-${msg.turnId}-${idx}`}
-                className="chat-msg chat-msg-assistant"
+          <>
+            {hasOlder && onLoadOlder ? (
+              <Button
+                type="text"
+                size="small"
+                className="chat-load-older"
+                onClick={onLoadOlder}
               >
-                <div className="chat-bubble">
-                  {msg.reasoning ? <ReasoningBlock text={msg.reasoning} /> : null}
-                  {msg.tools.length > 0 ? <ToolRows tools={msg.tools} /> : null}
-                  <div className="chat-markdown">
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                      {msg.content}
-                    </ReactMarkdown>
-                  </div>
-                  {msg.status === 'failed' || msg.status === 'interrupted' ? (
-                    <div className="chat-msg-error">
-                      {msg.error || `状态：${msg.status}`}
-                    </div>
-                  ) : null}
-                </div>
-              </div>
-            ),
-          )
+                加载更早会话
+              </Button>
+            ) : null}
+            {!showAll && messages.length > 200 ? (
+              <Button
+                type="text"
+                size="small"
+                className="chat-load-older"
+                onClick={() => setShowAll(true)}
+              >
+                显示更早消息（{messages.length - 200} 条）
+              </Button>
+            ) : null}
+            {visibleMessages.map((msg) => (
+              <ChatMessageRow key={`${msg.role}-${msg.turnId}`} msg={msg} />
+            ))}
+          </>
         )}
         {running ? (
           <div className="chat-deep-diving" aria-live="polite">

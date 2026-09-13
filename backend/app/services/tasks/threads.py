@@ -26,10 +26,11 @@ class ThreadTaskExecutor(TaskExecutor):
     """Submit jobs to in-process threads with DB-atomic claiming."""
 
     def __init__(self, max_workers: int = 8) -> None:
-        self._max_workers = max_workers
+        self._max_workers = max(1, int(max_workers))
         self._stop = threading.Event()
         self._dispatcher: threading.Thread | None = None
         self._running: set[str] = set()
+        self._reserved = 0
         self._lock = threading.Lock()
 
     # ------------------------------------------------------------------
@@ -79,22 +80,33 @@ class ThreadTaskExecutor(TaskExecutor):
     def _dispatch_once(self) -> int:
         """Claim and start as many due jobs as worker slots allow."""
         claimed = 0
-        while claimed < self._max_workers:
+        while True:
             with self._lock:
-                if len(self._running) >= self._max_workers:
+                # Reserve a slot before the database claim. submit() and the
+                # periodic dispatcher can therefore never overbook workers.
+                if len(self._running) + self._reserved >= self._max_workers:
                     break
+                self._reserved += 1
             job = job_store.claim_due()
             if job is None:
+                with self._lock:
+                    self._reserved -= 1
                 break
             with self._lock:
+                self._reserved -= 1
                 self._running.add(job.id)
-            thread = threading.Thread(
-                target=self._run_worker,
-                args=(job.id,),
-                name=f"task-{job.id[:8]}",
-                daemon=False,
-            )
-            thread.start()
+            try:
+                thread = threading.Thread(
+                    target=self._run_worker,
+                    args=(job.id,),
+                    name=f"task-{job.id[:8]}",
+                    daemon=False,
+                )
+                thread.start()
+            except Exception:
+                with self._lock:
+                    self._running.discard(job.id)
+                logger.exception("failed to start task worker", extra={"job_id": job.id})
             claimed += 1
         return claimed
 

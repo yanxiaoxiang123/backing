@@ -35,8 +35,14 @@ export async function getChatStatus(): Promise<ChatRuntimeStatus> {
   return resp.data
 }
 
-export async function getThread(threadId: string): Promise<ChatThreadDetail> {
-  const resp = await api.get<ChatThreadDetail>(`/agent-chats/${threadId}`)
+export async function getThread(
+  threadId: string,
+  limit = 100,
+  offset = 0,
+): Promise<ChatThreadDetail> {
+  const resp = await api.get<ChatThreadDetail>(`/agent-chats/${threadId}`, {
+    params: { limit, offset },
+  })
   return resp.data
 }
 

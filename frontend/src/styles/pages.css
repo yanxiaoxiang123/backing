@@ -425,6 +425,10 @@
 }
 
 @media (max-width: 767px) {
+  .dl-lab-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .research-page-header {
     align-items: flex-start;
     flex-direction: column;
@@ -816,6 +820,19 @@
   .mc-card {
     padding: var(--space-md);
     border-radius: var(--radius-btn);
+  }
+}
+
+@media (max-width: 767px) {
+  .research-result-card {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .research-result-card__summary,
+  .research-result-card__metadata {
+    grid-column: auto;
+  }
+  .research-result-card__actions {
+    justify-self: start;
   }
 }
 

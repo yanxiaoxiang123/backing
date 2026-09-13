@@ -167,17 +167,28 @@ function App() {
 
           {/* Desktop Navigation */}
           <div className="nav-links">
-            {navItems.map((item) => (
+            {navItems.map((item, index) => (
               <NavLink
                 key={item.key}
                 to={item.key}
                 end={item.key === '/'}
-                className={navLinkClass}
+                className={(args) =>
+                  `${navLinkClass(args)}${index >= 4 ? ' nav-secondary' : ''}`
+                }
               >
                 {item.label}
               </NavLink>
             ))}
           </div>
+
+          <button
+            className="nav-more-toggle"
+            onClick={() => setMobileMenuOpen(true)}
+            aria-label="打开更多导航"
+            aria-expanded={mobileMenuOpen}
+          >
+            更多
+          </button>
 
           {/* Search Button */}
           <button

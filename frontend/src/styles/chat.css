@@ -451,6 +451,9 @@
 }
 
 .chat-conversation-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   font-size: 13px;
   font-weight: 600;
   color: rgba(0, 0, 0, 0.75);
@@ -460,6 +463,18 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.chat-conversation-heading {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.chat-load-older {
+  align-self: center;
+  margin: 4px auto 10px;
+  color: var(--color-accent-blue);
 }
 
 /* ---------- Desktop conversation surface ---------- */

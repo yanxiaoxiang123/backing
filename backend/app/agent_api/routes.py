@@ -76,7 +76,9 @@ def _execution_lock(run_id: str) -> threading.Lock:
         lock = _execution_locks.get(run_id)
         if lock is None:
             if len(_execution_locks) >= _MAX_TRACKED_RUNS:
-                inactive = [k for k, l in _execution_locks.items() if not l.locked()]
+                inactive = [
+                    key for key, lock_obj in _execution_locks.items() if not lock_obj.locked()
+                ]
                 for k in inactive:
                     _execution_locks.pop(k, None)
                     if len(_execution_locks) < _MAX_TRACKED_RUNS:

@@ -57,7 +57,11 @@ class ChatTurnStore(Protocol):
 
     def get_turn_by_idempotency(self, idempotency_key: str) -> dict[str, Any] | None: ...
 
-    def list_turns(self, thread_id: str) -> list[dict[str, Any]]: ...
+    def list_turns(
+        self, thread_id: str, *, limit: int | None = None, offset: int = 0
+    ) -> list[dict[str, Any]]: ...
+
+    def has_active_turns(self, thread_id: str) -> bool: ...
 
     def update_turn_status(self, turn_id: str, status: str, **fields: Any) -> bool: ...
 
@@ -70,7 +74,12 @@ class ChatEventStore(Protocol):
     ) -> dict[str, Any]: ...
 
     def list_events(
-        self, thread_id: str, *, after_id: int = 0, limit: int = 1000
+        self,
+        thread_id: str,
+        *,
+        after_id: int = 0,
+        limit: int = 1000,
+        turn_ids: list[int] | None = None,
     ) -> list[dict[str, Any]]: ...
 
 
@@ -168,14 +177,36 @@ class SqlChatTurnStore:
         )
         return _row_to_dict(row) if row else None
 
-    def list_turns(self, thread_id: str) -> list[dict[str, Any]]:
-        rows = (
-            self.session.query(AgentChatTurn)
-            .filter(AgentChatTurn.thread_id == thread_id)
-            .order_by(AgentChatTurn.id.asc())
-            .all()
+    def list_turns(
+        self, thread_id: str, *, limit: int | None = None, offset: int = 0
+    ) -> list[dict[str, Any]]:
+        query = self.session.query(AgentChatTurn).filter(
+            AgentChatTurn.thread_id == thread_id
         )
+        if limit is None:
+            rows = query.order_by(AgentChatTurn.id.asc()).all()
+        else:
+            # Pagination is newest-first from the database, but the API keeps
+            # chronological order for rendering and model replay.
+            rows = (
+                query.order_by(AgentChatTurn.id.desc())
+                .offset(offset)
+                .limit(limit)
+                .all()
+            )
+            rows.reverse()
         return [_row_to_dict(r) for r in rows]
+
+    def has_active_turns(self, thread_id: str) -> bool:
+        return (
+            self.session.query(AgentChatTurn.id)
+            .filter(
+                AgentChatTurn.thread_id == thread_id,
+                AgentChatTurn.status.in_(["queued", "running"]),
+            )
+            .first()
+            is not None
+        )
 
     def update_turn_status(self, turn_id: str, status: str, **fields: Any) -> bool:
         row = (
@@ -217,17 +248,22 @@ class SqlChatEventStore:
         return _row_to_dict(row)
 
     def list_events(
-        self, thread_id: str, *, after_id: int = 0, limit: int = 1000
+        self,
+        thread_id: str,
+        *,
+        after_id: int = 0,
+        limit: int = 1000,
+        turn_ids: list[int] | None = None,
     ) -> list[dict[str, Any]]:
-        rows = (
+        query = (
             self.session.query(AgentChatEvent, AgentChatTurn.id)
             .join(AgentChatTurn, AgentChatEvent.turn_id == AgentChatTurn.turn_id)
             .filter(AgentChatTurn.thread_id == thread_id)
             .filter(AgentChatEvent.id > after_id)
-            .order_by(AgentChatEvent.id.asc())
-            .limit(limit)
-            .all()
         )
+        if turn_ids:
+            query = query.filter(AgentChatTurn.id.in_(turn_ids))
+        rows = query.order_by(AgentChatEvent.id.asc()).limit(limit).all()
         out = []
         for row, turn_pk in rows:
             item = _row_to_dict(row)

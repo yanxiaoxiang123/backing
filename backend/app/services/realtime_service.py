@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import json
 import logging
 import threading
 import time
+import weakref
+from collections import OrderedDict
 from dataclasses import dataclass, field
 from typing import Any, ClassVar
 
@@ -32,6 +35,13 @@ ENDPOINT_INDICES = "indices"
 _FULL_CACHE_TTL_S = 60.0
 _TAIL_CACHE_TTL_S = 10.0
 _STALE_RETENTION_S = 7 * 24 * 60 * 60.0
+_MEMORY_CACHE_MAX_ENTRIES = max(
+    16, int(getattr(settings, "REALTIME_MEMORY_CACHE_MAX_ENTRIES", 512))
+)
+_MEMORY_CACHE_MAX_BYTES = max(
+    1 * 1024 * 1024,
+    int(getattr(settings, "REALTIME_MEMORY_CACHE_MAX_BYTES", 64 * 1024 * 1024)),
+)
 
 
 @dataclass(frozen=True)
@@ -88,9 +98,13 @@ class RealtimeService:
     _unhealthy_until: ClassVar[dict[Server, float]] = {}
     _unhealthy_ttl_s = 60.0
 
-    # Short-term caches keyed by (endpoint, key). Values are (FetchResult, ts).
-    _bars_cache: ClassVar[dict[tuple[str, str, str, str], tuple[FetchResult, float]]] = {}
-    _snapshot_cache: ClassVar[dict[str, tuple[FetchResult, float]]] = {}
+    # Short-term caches keyed by (endpoint, key). Values are
+    # (FetchResult, stored_at, estimated_bytes).
+    _bars_cache: ClassVar[OrderedDict[tuple[str, str, str, str], tuple[FetchResult, float, int]]] = OrderedDict()
+    _snapshot_cache: ClassVar[OrderedDict[str, tuple[FetchResult, float, int]]] = OrderedDict()
+    _bars_cache_bytes: int = 0
+    _snapshot_cache_bytes: int = 0
+    _cache_evictions: int = 0
 
     # Aggregated counters mirrored into ``task_metrics`` for the /jobs/metrics
     # endpoint.
@@ -100,7 +114,9 @@ class RealtimeService:
     _provider_unavailable_count: int = 0
     _last_failure_reason: ClassVar[dict[str, str]] = {}
     _cache_lock = threading.RLock()
-    _fetch_locks: ClassVar[dict[tuple[str, str, str], threading.Lock]] = {}
+    # Weak values prevent one lock object per symbol from becoming a second
+    # unbounded cache. A lock remains alive while a caller holds it.
+    _fetch_locks: ClassVar[weakref.WeakValueDictionary[tuple[str, str, str], threading.Lock]] = weakref.WeakValueDictionary()
 
     @classmethod
     def _fetch_lock(cls, symbol: str, period: str, scope: str) -> threading.Lock:
@@ -256,6 +272,37 @@ class RealtimeService:
     def _cache_age_ms(self, stored_at: float) -> int:
         return max(0, int((time.time() - stored_at) * 1000))
 
+    @staticmethod
+    def _estimate_result_bytes(result: FetchResult) -> int:
+        """Cheap upper bound used to keep process-local caches bounded."""
+        try:
+            return len(json.dumps(result.to_dict(), ensure_ascii=False, default=str).encode("utf-8"))
+        except Exception:
+            return 1024
+
+    @classmethod
+    def _trim_memory_caches(cls) -> None:
+        """Evict oldest records until both count and byte budgets are met."""
+        # Recalculate to remain correct when callers clear the public cache
+        # dictionaries (notably test fixtures and maintenance hooks).
+        cls._bars_cache_bytes = sum(item[2] for item in cls._bars_cache.values())
+        cls._snapshot_cache_bytes = sum(item[2] for item in cls._snapshot_cache.values())
+        while (
+            len(cls._bars_cache) + len(cls._snapshot_cache) > _MEMORY_CACHE_MAX_ENTRIES
+            or cls._bars_cache_bytes + cls._snapshot_cache_bytes > _MEMORY_CACHE_MAX_BYTES
+        ):
+            target = cls._bars_cache if cls._bars_cache else cls._snapshot_cache
+            if cls._snapshot_cache and (
+                not cls._bars_cache or next(iter(cls._snapshot_cache.values()))[1] <= next(iter(cls._bars_cache.values()))[1]
+            ):
+                target = cls._snapshot_cache
+            _, (_, _, size) = target.popitem(last=False)
+            if target is cls._bars_cache:
+                cls._bars_cache_bytes -= size
+            else:
+                cls._snapshot_cache_bytes -= size
+            cls._cache_evictions += 1
+
     def _cache_get_bars(
         self, symbol: str, period: str, *, tail: bool = False, allow_stale: bool = True
     ) -> FetchResult | None:
@@ -264,10 +311,12 @@ class RealtimeService:
         with self._cache_lock:
             entry = self._bars_cache.get(key)
         if entry is not None:
-            result, stored_at = entry
+            result, stored_at, _ = entry
             age = self._cache_age_ms(stored_at)
             stale = age / 1000 > (_TAIL_CACHE_TTL_S if tail else _FULL_CACHE_TTL_S)
             if age / 1000 <= _STALE_RETENTION_S and (allow_stale or not stale):
+                with self._cache_lock:
+                    self._bars_cache.move_to_end(key)
                 return FetchResult(
                     status=result.status,
                     data=result.data,
@@ -284,7 +333,9 @@ class RealtimeService:
             if not allow_stale:
                 return None
             with self._cache_lock:
-                self._bars_cache.pop(key, None)
+                removed = self._bars_cache.pop(key, None)
+                if removed:
+                    type(self)._bars_cache_bytes -= removed[2]
 
         if not market_cache.enabled:
             return None
@@ -318,7 +369,13 @@ class RealtimeService:
             cache_source="redis",
         )
         with self._cache_lock:
-            self._bars_cache[key] = (result, time.time() - age / 1000)
+            size = self._estimate_result_bytes(result)
+            old = self._bars_cache.pop(key, None)
+            if old:
+                type(self)._bars_cache_bytes -= old[2]
+            self._bars_cache[key] = (result, time.time() - age / 1000, size)
+            type(self)._bars_cache_bytes += size
+            type(self)._trim_memory_caches()
         return result
 
     @staticmethod
@@ -332,7 +389,13 @@ class RealtimeService:
         stored_at = time.time()
         key = (ENDPOINT_BARS, symbol, period, scope)
         with self._cache_lock:
-            self._bars_cache[key] = (result, stored_at)
+            size = self._estimate_result_bytes(result)
+            old = self._bars_cache.pop(key, None)
+            if old:
+                type(self)._bars_cache_bytes -= old[2]
+            self._bars_cache[key] = (result, stored_at, size)
+            type(self)._bars_cache_bytes += size
+            type(self)._trim_memory_caches()
         if market_cache.enabled:
             market_cache.set(
                 self._cache_key(symbol, period, scope),
@@ -362,14 +425,17 @@ class RealtimeService:
         self._cache_put_bars(symbol, period, merged, tail=False)
 
     def _cache_get_snapshot(self, endpoint: str, *, allow_stale: bool = False) -> FetchResult | None:
-        entry = self._snapshot_cache.get(endpoint)
+        with self._cache_lock:
+            entry = self._snapshot_cache.get(endpoint)
         if entry is None:
             entry = None
         if entry is not None:
-            result, stored_at = entry
+            result, stored_at, _ = entry
             age = self._cache_age_ms(stored_at)
             stale = age / 1000 > _TAIL_CACHE_TTL_S
             if age / 1000 <= _STALE_RETENTION_S and (allow_stale or not stale):
+                with self._cache_lock:
+                    self._snapshot_cache.move_to_end(endpoint)
                 return FetchResult(
                     status=result.status,
                     data=result.data,
@@ -383,7 +449,10 @@ class RealtimeService:
                     stale=stale,
                     cache_source="memory",
                 )
-            self._snapshot_cache.pop(endpoint, None)
+            with self._cache_lock:
+                removed = self._snapshot_cache.pop(endpoint, None)
+                if removed:
+                    type(self)._snapshot_cache_bytes -= removed[2]
 
         if not market_cache.enabled:
             return None
@@ -415,12 +484,26 @@ class RealtimeService:
             stale=time.time() >= float(record.get("fresh_until", 0)),
             cache_source="redis",
         )
-        self._snapshot_cache[endpoint] = (result, time.time() - age / 1000)
+        size = self._estimate_result_bytes(result)
+        with self._cache_lock:
+            old = self._snapshot_cache.pop(endpoint, None)
+            if old:
+                type(self)._snapshot_cache_bytes -= old[2]
+            self._snapshot_cache[endpoint] = (result, time.time() - age / 1000, size)
+            type(self)._snapshot_cache_bytes += size
+            type(self)._trim_memory_caches()
         return result
 
     def _cache_put_snapshot(self, endpoint: str, result: FetchResult) -> None:
         stored_at = time.time()
-        self._snapshot_cache[endpoint] = (result, stored_at)
+        size = self._estimate_result_bytes(result)
+        with self._cache_lock:
+            old = self._snapshot_cache.pop(endpoint, None)
+            if old:
+                type(self)._snapshot_cache_bytes -= old[2]
+            self._snapshot_cache[endpoint] = (result, stored_at, size)
+            type(self)._snapshot_cache_bytes += size
+            type(self)._trim_memory_caches()
         if market_cache.enabled:
             market_cache.set(
                 f"snapshot:v2:{endpoint}",
@@ -826,6 +909,8 @@ class RealtimeService:
         cls = type(self)
         now = time.monotonic()
         candidates = self._server_candidates()
+        with cls._cache_lock:
+            cls._trim_memory_caches()
         healthy = [
             s for s in candidates if cls._unhealthy_until.get(s, 0) <= now
         ]
@@ -844,6 +929,13 @@ class RealtimeService:
             },
             "last_failure_reason": dict(cls._last_failure_reason),
             "cache": market_cache.stats(),
+            "memory_cache": {
+                "entries": len(cls._bars_cache) + len(cls._snapshot_cache),
+                "bytes": cls._bars_cache_bytes + cls._snapshot_cache_bytes,
+                "max_entries": _MEMORY_CACHE_MAX_ENTRIES,
+                "max_bytes": _MEMORY_CACHE_MAX_BYTES,
+                "evictions": cls._cache_evictions,
+            },
         }
 
 

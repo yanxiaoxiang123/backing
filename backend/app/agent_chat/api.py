@@ -25,6 +25,7 @@ from app.agent_chat.service import HarnessChatService
 from app.agent_chat.stores import create_chat_stores
 from app.auth import get_current_api_key
 from app.config import get_db
+from app.models.agent_chat import AgentChatTurn
 
 router = APIRouter()
 
@@ -113,16 +114,21 @@ def chat_status(
 @router.get("/agent-chats/{thread_id}")
 def get_chat(
     thread_id: str,
+    limit: int = Query(default=100, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),
     _: str = Depends(get_current_api_key),
 ):
     _require_thread(db, thread_id)
     stores = create_chat_stores(db)
     thread = stores.threads.get_thread(thread_id)
-    turns = stores.turns.list_turns(thread_id)
+    turns = stores.turns.list_turns(thread_id, limit=limit, offset=offset)
+    total = db.query(AgentChatTurn.id).filter(AgentChatTurn.thread_id == thread_id).count()
     return {
         "thread": _thread_response(thread),
         "turns": [_turn_response(t) for t in turns],
+        "total_turns": total,
+        "has_more": offset + len(turns) < total,
     }
 
 
@@ -169,7 +175,7 @@ def stream_events(
             stores = create_chat_stores(db)
             events = stores.events.list_events(thread_id, after_id=last_id)
             thread = stores.threads.get_thread(thread_id)
-            turns = stores.turns.list_turns(thread_id)
+            has_active = stores.turns.has_active_turns(thread_id)
             for event in events:
                 idle_polls = 0
                 payload = dict(event["payload"])
@@ -183,7 +189,6 @@ def stream_events(
                 last_id = event["id"]
             # 空闲关闭：线程无 queued/running turn 且约 1.5s 无新事件则结束流。
             # 前端 ChatEventStream 断开后带 Last-Event-ID 自动重连（与 run SSE 同模式）。
-            has_active = any(t["status"] in ("queued", "running") for t in turns)
             if thread is not None and not has_active:
                 idle_polls += 1
                 if idle_polls >= 3:

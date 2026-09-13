@@ -48,6 +48,8 @@ export interface ChatThreadList {
 export interface ChatThreadDetail {
   thread: ChatThread
   turns: ChatTurn[]
+  total_turns?: number
+  has_more?: boolean
 }
 
 export interface ChatRuntimeStatus {

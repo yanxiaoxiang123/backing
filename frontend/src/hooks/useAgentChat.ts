@@ -23,7 +23,7 @@ import { getApiErrorMessage } from '../services/api'
 
 interface TurnParts {
   reasoning: string
-  chunks: string[]
+  content: string
   tools: ToolRow[]
   runId: string | null
 }
@@ -47,6 +47,8 @@ export interface UseAgentChatResult {
   stop: () => Promise<void>
   archive: (threadId: string) => Promise<void>
   refreshStatus: () => Promise<void>
+  loadOlder: () => Promise<void>
+  hasMoreHistory: boolean
 }
 
 function newIdempotencyKey(): string {
@@ -79,7 +81,14 @@ export function useAgentChat(options: UseAgentChatOptions = {}): UseAgentChatRes
   const [streamState, setStreamState] = useState<ChatStreamState>('idle')
   const [error, setError] = useState<string | null>(null)
   const [runtimeStatus, setRuntimeStatus] = useState<ChatRuntimeStatus | null>(null)
+  const [hasMoreHistory, setHasMoreHistory] = useState(false)
+  const historyOffsetRef = useRef(0)
   const streamRef = useRef<ChatEventStream | null>(null)
+  // The SSE endpoint replays from the supplied cursor. Keep the replay bounded
+  // to the paged turn window so old events do not recreate an unbounded parts
+  // map in the browser.
+  const minLoadedTurnIdRef = useRef<number | null>(null)
+  const loadedTurnIdsRef = useRef<Set<number>>(new Set())
   // Fake/本地 Harness 可能在 submitTurn 的 202 响应返回前就完成整轮。
   // 终态事件先到时 turns 中尚无对应行，先暂存补丁，REST 返回后再合并，
   // 避免 completed 被随后到达的 queued 快照覆盖。
@@ -97,13 +106,15 @@ export function useAgentChat(options: UseAgentChatOptions = {}): UseAgentChatRes
     (event: ChatEvent) => {
       const turnId = event.turn_id
       const payload = event.payload
+      const minLoadedTurnId = minLoadedTurnIdRef.current
+      if (minLoadedTurnId !== null && turnId < minLoadedTurnId) return
       if (event.type === 'reasoning') {
         setParts((prev) => ({
           ...prev,
           [turnId]: {
             reasoning:
               (prev[turnId]?.reasoning ?? '') + String(payload['content'] ?? ''),
-            chunks: prev[turnId]?.chunks ?? [],
+            content: prev[turnId]?.content ?? '',
             tools: prev[turnId]?.tools ?? [],
             runId: prev[turnId]?.runId ?? null,
           },
@@ -113,7 +124,7 @@ export function useAgentChat(options: UseAgentChatOptions = {}): UseAgentChatRes
           ...prev,
           [turnId]: {
             reasoning: prev[turnId]?.reasoning ?? '',
-            chunks: [...(prev[turnId]?.chunks ?? []), String(payload['content'] ?? '')],
+            content: (prev[turnId]?.content ?? '') + String(payload['content'] ?? ''),
             tools: prev[turnId]?.tools ?? [],
             runId: prev[turnId]?.runId ?? null,
           },
@@ -123,7 +134,7 @@ export function useAgentChat(options: UseAgentChatOptions = {}): UseAgentChatRes
           ...prev,
           [turnId]: {
             reasoning: prev[turnId]?.reasoning ?? '',
-            chunks: prev[turnId]?.chunks ?? [],
+            content: prev[turnId]?.content ?? '',
             tools: [
               ...(prev[turnId]?.tools ?? []),
               {
@@ -155,7 +166,7 @@ export function useAgentChat(options: UseAgentChatOptions = {}): UseAgentChatRes
             ...prev,
             [turnId]: {
               reasoning: prev[turnId]?.reasoning ?? '',
-              chunks: prev[turnId]?.chunks ?? [],
+              content: prev[turnId]?.content ?? '',
               tools,
               runId: prev[turnId]?.runId ?? null,
             },
@@ -167,7 +178,7 @@ export function useAgentChat(options: UseAgentChatOptions = {}): UseAgentChatRes
           ...prev,
           [turnId]: {
             reasoning: prev[turnId]?.reasoning ?? '',
-            chunks: prev[turnId]?.chunks ?? [],
+            content: prev[turnId]?.content ?? '',
             tools: prev[turnId]?.tools ?? [],
             runId,
           },
@@ -190,7 +201,9 @@ export function useAgentChat(options: UseAgentChatOptions = {}): UseAgentChatRes
           end_reason: String(payload['end_reason'] ?? '') || null,
           error: String(payload['error'] ?? '') || null,
         }
-        terminalTurnPatchesRef.current.set(turnId, patch)
+        if (!loadedTurnIdsRef.current.has(turnId)) {
+          terminalTurnPatchesRef.current.set(turnId, patch)
+        }
         setTurns((prev) =>
           prev.map((turn) => (turn.id === turnId ? { ...turn, ...patch } : turn)),
         )
@@ -231,6 +244,12 @@ export function useAgentChat(options: UseAgentChatOptions = {}): UseAgentChatRes
         const detail = await getThread(threadId)
         setCurrentThread(detail.thread)
         setTurns(detail.turns)
+        historyOffsetRef.current = detail.turns.length
+        setHasMoreHistory(Boolean(detail.has_more))
+        loadedTurnIdsRef.current = new Set(detail.turns.map((turn) => turn.id))
+        minLoadedTurnIdRef.current = detail.turns.length
+          ? Math.min(...detail.turns.map((turn) => turn.id))
+          : null
         setParts({})
         terminalTurnPatchesRef.current.clear()
         setError(null)
@@ -264,6 +283,10 @@ export function useAgentChat(options: UseAgentChatOptions = {}): UseAgentChatRes
           const created = await createThread()
           setThreads((prev) => [created, ...prev])
           setCurrentThread(created)
+          minLoadedTurnIdRef.current = null
+          loadedTurnIdsRef.current.clear()
+          historyOffsetRef.current = 0
+          setHasMoreHistory(false)
           thread = created
           persistThreadId(created.thread_id)
           connectStream(created.thread_id, 0)
@@ -283,6 +306,8 @@ export function useAgentChat(options: UseAgentChatOptions = {}): UseAgentChatRes
           next[index] = { ...next[index], ...mergedTurn }
           return next
         })
+        loadedTurnIdsRef.current.add(mergedTurn.id)
+        terminalTurnPatchesRef.current.delete(mergedTurn.id)
         if (thread.title === '' || thread.title == null) {
           setCurrentThread((prev) =>
             prev ? { ...prev, title: text.slice(0, 36) } : prev,
@@ -321,6 +346,10 @@ export function useAgentChat(options: UseAgentChatOptions = {}): UseAgentChatRes
           setCurrentThread(null)
           setTurns([])
           setParts({})
+          loadedTurnIdsRef.current.clear()
+          minLoadedTurnIdRef.current = null
+          historyOffsetRef.current = 0
+          setHasMoreHistory(false)
           persistThreadId(null)
         }
       } catch (exc) {
@@ -337,6 +366,35 @@ export function useAgentChat(options: UseAgentChatOptions = {}): UseAgentChatRes
       setRuntimeStatus(null)
     }
   }, [])
+
+  const loadOlder = useCallback(async (): Promise<void> => {
+    if (!currentThread || !hasMoreHistory) return
+    try {
+      const detail = await getThread(
+        currentThread.thread_id,
+        100,
+        historyOffsetRef.current,
+      )
+      setTurns((prev) => {
+        const existing = new Set(prev.map((turn) => turn.id))
+        return [...detail.turns.filter((turn) => !existing.has(turn.id)), ...prev]
+      })
+      loadedTurnIdsRef.current = new Set([
+        ...detail.turns.map((turn) => turn.id),
+        ...loadedTurnIdsRef.current,
+      ])
+      if (detail.turns.length > 0) {
+        minLoadedTurnIdRef.current = Math.min(
+          minLoadedTurnIdRef.current ?? detail.turns[0].id,
+          detail.turns[0].id,
+        )
+      }
+      historyOffsetRef.current += detail.turns.length
+      setHasMoreHistory(Boolean(detail.has_more))
+    } catch (exc) {
+      setError(getApiErrorMessage(exc))
+    }
+  }, [currentThread, hasMoreHistory])
 
   // 刷新后从 URL 中的 thread_id 恢复；只消费一次。
   useEffect(() => {
@@ -381,8 +439,7 @@ export function useAgentChat(options: UseAgentChatOptions = {}): UseAgentChatRes
       msgs.push({
         turnId: turn.id,
         role: 'assistant',
-        content:
-          p && p.chunks.length > 0 ? p.chunks.join('') : (turn.final_reply ?? ''),
+        content: p && p.content.length > 0 ? p.content : (turn.final_reply ?? ''),
         reasoning: p?.reasoning ?? null,
         tools: p?.tools ?? [],
         status: turn.status,
@@ -412,5 +469,7 @@ export function useAgentChat(options: UseAgentChatOptions = {}): UseAgentChatRes
     stop,
     archive,
     refreshStatus,
+    loadOlder,
+    hasMoreHistory,
   }
 }

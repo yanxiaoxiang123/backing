@@ -1,5 +1,5 @@
 import logging
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from datetime import datetime, time
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
 from zoneinfo import ZoneInfo
@@ -100,25 +100,40 @@ class ScreenerService:
                 logger.debug(f"Failed to process {stock.code}: {e}")
                 return None
 
-        with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            futures = {executor.submit(process_one, s): s for s in stocks}
-            for future in as_completed(futures):
-                try:
-                    result = future.result()
-                    completed += 1
-                    if result:
-                        results.append(result)
-                except Exception as e:
-                    logger.error(f"Error processing stock: {e}")
-                    completed += 1
-                    continue  # don't crash the whole scan
-                if progress_callback and completed % 50 == 0:
-                    progress_callback(
-                        'scanning',
-                        completed,
-                        total,
-                        f'正在扫描全市场股票... ({completed}/{total})'
-                    )
+        # Keep only a worker-sized window of futures. Submitting every stock
+        # at once retains thousands of Stock objects and closures until the
+        # slowest request completes.
+        worker_count = max(1, min(int(max_workers), max(1, total)))
+        stock_iter = iter(stocks)
+        with ThreadPoolExecutor(max_workers=worker_count) as executor:
+            futures = {
+                executor.submit(process_one, next(stock_iter)): True
+                for _ in range(worker_count)
+                if _ < total
+            }
+            while futures:
+                done, _ = wait(futures, return_when=FIRST_COMPLETED)
+                for future in done:
+                    futures.pop(future, None)
+                    try:
+                        result = future.result()
+                        completed += 1
+                        if result:
+                            results.append(result)
+                    except Exception as e:
+                        logger.error(f"Error processing stock: {e}")
+                        completed += 1
+                    if progress_callback and completed % 50 == 0:
+                        progress_callback(
+                            'scanning',
+                            completed,
+                            total,
+                            f'正在扫描全市场股票... ({completed}/{total})'
+                        )
+                    try:
+                        futures[executor.submit(process_one, next(stock_iter))] = True
+                    except StopIteration:
+                        pass
 
         return results
 

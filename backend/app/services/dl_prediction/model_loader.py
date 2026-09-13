@@ -9,6 +9,7 @@ import logging
 import os
 import pickle
 import sys
+import threading
 from pathlib import Path
 from typing import Any, Optional
 
@@ -466,6 +467,7 @@ class DLModelLoader:
     _scaler_X = None
     _scaler_y = None
     _device = None
+    _model_lock = threading.RLock()
 
     def __new__(cls):
         if cls._instance is None:
@@ -473,7 +475,10 @@ class DLModelLoader:
         return cls._instance
 
     def __init__(self):
+        if getattr(self, "_initialized", False):
+            return
         self._device = None
+        self._initialized = True
 
     @staticmethod
     def _extract_state_dict(checkpoint):
@@ -519,13 +524,24 @@ class DLModelLoader:
         return filtered
 
     def load_model(self):
-        """加载模型权重"""
+        """线程安全地懒加载模型，避免并发请求重复分配权重。"""
+        if self._model is not None:
+            return self._model
+        with self._model_lock:
+            if self._model is None:
+                self._load_model_unlocked()
+            return self._model
+
+    def _load_model_unlocked(self):
+        """加载模型权重（调用方必须持有 _model_lock）。"""
         if self._model is not None:
             return self._model
 
+        torch_module = None
         try:
             # 懒加载 torch
-            torch, _ = _get_torch()
+            torch_module, _ = _get_torch()
+            torch = torch_module
 
             self._device = torch.device(
                 settings.DL_DEVICE if torch.cuda.is_available() else "cpu"
@@ -629,6 +645,17 @@ class DLModelLoader:
             return self._model
 
         except Exception as e:
+            # Do not retain a partially constructed module after a failed
+            # checkpoint/config load; a later request should be able to retry
+            # from a clean state instead of returning corrupt weights.
+            self._model = None
+            self._scaler_X = None
+            self._scaler_y = None
+            try:
+                if torch_module is not None and torch_module.cuda.is_available():
+                    torch_module.cuda.empty_cache()
+            except Exception:
+                pass
             logger.error(f"模型加载失败: {e}")
             raise
 
@@ -690,22 +717,23 @@ class DLModelLoader:
 
     def clear_model(self):
         """清除模型，释放 CUDA 显存"""
-        if self._model is not None:
-            del self._model
-            self._model = None
-        if self._scaler_X is not None:
-            self._scaler_X = None
-        if self._scaler_y is not None:
-            self._scaler_y = None
+        with self._model_lock:
+            if self._model is not None:
+                del self._model
+                self._model = None
+            if self._scaler_X is not None:
+                self._scaler_X = None
+            if self._scaler_y is not None:
+                self._scaler_y = None
 
-        torch, _ = _get_torch()
-        if torch.cuda.is_available():
-            torch.cuda.empty_cache()
-            torch.cuda.synchronize()
+            torch, _ = _get_torch()
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+                torch.cuda.synchronize()
 
-        # 重置 StockLSTM_FinanceLlama 全局缓存
-        global _stock_model_class
-        _stock_model_class = None
+            # 重置 StockLSTM_FinanceLlama 全局缓存
+            global _stock_model_class
+            _stock_model_class = None
 
         logger.info("模型已清除，CUDA 显存已释放")
 

@@ -53,7 +53,7 @@ def get_task_executor() -> TaskExecutor:
         else:
             from app.services.tasks.threads import ThreadTaskExecutor
 
-            _executor = ThreadTaskExecutor()
+            _executor = ThreadTaskExecutor(max_workers=settings.TASK_MAX_WORKERS)
     return _executor
 
 

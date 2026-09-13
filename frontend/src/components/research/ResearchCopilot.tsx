@@ -38,6 +38,8 @@ function CopilotContent({
         running={chat.running}
         streamState={chat.streamState}
         error={chat.error}
+        hasOlder={chat.hasMoreHistory}
+        onLoadOlder={() => void chat.loadOlder()}
       />
       <div className="research-copilot-actions">
         <Button

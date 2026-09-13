@@ -544,3 +544,103 @@
     transition: none;
   }
 }
+
+/* Compact layouts keep chat usable and move the research pane into an
+   inspector instead of squeezing three full columns into tablet widths. */
+.agent-mobile-research-toggle,
+.agent-mobile-research-close {
+  display: none;
+}
+
+@media (min-width: 768px) and (max-width: 1199px) {
+  .agent-workspace {
+    grid-template-columns: 188px minmax(0, 1fr);
+    gap: 0;
+    position: relative;
+  }
+
+  .agent-workspace-chat-sidebar {
+    grid-column: 1;
+  }
+
+  .agent-workspace-conversation {
+    grid-column: 2;
+  }
+
+  .agent-workspace-research {
+    position: fixed;
+    top: 92px;
+    right: 16px;
+    bottom: 16px;
+    width: min(520px, calc(100vw - 32px));
+    height: auto;
+    z-index: 30;
+    background: var(--color-canvas-lifted);
+    box-shadow: 0 18px 48px rgba(20, 20, 19, 0.18);
+    transform: translateX(calc(100% + 24px));
+    transition: transform var(--transition-normal);
+  }
+
+  .agent-workspace.is-research-mobile-open .agent-workspace-research {
+    transform: translateX(0);
+  }
+
+  .agent-mobile-research-toggle,
+  .agent-mobile-research-close {
+    display: inline-flex;
+  }
+
+  .agent-research-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+}
+
+@media (max-width: 767px) {
+  .agent-workspace {
+    grid-template-columns: 88px minmax(0, 1fr);
+    gap: 0;
+    height: calc(100dvh - var(--space-md) - var(--space-md));
+    padding-top: 72px;
+  }
+
+  .agent-workspace-chat-sidebar {
+    grid-column: 1;
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .agent-workspace-conversation {
+    grid-column: 2;
+  }
+
+  .agent-workspace-research {
+    position: fixed;
+    top: 76px;
+    right: 8px;
+    bottom: 8px;
+    width: calc(100vw - 16px);
+    height: auto;
+    z-index: 30;
+    background: var(--color-canvas-lifted);
+    box-shadow: 0 18px 48px rgba(20, 20, 19, 0.2);
+    transform: translateX(calc(100% + 16px));
+    transition: transform var(--transition-normal);
+  }
+
+  .agent-workspace.is-research-mobile-open .agent-workspace-research {
+    transform: translateX(0);
+  }
+
+  .agent-mobile-research-toggle,
+  .agent-mobile-research-close {
+    display: inline-flex;
+  }
+
+  .agent-research-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+  }
+}
