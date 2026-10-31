@@ -12,8 +12,8 @@
 app.state.harness_chat_service（lifespan 启动/关闭）。
 """
 
+import asyncio
 import json
-import time
 from typing import Any, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -25,7 +25,7 @@ from app.agent_chat.service import HarnessChatService
 from app.agent_chat.stores import create_chat_stores
 from app.auth import get_current_api_key
 from app.config import get_db
-from app.models.agent_chat import AgentChatTurn
+from app.models.agent_chat import AgentChatThread, AgentChatTurn
 
 router = APIRouter()
 
@@ -152,7 +152,7 @@ def submit_turn(
 
 
 @router.get("/agent-chats/{thread_id}/events")
-def stream_events(
+async def stream_events(
     thread_id: str,
     request: Request,
     db: Session = Depends(get_db),
@@ -160,18 +160,25 @@ def stream_events(
 ):
     _require_thread(db, thread_id)
 
-    def generate():
+    async def generate():
         last_id = 0
         raw = request.headers.get("last-event-id")
         if raw and raw.isdigit():
             last_id = int(raw)
         idle_polls = 0
+        thread_obj = (
+            db.query(AgentChatThread)
+            .filter(AgentChatThread.thread_id == thread_id)
+            .first()
+        )
         while True:
-            # StreamingResponse 的 generator 生命周期远长于普通请求。
-            # 每轮过期 identity map，强制读取 worker 在另一 Session 中写入的
-            # 最新 turn 状态；继续使用 Depends(get_db) 注入的 Session，
-            # 确保测试和部署可以替换数据库绑定。
-            db.expire_all()
+            # 仅针对性刷新与该会话关联的特定实体，保留其余会话级 ORM 缓存
+            if thread_obj is not None:
+                db.expire(thread_obj)
+            for obj in list(db.identity_map.values()):
+                if isinstance(obj, AgentChatTurn) and getattr(obj, "thread_id", None) == thread_id:
+                    db.expire(obj)
+
             stores = create_chat_stores(db)
             events = stores.events.list_events(thread_id, after_id=last_id)
             thread = stores.threads.get_thread(thread_id)
@@ -195,7 +202,7 @@ def stream_events(
                     break
             else:
                 idle_polls = 0
-            time.sleep(0.5)
+            await asyncio.sleep(0.5)
 
     return StreamingResponse(
         generate(),

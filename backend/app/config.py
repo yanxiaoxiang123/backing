@@ -2,29 +2,40 @@ from collections.abc import Generator
 from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import Field
 from sqlalchemy import create_engine, event
 from sqlalchemy.engine import make_url
 from sqlalchemy.orm import Session, declarative_base, sessionmaker
+from app.domain.risk import RiskLimits
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
 LLM_DIR = BACKEND_DIR / "models" / "llm"
 
 
 class Settings(BaseSettings):
+    PAPER_RISK_LIMITS: RiskLimits = Field(default_factory=RiskLimits)
+    PAPER_SOAK_ENABLED: bool = True
+    PAPER_SOAK_INTERVAL_S: float = Field(default=60, ge=1)
     DATABASE_URL: str = "sqlite:///./stock_backtest.db"
     DB_POOL_SIZE: int = 10
     DB_MAX_OVERFLOW: int = 10
     DB_BOOTSTRAP_URL: str | None = None
     HOST: str = "0.0.0.0"
     PORT: int = 8808
-    CORS_ORIGINS: str = "http://localhost:5173,http://127.0.0.1:5173"
-    FRONTEND_ORIGIN: str = "http://localhost:5173"
+    CORS_ORIGINS: str = (
+        "http://localhost:5173,http://127.0.0.1:5173,"
+        "http://localhost:5174,http://127.0.0.1:5174"
+    )
+    FRONTEND_ORIGIN: str = "http://localhost:5174"
     KLINE_PROVIDER: str = "akshare"
     STOCK_LIST_PROVIDER: str = "akshare"
     MOOTDX_SERVERS: str = (
         "180.153.18.170:7709,180.153.18.171:7709,180.153.18.172:80"
     )
     MOOTDX_TIMEOUT_S: float = 3.0
+    MOOTDX_AUTO_DISCOVER: bool = True
+    REALTIME_SNAPSHOT_PROVIDER: str = "mootdx"
+    REALTIME_BARS_PROVIDER: str = "mootdx"
     # WebSocket 实时行情增量推送间隔（秒）
     REALTIME_WS_POLL_S: float = 10.0
     REALTIME_MEMORY_CACHE_MAX_ENTRIES: int = 512
@@ -32,6 +43,10 @@ class Settings(BaseSettings):
 
     # API 认证配置
     API_KEY: str | None = None  # 用于 API 认证的密钥，为 None 时表示禁用认证
+    # 浏览器登录账号（启动时写入 users 表）。AUTH_PASSWORD 未配置时回退到
+    # API_KEY，保证已有部署升级后仍能登录。
+    AUTH_USERNAME: str = "admin"
+    AUTH_PASSWORD: str | None = None
     SESSION_SECRET: str | None = None  # session cookie 签名密钥，默认用 API_KEY
     # 运行环境：development | production。production 下若 Session secret 仍为
     # 默认值，服务启动直接拒绝（防止用默认密钥上线）。
@@ -55,6 +70,7 @@ class Settings(BaseSettings):
     AGENT_CHAT_BACKEND: str = "native"
     AGENT_CHAT_MAX_STEPS: int = 6
     AGENT_CHAT_TIMEOUT_S: float = 600.0
+    AGENT_CHAT_MAX_WORKERS: int = 4
 
     # 代理配置
     USE_PROXY: bool = False

@@ -206,83 +206,18 @@ def run_strategy_backtest(
     Returns:
         Tuple of (trades, final_capital, metrics)
     """
-    # Create strategy instance with params
-    strategy_instance = type(strategy)(**params)
+    from dataclasses import asdict
 
-    # Generate signals
-    signal_data = strategy_instance.generate_signals(data.copy())
+    from app.services.backtest_simulation import daily_metrics, simulate_daily
 
-    if "signal" not in signal_data.columns:
-        raise ValueError("Strategy must generate 'signal' column")
-
-    # Simulate trading
-    capital = initial_capital
-    position = 0
-    trades = []
-
-    for idx, row in signal_data.iterrows():
-        if pd.isna(row.get("signal", 0)) or row.get("signal", 0) == 0:
-            continue
-
-        trade_signal = row.get("signal", 0)
-        trade_date = row.get("date", idx)
-        price = row["close"]
-
-        if trade_signal == 1 and position == 0:
-            # Buy signal and no position
-            shares = int(capital / price / 100) * 100
-            if shares > 0:
-                cost = shares * price
-                position = shares
-                capital -= cost
-
-                trades.append(
-                    {
-                        "date": trade_date,
-                        "action": "buy",
-                        "price": price,
-                        "quantity": shares,
-                        "amount": cost,
-                    }
-                )
-
-        elif trade_signal == -1 and position > 0:
-            # Sell signal and have position
-            proceeds = position * price
-            capital += proceeds
-
-            trades.append(
-                {
-                    "date": trade_date,
-                    "action": "sell",
-                    "price": price,
-                    "quantity": position,
-                    "amount": proceeds,
-                }
-            )
-
-            position = 0
-
-    # Close position at end if still open
-    if position > 0:
-        final_price = signal_data.iloc[-1]["close"]
-        proceeds = position * final_price
-        capital += proceeds
-
-        trades.append(
-            {
-                "date": signal_data.iloc[-1].get("date", signal_data.index[-1]),
-                "action": "sell",
-                "price": final_price,
-                "quantity": position,
-                "amount": proceeds,
-            }
-        )
-
-    # Calculate metrics
-    metrics = calculate_metrics(trades, initial_capital)
-
-    return trades, capital, metrics
+    signal_data = type(strategy)(**params).generate_signals(data.copy())
+    income = []
+    trades, capital, curve = simulate_daily(
+        signal_data, initial_capital, session_dates=data.attrs.get("session_dates"),
+        corporate_actions=data.attrs.get("corporate_actions"),
+        dividend_tax_rate=data.attrs.get("dividend_tax_rate", 0), action_ledger=income)
+    metrics = daily_metrics(trades, initial_capital, capital, curve, corporate_income=income)
+    return [asdict(trade) for trade in trades], capital, asdict(metrics)
 
 
 class ParameterOptimizer(ABC):

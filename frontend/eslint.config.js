@@ -10,14 +10,27 @@ export default tseslint.config(
   {
     files: ['**/*.{ts,tsx}'],
     plugins: {
-      'react-hooks': reactHooks
+      'react-hooks': reactHooks,
     },
     rules: {
       ...reactHooks.configs.recommended.rules,
       // 存量代码大量使用 any（API 响应等）；先降为 warn 暴露问题，
       // 后续逐步收紧。unused-vars 保持 error（阻断 CI）。
-      '@typescript-eslint/no-explicit-any': 'warn'
-    }
+      '@typescript-eslint/no-explicit-any': 'warn',
+    },
+  },
+  {
+    files: ['public/**/*.js'],
+    languageOptions: {
+      globals: {
+        document: 'readonly',
+        window: 'readonly',
+        IntersectionObserver: 'readonly',
+        URLSearchParams: 'readonly',
+        HTMLElement: 'readonly',
+        requestAnimationFrame: 'readonly',
+      },
+    },
   },
   {
     files: ['scripts/**/*.mjs'],
@@ -25,9 +38,12 @@ export default tseslint.config(
       globals: {
         URL: 'readonly',
         console: 'readonly',
-        process: 'readonly'
-      }
-    }
+        process: 'readonly',
+        fetch: 'readonly',
+        setTimeout: 'readonly',
+        sessionStorage: 'readonly',
+      },
+    },
   },
-  prettier
+  prettier,
 )

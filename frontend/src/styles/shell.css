@@ -1,0 +1,454 @@
+/* ============================================
+   Shell — open plane sidebar, editorial research terminal
+   Replaces the floating pill navigation.
+   ============================================ */
+
+.shell {
+  display: grid;
+  grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
+  min-height: 100vh;
+  background: var(--color-canvas);
+  color: var(--color-ink);
+}
+
+/* ---------- Sidebar ---------- */
+
+.shell-sidebar {
+  position: sticky;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  padding: 24px 16px 16px;
+  overflow-y: auto;
+  background: var(--color-canvas);
+  border-right: 1px solid var(--color-border);
+}
+
+.shell-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 24px;
+  padding: 0 8px;
+  color: var(--color-ink);
+  text-decoration: none;
+}
+
+.shell-brand:hover {
+  color: var(--color-ink);
+  text-decoration: none;
+}
+
+.shell-mark {
+  width: 24px;
+  height: 24px;
+  flex: none;
+  color: var(--color-accent);
+}
+
+.shell-brand-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.shell-brand-name {
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+
+.shell-brand-scope {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--color-text-tertiary);
+  white-space: nowrap;
+}
+
+.shell-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  height: 36px;
+  margin-bottom: 24px;
+  padding: 0 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color var(--transition-fast),
+    color var(--transition-fast),
+    background var(--transition-fast);
+}
+
+.shell-search .anticon {
+  font-size: 14px;
+  color: var(--color-text-tertiary);
+}
+
+.shell-search:hover {
+  border-color: var(--color-border-medium);
+  background: var(--color-white);
+  color: var(--color-ink);
+}
+
+.shell-search:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* ---------- Navigation ---------- */
+
+.shell-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.shell-nav-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 20px;
+}
+
+.shell-nav-group:first-child {
+  margin-top: 0;
+}
+
+.shell-nav-label {
+  padding: 0 8px;
+  margin-bottom: 6px;
+  color: var(--color-text-tertiary);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.shell-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 32px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.3;
+  text-align: left;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background var(--transition-fast),
+    color var(--transition-fast);
+}
+
+.shell-nav-item .anticon {
+  flex: none;
+  font-size: 16px;
+  color: #8a8a86;
+}
+
+.shell-nav-item:hover {
+  background: var(--color-bg-secondary);
+  color: var(--color-ink);
+  text-decoration: none;
+}
+
+.shell-nav-item:hover .anticon {
+  color: var(--color-ink);
+}
+
+.shell-nav-item.active {
+  background: var(--color-active);
+  color: var(--color-ink);
+  font-weight: 500;
+}
+
+.shell-nav-item.active .anticon {
+  color: var(--color-ink);
+}
+
+.shell-nav-item:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* ---------- Sidebar bottom ---------- */
+
+.shell-sidebar-bottom {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: auto;
+  padding-top: 16px;
+  border-top: 1px solid var(--color-border);
+}
+
+.shell-status {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 8px;
+  padding: 8px;
+  border-radius: 10px;
+  background: var(--color-surface);
+}
+
+.shell-status-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 20px;
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  line-height: 1.4;
+  text-decoration: none;
+}
+
+.shell-status-row:hover {
+  color: var(--color-ink);
+  text-decoration: none;
+}
+
+.shell-status-row strong {
+  color: var(--color-ink);
+  font-size: 13px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.shell-status-row strong.is-bad {
+  color: var(--color-danger);
+}
+
+.shell-status-dot {
+  width: 6px;
+  height: 6px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--color-border-strong);
+}
+
+.shell-status-dot.is-good {
+  background: var(--color-success);
+}
+
+.shell-status-dot.is-warn {
+  background: var(--color-warning);
+}
+
+.shell-status-dot.is-bad {
+  background: var(--color-danger);
+}
+
+.shell-status-note {
+  color: var(--color-text-tertiary);
+}
+
+.shell-copilot-btn {
+  width: 100%;
+}
+
+.shell-user {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 32px;
+  padding: 0 8px;
+  color: var(--color-text-tertiary);
+  font-size: 12px;
+}
+
+.shell-user button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--color-text-tertiary);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.shell-user button:hover {
+  background: var(--color-bg-secondary);
+  color: var(--color-ink);
+}
+
+.shell-user button:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* ---------- Canvas ---------- */
+
+.shell-main {
+  min-width: 0;
+}
+
+.shell-canvas {
+  width: 100%;
+  max-width: var(--content-max-width);
+  margin: 0 auto;
+  padding: 32px 32px 64px;
+}
+
+/* The floating nav is gone; pages that compensated for it must not keep the gap. */
+.page-header {
+  padding-top: 0;
+}
+
+/* ---------- Mobile top bar and sheet ---------- */
+
+.shell-mobilebar {
+  display: none;
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  align-items: center;
+  gap: 8px;
+  height: 48px;
+  padding: 0 8px;
+  background: var(--color-canvas);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.shell-mobile-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--color-ink);
+  font-size: 14px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.shell-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  flex: none;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--color-ink);
+  font-size: 18px;
+  cursor: pointer;
+}
+
+.shell-icon-btn:hover {
+  background: var(--color-bg-secondary);
+}
+
+.shell-icon-btn:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.shell-sheet {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  flex-direction: column;
+  padding: 16px;
+  overflow-y: auto;
+  background: var(--color-canvas);
+}
+
+.shell-sheet.open {
+  display: flex;
+}
+
+.shell-sheet-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.shell-sheet-head .shell-brand {
+  margin-bottom: 0;
+  padding-left: 0;
+}
+
+.shell-sheet .shell-search {
+  height: 44px;
+  margin-bottom: 20px;
+}
+
+.shell-sheet .shell-nav-group {
+  margin-top: 20px;
+}
+
+.shell-sheet .shell-nav-item {
+  min-height: 44px;
+  font-size: 15px;
+}
+
+.shell-sheet .shell-nav-item .anticon {
+  font-size: 18px;
+}
+
+.shell-sheet .shell-sidebar-bottom {
+  margin-top: 24px;
+}
+
+.shell-sheet .shell-status {
+  padding: 10px;
+}
+
+.shell-sheet .shell-status-row {
+  min-height: 24px;
+  font-size: 12px;
+}
+
+/* ---------- Responsive ---------- */
+
+@media (max-width: 1023px) {
+  .shell {
+    display: block;
+  }
+
+  .shell-sidebar {
+    display: none;
+  }
+
+  .shell-mobilebar {
+    display: flex;
+  }
+
+  .shell-canvas {
+    padding: 24px 24px 56px;
+  }
+}
+
+@media (max-width: 640px) {
+  .shell-canvas {
+    padding: 20px 16px 48px;
+  }
+}

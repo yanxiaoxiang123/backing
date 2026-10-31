@@ -6,7 +6,8 @@
 
 import hashlib
 import json
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
+from paper_evidence import seed_paper_evidence, risk_assessment
 
 import pandas as pd
 import pytest
@@ -131,12 +132,15 @@ def test_paper_propose_creates_order_and_approval(db):
     db.add(AgentRun(run_id="run-1", objective="测试"))
     db.add(Stock(code="sh.600519", name="贵州茅台", market="sh"))
     db.commit()
+    seed_paper_evidence(db, datetime.now(timezone.utc), code="sh.600519")
+    report = risk_assessment(db, datetime.now(timezone.utc), run_id="run-1", code="sh.600519")
     ctx = ToolContext(
         granted_permissions={"read", "approval"}, run_id="run-1", db=db
     )
     result = DEFAULT_REGISTRY.invoke(
         "execution.paper.propose_order",
-        {"stock_code": "sh.600519", "side": "buy", "quantity": 100},
+        {"stock_code": "sh.600519", "side": "buy", "quantity": 100,
+         "risk_artifact_id": report["artifact_id"]},
         ctx,
     )
     assert result["ok"] is True
@@ -184,7 +188,7 @@ def test_paper_propose_bad_lot_rejected(db):
     )
     result = DEFAULT_REGISTRY.invoke(
         "execution.paper.propose_order",
-        {"stock_code": "sh.600519", "side": "buy", "quantity": 150},
+        {"stock_code": "sh.600519", "side": "buy", "quantity": 150, "risk_artifact_id": 999},
         ctx,
     )
     assert result["ok"] is False

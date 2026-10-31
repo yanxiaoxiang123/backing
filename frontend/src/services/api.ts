@@ -1,5 +1,5 @@
 import axios from 'axios'
-import { message } from 'antd'
+import { toast } from '../utils/toast'
 import type {
   Stock,
   DailyKline,
@@ -28,6 +28,7 @@ import type {
   ScreenerResponse,
   CompareRequest,
   CompareResponse,
+  ResearchExecutionOptions,
 } from '../types'
 import { normalizeStockCode } from '../utils/stockIdentity'
 
@@ -94,6 +95,23 @@ export async function bootstrapAuth(): Promise<void> {
   } catch {
     setAuthState('unauthenticated')
   }
+}
+
+/**
+ * 用账号 + 密码换短期 HttpOnly session cookie。
+ *
+ * 密码只出现在本次请求体中，不落盘、不进 bundle、不随后续请求发送。
+ */
+export async function loginWithCredentials(
+  username: string,
+  password: string,
+): Promise<void> {
+  await axios.post(
+    '/api/v1/auth/session',
+    { username: username.trim(), password },
+    { baseURL: '' },
+  )
+  setAuthState('authenticated')
 }
 
 /** 用 API key 换短期 HttpOnly session cookie（key 不落盘、不进 bundle）。 */
@@ -179,7 +197,7 @@ api.interceptors.response.use(
   (error) => {
     if (!axios.isAxiosError(error)) {
       // 非网络错误 —— 透传并全局兜底提示
-      message.error(getApiErrorMessage(error))
+      toast.error(getApiErrorMessage(error))
       return Promise.reject(error)
     }
 
@@ -204,7 +222,7 @@ api.interceptors.response.use(
       apiError.userMessage = userMessage
     } else {
       // 网络层未知错误（无响应）：全局兜底提示
-      message.error(getApiErrorMessage(error))
+      toast.error(getApiErrorMessage(error))
     }
 
     return Promise.reject(error)
@@ -264,11 +282,13 @@ export async function getStockKline(
   code: string,
   startDate?: string,
   endDate?: string,
+  priceSource?: 'raw' | 'legacy',
 ): Promise<DailyKline[]> {
   const normalizedCode = canonicalStockCode(code)
   const params = new URLSearchParams()
   if (startDate) params.append('start_date', startDate)
   if (endDate) params.append('end_date', endDate)
+  if (priceSource) params.append('price_source', priceSource)
   const response = await api.get<DailyKline[]>(
     `/stocks/${encodeURIComponent(normalizedCode)}/kline?${params}`,
   )
@@ -415,16 +435,26 @@ export async function getBacktestResults(
   stockCode?: string,
   skip = 0,
   limit = 20,
-): Promise<BacktestListItem[]> {
+  strategyName?: string,
+  sort?: 'newest' | 'return',
+): Promise<{ items: BacktestListItem[]; total: number }> {
   const params = new URLSearchParams()
-  if (stockCode) params.append('stock_code', canonicalStockCode(stockCode))
+  if (stockCode?.trim()) params.append('stock_code', stockCode.trim())
+  if (strategyName?.trim()) params.append('strategy_name', strategyName.trim())
+  if (sort) params.append('sort', sort)
   params.append('skip', String(skip))
   params.append('limit', String(limit))
   const response = await api.get<BacktestListItem[]>(`/backtest/results?${params}`)
-  return response.data.map((item) => ({
+  const items = response.data.map((item) => ({
     ...item,
     stock_code: canonicalStockCode(item.stock_code),
   }))
+  const totalHeader =
+    response.headers['x-total-count'] ?? response.headers['X-Total-Count']
+  return {
+    items,
+    total: Number(totalHeader ?? items.length),
+  }
 }
 
 export async function getBacktestResult(id: number): Promise<BacktestResult> {
@@ -446,7 +476,7 @@ export async function getStrategy(strategyName: string): Promise<StrategyInfo> {
   return response.data
 }
 
-export interface SignalRequest {
+export interface SignalRequest extends ResearchExecutionOptions {
   strategy_name: string
   stock_code: string
   start_date: string
@@ -465,7 +495,7 @@ export async function generateSignals(request: SignalRequest): Promise<SignalRes
   }
 }
 
-export interface StrategyBacktestRequest {
+export interface StrategyBacktestRequest extends ResearchExecutionOptions {
   strategy_name: string
   stock_code: string
   start_date: string
@@ -487,7 +517,7 @@ export async function runStrategyBacktest(
   }
 }
 
-export interface OptimizeRequest {
+export interface OptimizeRequest extends ResearchExecutionOptions {
   strategy_name: string
   stock_code: string
   start_date: string
@@ -576,6 +606,24 @@ export async function getJobStatus<T = Record<string, unknown>>(
   signal?: AbortSignal,
 ): Promise<JobStatus<T>> {
   const response = await api.get<JobStatus<T>>(`/jobs/${jobId}`, { signal })
+  return response.data
+}
+
+export interface JobMetricCounter {
+  name: string
+  value: number
+  job_type?: string
+  [key: string]: unknown
+}
+
+export interface JobMetrics {
+  started_at: string
+  counters: JobMetricCounter[]
+  durations: Array<{ name: string; value_ms: number; [key: string]: unknown }>
+}
+
+export async function getJobMetrics(): Promise<JobMetrics> {
+  const response = await api.get<JobMetrics>('/jobs/metrics')
   return response.data
 }
 
@@ -713,6 +761,9 @@ export async function removeFromWatchlist(
 }
 
 // Screener API
+/**
+ * @deprecated Use `submitScreener()` for asynchronous background screening to avoid blocking HTTP requests.
+ */
 export async function runScreener(request: ScreenerRequest): Promise<ScreenerResponse> {
   const response = await api.post<ScreenerResponse>('/screener', request)
   return response.data

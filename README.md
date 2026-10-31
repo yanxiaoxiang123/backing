@@ -1,5 +1,89 @@
 # Backing
 
+### Quant foundation update (2026-10-30)
+
+Backend commands on this Windows workstation use the `backing` Conda environment.
+New backtests use prior-session signals and next-bar open execution, configurable
+fees/slippage, prior-session volume participation limits and daily-equity Sharpe.
+The optimizer uses the same simulation. Existing historical results are unchanged.
+Rates are research assumptions, not a historical exchange-rule database.
+Locked OHLC bars are conservatively blocked, residual exits are all-or-nothing,
+and positions remaining at the end are marked to market rather than forcibly sold.
+
+Run `python -m alembic upgrade head` before starting the updated backend. Revision
+`20261030_02` adds nullable backtest execution metadata. New records include source
+bars, signals, costs, a checksum and engine version; old records cannot be replayed.
+Authenticated endpoints:
+
+- `GET /api/v1/data/quality`: coverage and invalid OHLCV counts.
+- `GET /api/v1/data/backtests/{result_id}/replay`: replay saved inputs without providers.
+- `POST /api/v1/strategies/backtest`: optional `costs` object with `commission_rate`,
+  `minimum_commission`, `sell_tax_rate`, `transfer_rate`, `slippage_rate`,
+  `max_participation` and `lot_size`.
+
+Data synchronization commands (working directory `backend/`):
+
+```powershell
+conda run -n backing python data_sync_cli.py --quality-only
+conda run -n backing python data_sync_cli.py --codes sz.000001 sh.600000 --days 730
+conda run -n backing python data_sync_cli.py --days 730
+conda run -n backing python data_sync_cli.py --all --days 730
+```
+
+Without `--codes`/`--all`, synchronization uses the watchlist. Missing history or
+provider failures return exit code 2. Linux scheduler examples are in
+`deploy/systemd/stockbacking-data-sync.{service,timer}`; adapt installation paths
+and enable the timer on the intended host. These templates are not automatically
+installed. A verified exchange calendar, corporate actions and PIT adjustments are
+still required: coverage alone does not certify historical data correctness.
+Research runs no longer create hardcoded demonstration buy approvals.
+
+Implementation status: `docs/plans/2026-10-30-quant-platform-implementation.md`.
+
+### Versioned market data (2026-10-30, batch 2)
+
+Migration `20261030_03` adds raw-price batches with content checksums, dated
+exchange sessions, security observations (including delisted securities), and
+corporate-action/factor observations. Existing candles are archived explicitly as
+`legacy_unknown`; archival preserves the original rows. Raw and adjusted prices
+are never merged into the same query result. Observation time is distinct from
+effective date; missing publication times cannot support historical event queries.
+The factor semantics follow the [BaoStock adjustment-factor description](https://www.baostock.com/helpdocs/pdf/BaoStock%E5%A4%8D%E6%9D%83%E5%9B%A0%E5%AD%90%E7%AE%80%E4%BB%8B.pdf).
+
+The synchronization CLI now downloads versioned raw prices by default. Use
+`--legacy` only for the old adjusted-price synchronization path. Additional modes:
+
+```powershell
+conda run -n backing python data_sync_cli.py --archive-legacy
+conda run -n backing python data_sync_cli.py --calendar-only --days 730
+conda run -n backing python data_sync_cli.py --securities --codes sz.000001 --metadata
+conda run -n backing python data_sync_cli.py --all --report-file data/sync/full-market-report.json
+```
+
+`--metadata` requests corporate actions and factors. It stores provider payloads;
+it does not relabel an unverified publication date or automatically apply factors
+to old experiments. Ingestion checks all verified open sessions, including holes
+inside an existing date interval. Missing sessions remain explicit failures until
+verified suspension/status data or missing candles resolve them. API/CLI ingestion
+shares a process-held file lock on each database for this single-host deployment.
+
+The stock-management screen now displays real data coverage and supports a
+persisted raw-price download job for the current page. Authenticated endpoints:
+
+- `POST /api/v1/data/history/sync`: submit codes, start/end dates and optional metadata.
+- `GET /api/v1/data/history/{stock_code}`: raw-price history, provenance, optional
+  observation cutoff, and calendar-gap report.
+
+Windows installation: `deploy/windows/install-data-sync.ps1 -Python <backing-python>`.
+It registers `Backing-MarketDataSync` at 17:00 in the workstation's local timezone,
+with overlapping scheduled instances disabled. The current workstation uses
+Asia/Shanghai. The task uses the logged-in user token; unattended execution after
+logout requires an appropriate service account on the deployment host.
+
+Task startup recovery now preserves queued jobs and jobs with live execution
+leases. Only expired executions are requeued; restarting an API must not mark a
+different worker's live ingestion failed.
+
 基于 React + FastAPI 的股票研究与回测系统，包含以下核心能力：
 
 - **数据服务**：股票列表同步、K 线数据、技术指标计算
@@ -49,7 +133,6 @@ backend/
       dl_prediction.py        深度学习预测接口
     services/
       backtest_executor.py    统一回测执行器
-      backtest_engine.py      回测引擎核心
       indicator_service.py    技术指标计算（带缓存）
       screener_service.py     选股扫描服务
       realtime_service.py     实时行情服务
@@ -179,7 +262,7 @@ npm ci            # 或首次开发用 npm install
 npm run dev
 ```
 
-默认前端地址：`http://localhost:5173`（Vite 代理 `/api` 到 `:8808`）
+默认前端地址：`http://localhost:5174`（Vite 代理 `/api` 到 `:8808`）
 
 ### 3. 认证与会话
 
@@ -249,6 +332,73 @@ PR 由 [`.github/workflows/ci.yml`](.github/workflows/ci.yml) 强制执行上述
 - `GET /api/agent/{id}`
 - `GET /api/agent/indices`
 - `POST /api/agent/market/analyze`
+
+## 研究行情、公司行动与风险证据
+
+策略研究页默认使用原始价格及含分红送转的记账口径。先选择区间并点击
+“补齐研究数据”；数据不完整、分红登记/支付日期不明确时会拒绝执行。
+“仅价格收益”不计分红送转；旧行情兼容模式会明确标注复权口径未知。
+历史图表、信号、参数优化和回测使用统一行情选择逻辑，禁止在同一区间
+拼接原始价格与旧复权价格。
+
+```powershell
+cd backend
+python data_sync_cli.py --codes sh.600000 --days 730 --metadata
+# 独立补齐分红与全量复权因子，不与正在运行的价格补数争用同一个下载锁
+python data_sync_cli.py --codes sh.600000 --days 730 --metadata-only
+```
+
+分红按登记日持仓取得权益，除息日计应收现金，支付日才可使用；送转股
+上市前计入估值但不可卖出。分红税率是用户选择的固定研究假设，0 代表
+税前收益。缺少付款/上市日期、无法确定碎股分配、无法匹配的配股等除权
+事件会使 `verified` 口径失败，禁止静默忽略。交易前一已完成日的信号仅
+尝试在下一交易日执行；停牌日只记估值，不制造原始价格蜡烛。
+
+`GET /api/v1/data/history/{code}?start_date=...&end_date=...&adjustment=raw|qfq|hfq`
+返回来源批次、观察截止时间和覆盖检查。前后复权图是按当前可核验因子
+生成的回顾视图，不代表历史当时已知的信息，也不作为成交价格。
+因子算法依据 [BaoStock 官方复权说明](https://www.baostock.com/helpdocs/pdf/BaoStock%E5%A4%8D%E6%9D%83%E5%9B%A0%E5%AD%90%E7%AE%80%E4%BB%8B.pdf)。
+
+`GET /api/v1/data/backtests/{id}/replay` 从保存的输入、信号、交易日历、成本和
+公司行动快照重放；新结果包含执行快照校验和，不依赖后来修改的行情。
+全市场下载可能耗时较长；进度报告中失败或未处理证券不计为补数完成。
+下载适配器通过独立进程限制单次 SDK 请求为 45 秒，超时后关闭该连接并
+报告失败，不让阻塞的网络调用无限占用任务。
+
+Agent 工作台“风险”页可输入明确的目标权重、止损距离和理由。
+`POST /api/v1/agent-runs/{run_id}/risk` 接收 `targets`，每项包含
+`stock_code/target_weight/stop_loss_pct/reason`；可提供 `limits` 调整研究约束。
+创建 run 时也可用 `risk_request` 保存同一结构，供风险节点读取。
+服务端核对真实账户、T+1 可卖股数、在途委托资金、最新已完成日原始价格、
+集中度、止损风险及成交量容量，保存请求与评估证据。评估不会创建委托或
+审批。模拟委托的提议、审批及成交现在均要求绑定风险证据并重新核验；
+没有风险证据的历史未完成委托不会继续撮合。当前仍是单账户模型，
+多账户归属、角色权限和审批人员隔离尚待完成。
+
+## 组合研究
+
+启动前执行 `cd backend && alembic upgrade head`，新增实验表对应迁移
+`20261031_01`。前端侧栏“组合研究”（`/portfolio`）支持指定最多 20 只股票的
+目标权重、初始资金、再平衡频率与买入持有基准；权重不足 100% 的部分留在现金。
+选中股票或更换研究区间后，页面自动获取该区间的原始行情与分红送转，并显示进度。
+基准证券也会一起检查；已准备好的同区间数据会复用。获取失败可在页面内重试，
+点击运行时会先等待所选数据准备完成，再执行回测，无需跳到股票管理手工同步。
+
+组合共用一笔资金，按前一交易日收盘确定数量，下一交易日开盘先卖后买。
+资金不足时按比例缩减买单，成交量容量仅使用前一已完成交易日；停牌、一字板及
+未成交余量不会被延后到任意未来日期成交。每周/每月配置在当期首个交易日收盘后
+确定，随后开盘执行。成本、税率和滑点均为可修改的固定研究假设。
+
+默认要求原始行情、完整交易日历、停牌证据和分红送转覆盖；也可明确选择仅价格收益。
+这是用户指定股票集合的事后研究，不代表历史时点的自动选股结果或实盘表现。
+基准使用相同资金、成本和分红处理买入持有，不等同于指数发布收益。
+
+认证接口 `POST/GET /api/v1/portfolio-research` 创建或列出当前主体的实验，
+`GET /{experiment_id}` 查看结果，`POST /{experiment_id}/replay` 从保存输入重放，
+`GET /{experiment_id}/export` 下载完整 JSON 实验包（后三项均在同一路径前缀下）。
+行情、交易日历、公司行动与参数组成输入快照，输入快照和结果分别保存校验和；
+重放不读取后来修订的行情。
+该主体范围沿用现有登录/API key 认证，完整的多用户角色权限仍在后续计划中。
 
 ## 测试
 

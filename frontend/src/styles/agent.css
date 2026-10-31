@@ -7,7 +7,7 @@
   gap: 12px;
   height: calc(100dvh - var(--space-xl) - var(--space-xl));
   min-height: 0;
-  padding-top: 80px; /* 浮动导航让位（与其他页面 .page-header 一致） */
+  padding-top: 0; /* 侧栏外壳没有浮动导航需要让位 */
   align-items: stretch;
   overflow: hidden;
 }

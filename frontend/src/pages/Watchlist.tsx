@@ -18,6 +18,7 @@ import {
 } from '../components/research/InstrumentTable'
 import { useNavigate } from 'react-router-dom'
 import { PageHeader } from '../components/research/ResearchPrimitives'
+import { getMarketPollingInterval } from '../hooks/useDashboardData'
 
 function Watchlist() {
   const navigate = useNavigate()
@@ -39,12 +40,13 @@ function Watchlist() {
       watchlist.map((item) => normalizeStockCode(item.stock_code) ?? item.stock_code),
     [watchlist],
   )
+  const interval = getMarketPollingInterval()
   const quotesQuery = useQuery({
     queryKey: watchlistKeys.quotes(codes),
     queryFn: () => getRealtimeQuotes(codes),
     enabled: codes.length > 0,
-    staleTime: 10_000,
-    refetchInterval: 10_000,
+    staleTime: interval,
+    refetchInterval: () => getMarketPollingInterval(),
   })
   const stockPriceMap = useMemo<Record<string, DashboardStock>>(() => {
     const map: Record<string, DashboardStock> = {}

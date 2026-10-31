@@ -85,6 +85,23 @@ function turn(id: number, threadId: string, overrides: Record<string, unknown> =
   }
 }
 
+function deferred<T>() {
+  let resolve!: (value: T) => void
+  const promise = new Promise<T>((done) => {
+    resolve = done
+  })
+  return { promise, resolve }
+}
+
+function selection(seq: number, turnId: number, stockCode: string) {
+  return {
+    seq,
+    type: 'stock.selected',
+    turn_id: turnId,
+    payload: { stock_code: stockCode },
+  }
+}
+
 describe('useAgentChat', () => {
   beforeEach(() => {
     mocks.instances.length = 0
@@ -353,6 +370,120 @@ describe('useAgentChat', () => {
       })
     })
     expect(mocks.listThreads.mock.calls.length).toBeGreaterThan(before)
+  })
+
+  it('keeps confirmed stock before submit returns and ignores older replay', async () => {
+    mocks.getThread.mockResolvedValue({ thread: thread('t-stock'), turns: [] })
+    const submit = deferred<ReturnType<typeof turn>>()
+    mocks.submitTurn.mockReturnValue(submit.promise)
+    const { result } = renderHook(() => useAgentChat())
+    await act(async () => {
+      await result.current.selectThread('t-stock')
+    })
+    let sending!: Promise<void>
+    act(() => {
+      sending = result.current.send('000001.sz')
+    })
+    act(() => {
+      mocks.instances[0].emit(selection(4, 2, '000001.sz'))
+      mocks.instances[0].emit(selection(1, 1, 'sh.600000'))
+      mocks.instances[0].emit(selection(3, 2, 'sh.600000'))
+    })
+    expect(result.current.stockCode).toBe('sz.000001')
+    await act(async () => {
+      submit.resolve(turn(2, 't-stock'))
+      await sending
+    })
+    expect(result.current.stockCode).toBe('sz.000001')
+  })
+
+  it('clears selection immediately and ignores late events and submit on thread switch', async () => {
+    mocks.getThread.mockResolvedValueOnce({ thread: thread('a'), turns: [] })
+    const { result } = renderHook(() => useAgentChat())
+    await act(async () => {
+      await result.current.selectThread('a')
+    })
+    act(() => {
+      mocks.instances[0].emit(selection(1, 1, 'sz.000001'))
+    })
+    const submit = deferred<ReturnType<typeof turn>>()
+    mocks.submitTurn.mockReturnValue(submit.promise)
+    let sending!: Promise<void>
+    act(() => {
+      sending = result.current.send('消息')
+    })
+    const loading = deferred<{
+      thread: ReturnType<typeof thread>
+      turns: ReturnType<typeof turn>[]
+    }>()
+    mocks.getThread.mockReturnValueOnce(loading.promise)
+    let switching!: Promise<void>
+    act(() => {
+      switching = result.current.selectThread('b')
+    })
+    expect(result.current.stockCode).toBeNull()
+    act(() => {
+      mocks.instances[0].emit(selection(9, 1, 'sh.600000'))
+    })
+    await act(async () => {
+      submit.resolve(turn(2, 'a'))
+      await sending
+      loading.resolve({ thread: thread('b'), turns: [] })
+      await switching
+    })
+    expect(result.current.currentThread?.thread_id).toBe('b')
+    expect(result.current.messages).toEqual([])
+    expect(result.current.stockCode).toBeNull()
+  })
+
+  it('older history and replay cannot replace the latest confirmed stock', async () => {
+    mocks.getThread.mockResolvedValueOnce({
+      thread: thread('a'),
+      turns: [turn(20, 'a')],
+      has_more: true,
+    })
+    const { result } = renderHook(() => useAgentChat())
+    await act(async () => {
+      await result.current.selectThread('a')
+    })
+    act(() => {
+      mocks.instances[0].emit(selection(20, 20, 'sz.000001'))
+    })
+    mocks.getThread.mockResolvedValueOnce({
+      thread: thread('a'),
+      turns: [turn(1, 'a')],
+      has_more: false,
+    })
+    await act(async () => {
+      await result.current.loadOlder()
+    })
+    act(() => {
+      mocks.instances[0].emit(selection(1, 1, 'sh.600000'))
+    })
+    expect(result.current.stockCode).toBe('sz.000001')
+  })
+
+  it('a slower thread response cannot replace a newer selection', async () => {
+    const first = deferred<{
+      thread: ReturnType<typeof thread>
+      turns: ReturnType<typeof turn>[]
+    }>()
+    mocks.getThread
+      .mockReturnValueOnce(first.promise)
+      .mockResolvedValueOnce({ thread: thread('b'), turns: [] })
+    const { result } = renderHook(() => useAgentChat())
+    let oldSelection!: Promise<void>
+    act(() => {
+      oldSelection = result.current.selectThread('a')
+    })
+    await act(async () => {
+      await result.current.selectThread('b')
+    })
+    await act(async () => {
+      first.resolve({ thread: thread('a'), turns: [] })
+      await oldSelection
+    })
+    expect(result.current.currentThread?.thread_id).toBe('b')
   })
 
   it('URL 中的 thread_id 恢复会话', async () => {

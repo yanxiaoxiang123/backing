@@ -52,7 +52,7 @@ const tradeColumns = [
 function SignalStatsCard({ stats }: { stats: SignalStats }) {
   return (
     <Card title="信号历史表现" size="small">
-      <Descriptions column={2} size="small" bordered>
+      <Descriptions column={1} size="small" bordered>
         <Descriptions.Item label="买入信号">
           {stats.total_buy_signals}
         </Descriptions.Item>
@@ -105,14 +105,34 @@ function SignalStatsCard({ stats }: { stats: SignalStats }) {
 
 function MetricsCard({ result }: { result: StrategyBacktestResponse }) {
   const { metrics } = result
+  const metadata = result.execution_metadata
+  const lastValue = result.portfolio_values?.[result.portfolio_values.length - 1]
   return (
-    <Card title="绩效指标">
-      <Descriptions column={2} size="small" bordered>
+    <Card title="绩效指标" styles={{ body: { padding: 'var(--space-sm)' } }}>
+      <Descriptions column={1} size="small" bordered>
         <Descriptions.Item label="历史记录">
           <Link to="/history">#{result.result_id} · 查看历史</Link>
         </Descriptions.Item>
         <Descriptions.Item label="策略">{result.strategy_name}</Descriptions.Item>
         <Descriptions.Item label="股票">{result.stock_code}</Descriptions.Item>
+        <Descriptions.Item label="行情口径">
+          {metadata?.data_provenance?.adjustment === 'raw'
+            ? '原始价格'
+            : '旧行情，复权口径未知'}
+        </Descriptions.Item>
+        <Descriptions.Item label="收益口径">
+          {metadata?.corporate_action_mode === 'verified'
+            ? `含分红送转，分红税率假设 ${((metadata.dividend_tax_rate ?? 0) * 100).toFixed(1)}%`
+            : '价格收益，未计分红送转'}
+        </Descriptions.Item>
+        <Descriptions.Item label="交易费用">
+          {result.trades
+            .reduce((total, trade) => total + (trade.fees ?? 0), 0)
+            .toFixed(2)}
+        </Descriptions.Item>
+        <Descriptions.Item label="期末应收分红">
+          {(lastValue?.receivable ?? 0).toFixed(2)}
+        </Descriptions.Item>
         <Descriptions.Item label="回测区间">
           {result.start_date} 至 {result.end_date}
         </Descriptions.Item>

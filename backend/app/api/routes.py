@@ -1,7 +1,7 @@
 import logging
 import re
 from datetime import date
-from typing import List, Optional
+from typing import List, Literal, Optional
 
 from fastapi import (
     APIRouter,
@@ -29,6 +29,7 @@ from app.models.models import (
     BacktestResult,
     DailyKline,
     Stock,
+    Strategy,
     WatchlistItem,
 )
 from app.schemas.schemas import (
@@ -39,7 +40,9 @@ from app.schemas.schemas import (
     StockResponse,
     SyncResponse,
 )
-from app.services.backtest_engine import BacktestEngine
+from app.services.backtest_executor import BacktestExecutor
+from app.services.market_research_prices import load_research_bars
+from app.services.corporate_actions import adjusted_history
 from app.services.baostock_service import baostock_service
 from app.services.dashboard_service import DashboardService
 from app.services.indicator_service import indicator_service
@@ -205,9 +208,10 @@ def get_stocks(
         stocks = query.order_by(Stock.id.asc()).offset(offset).limit(limit).all()
     else:
         # Cursor-based: fetch stocks with id > cursor
+        total = query.count()
+        response.headers["X-Total-Count"] = str(total)
         query = query.filter(Stock.id > cursor)
         query = query.order_by(Stock.id.asc())
-        response.headers["X-Total-Count"] = str(query.count())
         stocks = query.limit(limit).all()
     return stocks
 
@@ -330,18 +334,26 @@ def get_stock_kline(
     code: str,
     start_date: date = Query(None),
     end_date: date = Query(None),
+    price_source: Literal["auto", "raw", "legacy"] = Query("auto"),
+    adjustment: Literal["raw", "qfq", "hfq"] | None = Query(None),
     db: Session = Depends(get_db),
     _: str = Depends(get_current_api_key),
 ):
     """Get stock kline data"""
     code = _resolve_stock_code(db, code)
-    query = db.query(DailyKline).filter(DailyKline.stock_code == code)
-    if start_date:
-        query = query.filter(DailyKline.date >= start_date)
-    if end_date:
-        query = query.filter(DailyKline.date <= end_date)
-    klines = query.order_by(DailyKline.date).all()
-    return klines
+    try:
+        if adjustment in {"qfq", "hfq"}:
+            frame, provenance = adjusted_history(db, code, start_date or date(1990, 1, 1),
+                                                   end_date or date.today(), mode=adjustment)
+        else:
+            frame = load_research_bars(db, code, start_date or date(1990, 1, 1), end_date or date.today(),
+                                      source="raw" if adjustment == "raw" else price_source,
+                                      require_complete=False)
+            provenance = frame.attrs["provenance"]
+    except ValueError as exc:
+        raise ValidationError(detail=str(exc)) from exc
+    return [{**row, "stock_code": code, "adjustment": provenance["adjustment"],
+             "versioned": provenance["versioned"]} for row in frame.to_dict(orient="records")]
 
 
 @router.get("/dashboard")
@@ -516,15 +528,19 @@ def run_backtest(
 ):
     """Run backtest"""
     try:
-        engine = BacktestEngine(db)
-        result = engine.run_backtest(
+        executor = BacktestExecutor(db)
+        execution = executor.execute(
+            strategy_name=request.strategy_type,
             stock_code=request.stock_code,
-            strategy_type=request.strategy_type,
             start_date=request.start_date,
             end_date=request.end_date,
             initial_capital=request.initial_capital,
             parameters=request.parameters,
+            price_source=request.price_source,
+            corporate_action_mode=request.corporate_action_mode,
+            dividend_tax_rate=request.dividend_tax_rate,
         )
+        result = executor.persist(execution)
     except ValueError as exc:
         raise ValidationError(detail=str(exc)) from exc
 
@@ -535,19 +551,46 @@ def run_backtest(
 
 @router.get("/backtest/results", response_model=List[BacktestListResponse])
 def get_backtest_results(
+    response: Response,
     db: Session = Depends(get_db),
-    stock_code: str = Query(None),
+    stock_code: Optional[str] = Query(None, description="Filter by stock code"),
+    strategy_name: Optional[str] = Query(None, description="Filter by strategy name"),
+    sort: Optional[str] = Query(None, description="Sort order: newest or return"),
     skip: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
     _: str = Depends(get_current_api_key),
 ):
-    """Get backtest results list"""
+    """Get backtest results list with total count and filters"""
     query = db.query(BacktestResult).options(joinedload(BacktestResult.strategy))
     if stock_code:
-        query = query.filter(BacktestResult.stock_code == stock_code)
-    results = (
-        query.order_by(BacktestResult.created_at.desc()).offset(skip).limit(limit).all()
-    )
+        sc = stock_code.strip()
+        try:
+            from app.domain.stock_codes import normalize_stock_code
+
+            canonical = normalize_stock_code(sc)
+            query = query.filter(
+                (BacktestResult.stock_code.ilike(f"%{sc}%"))
+                | (BacktestResult.stock_code == canonical)
+            )
+        except Exception:
+            query = query.filter(BacktestResult.stock_code.ilike(f"%{sc}%"))
+    if strategy_name:
+        sn = strategy_name.strip()
+        query = query.join(BacktestResult.strategy).filter(
+            Strategy.name.ilike(f"%{sn}%")
+        )
+
+    total = query.count()
+    response.headers["X-Total-Count"] = str(total)
+
+    if sort == "return":
+        query = query.order_by(
+            BacktestResult.total_return.desc(), BacktestResult.created_at.desc()
+        )
+    else:
+        query = query.order_by(BacktestResult.created_at.desc())
+
+    results = query.offset(skip).limit(limit).all()
     return results
 
 
@@ -558,7 +601,10 @@ def get_backtest_result(
     """Get backtest result by ID"""
     result = (
         db.query(BacktestResult)
-        .options(joinedload(BacktestResult.trades))
+        .options(
+            joinedload(BacktestResult.trades),
+            joinedload(BacktestResult.strategy),
+        )
         .filter(BacktestResult.id == result_id)
         .first()
     )

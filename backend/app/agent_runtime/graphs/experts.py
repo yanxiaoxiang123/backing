@@ -414,56 +414,31 @@ def backtest_critic_node(
 
 def portfolio_risk_node(stock_code: str) -> RuntimeNode:
     def run(ctx: NodeContext) -> dict[str, Any]:
-        record_tool_call(ctx, "portfolio.constraints", {"positions": [
-            {"code": stock_code, "action": "buy", "weight": 0.1},
-        ]})
+        from app.services.paper_risk_assessment import assess_saved_risk_request
+
+        reason = "缺少经验证的目标仓位、账户风险预算和历史交易状态，禁止生成演示买单"
+        if ctx.db is not None:
+            try:
+                assessment = assess_saved_risk_request(ctx.db, ctx.run_id, as_of=ctx.as_of)
+                if assessment is not None:
+                    record_tool_call(ctx, "portfolio.risk", {"evidence_sha256": assessment["evidence_sha256"]})
+                    return {"output": assessment["proposal"], "output_schema": "PortfolioProposal"}
+            except ValueError as exc:
+                reason = str(exc)
+        # Research completion is not evidence for a trade direction or size.
+        # An executable proposal requires verified account/risk inputs first.
         proposal = PortfolioProposal(
             run_id=ctx.run_id,
-            positions=[{"code": stock_code, "action": "buy", "weight": 0.1, "confidence": 0.5}],
-            exposures=ExposureSummary(
-                sector_exposure={"unknown": 0.1},
-                single_stock_max_pct=0.1,
-                liquidity_note="演示流动性说明",
-            ),
-            constraints=[
-                ConstraintResult(rule="position_weight_sum", passed=True, detail="权重合计 0.1"),
-                ConstraintResult(rule="lot_size", passed=True, detail="整手"),
-                ConstraintResult(rule="t_plus_1", passed=True, detail="无同日买卖"),
-            ],
-            risk_budget_used_pct=0.1,
-            rejected=False,
+            positions=[],
+            exposures=ExposureSummary(),
+            constraints=[ConstraintResult(
+                rule="execution_evidence", passed=False,
+                detail=reason,
+            )],
+            risk_budget_used_pct=0.0,
+            rejected=True,
+            rejection_reasons=["研究完成不代表交易风控通过；请提供完整组合提案"],
         )
-        # 组合风控通过后，提议一笔小规模模拟盘订单（生成审批卡；不自动成交）。
-        # 无审批任何订单不成交（撮合层拒绝 pending 订单；US-3.2）。
-        if not proposal.rejected:
-            from app.tools import DEFAULT_REGISTRY
-            from app.tools.base import ToolContext as GatewayContext
-
-            gateway = GatewayContext(
-                db=ctx.db,
-                stores=ctx.stores,
-                run_id=ctx.run_id,
-                granted_permissions={"read", "approval"},
-                as_of=ctx.as_of,
-            )
-            env = DEFAULT_REGISTRY.invoke(
-                "execution.paper.propose_order",
-                {
-                    "stock_code": stock_code,
-                    "side": "buy",
-                    "quantity": 100,
-                    "trigger_note": "组合风控通过后的演示订单（审批后下一交易日撮合）",
-                },
-                gateway,
-            )
-            if not env.get("ok"):
-                proposal.constraints.append(
-                    ConstraintResult(
-                        rule="paper_propose",
-                        passed=False,
-                        detail=f"模拟盘订单提议失败: {env.get('error', {}).get('message', 'unknown')}",
-                    )
-                )
         return {"output": proposal.model_dump(mode="json"), "output_schema": "PortfolioProposal"}
 
     return SimpleNode("portfolio_risk", run)

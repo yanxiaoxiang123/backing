@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   Card,
@@ -306,6 +306,21 @@ export default function AgentAnalysis() {
     }
   }
 
+  const chartOption = useMemo(
+    () => getLightChartOption(stockIndicators),
+    [stockIndicators],
+  )
+
+  const printTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    return () => {
+      if (printTimerRef.current) {
+        clearTimeout(printTimerRef.current)
+      }
+    }
+  }, [])
+
   const exportPdf = (r: AgentAnalyzeResponse) => {
     const html = buildAgentReportHtml(r)
     const win = window.open('', '_blank')
@@ -316,8 +331,20 @@ export default function AgentAnalysis() {
     win.document.write(html)
     win.document.close()
     win.focus()
-    // 延迟等待渲染完成后触发打印
-    setTimeout(() => win.print(), 500)
+    if (printTimerRef.current) {
+      clearTimeout(printTimerRef.current)
+    }
+    // 延迟等待渲染完成后触发打印，支持组件卸载清理与窗口关闭保护
+    printTimerRef.current = setTimeout(() => {
+      try {
+        if (win && !win.closed) {
+          win.print()
+        }
+      } catch {
+        // window closed or inaccessible
+      }
+      printTimerRef.current = null
+    }, 500)
   }
 
   const handleViewDetail = (record: AnalysisRecord) => {
@@ -467,7 +494,7 @@ export default function AgentAnalysis() {
               }
             >
               <LazyECharts
-                option={getLightChartOption(stockIndicators)}
+                option={chartOption}
                 style={{ height: 300 }}
                 opts={{ renderer: 'canvas' }}
               />

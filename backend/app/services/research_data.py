@@ -138,27 +138,58 @@ def _params_hash(params: dict[str, Any]) -> str:
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
-def _connect() -> sqlite3.Connection:
-    os.makedirs(_CACHE_DIR, exist_ok=True)
-    conn = sqlite3.connect(_CACHE_DB, check_same_thread=False)
-    conn.execute("PRAGMA journal_mode=WAL")
-    conn.execute(
-        """
-        CREATE TABLE IF NOT EXISTS research_cache (
-            tool TEXT NOT NULL,
-            params_hash TEXT NOT NULL,
-            payload TEXT NOT NULL,
-            source_id TEXT,
-            as_of TEXT,
-            vendor TEXT,
-            data_version TEXT,
-            fetched_at TEXT NOT NULL,
-            PRIMARY KEY (tool, params_hash)
+_persistent_conn: sqlite3.Connection | None = None
+_persistent_conn_path: str | None = None
+
+
+def _get_connection() -> sqlite3.Connection:
+    global _persistent_conn, _persistent_conn_path
+    if _persistent_conn is not None and _persistent_conn_path != _CACHE_DB:
+        try:
+            _persistent_conn.close()
+        except Exception:
+            pass
+        _persistent_conn = None
+        _persistent_conn_path = None
+
+    if _persistent_conn is None:
+        db_dir = os.path.dirname(_CACHE_DB)
+        if db_dir:
+            os.makedirs(db_dir, exist_ok=True)
+        conn = sqlite3.connect(_CACHE_DB, check_same_thread=False)
+        conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS research_cache (
+                tool TEXT NOT NULL,
+                params_hash TEXT NOT NULL,
+                payload TEXT NOT NULL,
+                source_id TEXT,
+                as_of TEXT,
+                vendor TEXT,
+                data_version TEXT,
+                fetched_at TEXT NOT NULL,
+                PRIMARY KEY (tool, params_hash)
+            )
+            """
         )
-        """
-    )
-    conn.commit()
-    return conn
+        conn.commit()
+        _persistent_conn = conn
+        _persistent_conn_path = _CACHE_DB
+    return _persistent_conn
+
+
+def close_cache_db() -> None:
+    """关闭持久化 SQLite 连接（测试/进程退出用）。"""
+    global _persistent_conn, _persistent_conn_path
+    with _CACHE_LOCK:
+        if _persistent_conn is not None:
+            try:
+                _persistent_conn.close()
+            except Exception:
+                pass
+            _persistent_conn = None
+            _persistent_conn_path = None
 
 
 def cache_get(
@@ -175,15 +206,12 @@ def cache_get(
             if isinstance(payload, dict) and "payload" in payload:
                 return payload
     with _CACHE_LOCK:
-        conn = _connect()
-        try:
-            row = conn.execute(
-                "SELECT payload, source_id, as_of, vendor, data_version, fetched_at "
-                "FROM research_cache WHERE tool = ? AND params_hash = ?",
-                (tool, ph),
-            ).fetchone()
-        finally:
-            conn.close()
+        conn = _get_connection()
+        row = conn.execute(
+            "SELECT payload, source_id, as_of, vendor, data_version, fetched_at "
+            "FROM research_cache WHERE tool = ? AND params_hash = ?",
+            (tool, ph),
+        ).fetchone()
     if row is None:
         return None
     entry = {
@@ -221,26 +249,23 @@ def cache_put(
 ) -> None:
     ph = _params_hash(params)
     with _CACHE_LOCK:
-        conn = _connect()
-        try:
-            conn.execute(
-                "INSERT OR REPLACE INTO research_cache "
-                "(tool, params_hash, payload, source_id, as_of, vendor, "
-                " data_version, fetched_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                (
-                    tool,
-                    ph,
-                    json.dumps(payload, ensure_ascii=False, default=str),
-                    source_id,
-                    as_of,
-                    vendor,
-                    data_version,
-                    _as_of(),
-                ),
-            )
-            conn.commit()
-        finally:
-            conn.close()
+        conn = _get_connection()
+        conn.execute(
+            "INSERT OR REPLACE INTO research_cache "
+            "(tool, params_hash, payload, source_id, as_of, vendor, "
+            " data_version, fetched_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                tool,
+                ph,
+                json.dumps(payload, ensure_ascii=False, default=str),
+                source_id,
+                as_of,
+                vendor,
+                data_version,
+                _as_of(),
+            ),
+        )
+        conn.commit()
     ttl = _RESEARCH_TTLS.get(tool, 300.0)
     if research_cache.enabled:
         research_cache.set(

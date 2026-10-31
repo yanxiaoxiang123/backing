@@ -30,6 +30,7 @@ export type ChatEventType =
   | 'tool_call'
   | 'tool_result'
   | 'run.linked'
+  | 'stock.selected'
   | 'turn.done'
   | 'error'
 

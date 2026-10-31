@@ -10,11 +10,17 @@ from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from starlette.middleware.sessions import SessionMiddleware
 
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
+
 from app.api.auth import router as auth_router
 from app.config import (
     DEV_SESSION_SECRET,
+    Base,
     Settings,
     assert_safe_production_settings,
+    get_db,
     settings,
 )
 from app.error_handlers import register_error_handlers
@@ -54,6 +60,24 @@ def client():
     @app.get("/session-only")
     def session_only(request: Request) -> JSONResponse:
         return JSONResponse({"session": request.session.get("authenticated")})
+
+    # 登录路由依赖 users 表：用内存库隔离，避免触碰开发数据库。
+    engine = create_engine(
+        "sqlite://",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    Base.metadata.create_all(engine)
+    factory = sessionmaker(bind=engine, autoflush=False, autocommit=False)
+
+    def override_get_db():
+        db = factory()
+        try:
+            yield db
+        finally:
+            db.close()
+
+    app.dependency_overrides[get_db] = override_get_db
 
     original_key = settings.API_KEY
     original_samesite = settings.SESSION_SAMESITE

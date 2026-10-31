@@ -18,6 +18,8 @@ dist/
 build/
 *.log
 logs/*.log
+*.out
+logs/*.out
 backend/models/llm/
 # agent eval LLM response cache (generated, never commit)
 backend/evals/cache/
@@ -32,3 +34,6 @@ backend/data/
 
 # optional local DeepSeek Harness checkout (large upstream repository)
 deepseek-harness/
+
+# design review working files (direction sheet, screenshots, inspection harness)
+.taste-skill/

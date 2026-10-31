@@ -79,6 +79,32 @@ def test_backtest_executor_persists_reproducible_snapshot():
     assert saved.portfolio_values
     assert saved.portfolio_values[-1]["total_value"] == execution.final_capital
     assert len(saved.trades) == len(execution.trades)
+    assert saved.execution_metadata["engine_version"] == "daily-next-open-v1"
+    assert saved.execution_metadata["input_bars"]
+    assert len(saved.execution_metadata["input_sha256"]) == 64
+    # Live data corrections cannot alter a previously saved execution.
+    session.query(DailyKline).filter(DailyKline.stock_code == "sh.600000").delete()
+    session.commit()
+    assert executor.replay(saved.id)["reproduced"] is True
+
+
+def test_optimizer_and_normal_backtest_share_execution_and_metrics():
+    from dataclasses import asdict
+
+    from app.services.strategy.optimizer import run_strategy_backtest
+
+    session = build_session()
+    seed_market_data(session)
+    executor = BacktestExecutor(session)
+    params = {"short_period": 2, "long_period": 3}
+    execution = executor.execute("ma_cross", "sh.600000", date(2024, 1, 1),
+                                 date(2024, 1, 12), parameters=params)
+    frame = executor.get_kline_data("sh.600000", date(2024, 1, 1), date(2024, 1, 12))
+    strategy = StrategyRegistry.get("ma_cross")()
+    trades, value, metrics = run_strategy_backtest(strategy, frame, params)
+    assert trades == [asdict(trade) for trade in execution.trades]
+    assert round(value, 2) == execution.final_capital
+    assert metrics == asdict(execution.metrics)
 
 
 def test_all_registered_strategies_accept_numeric_database_values():

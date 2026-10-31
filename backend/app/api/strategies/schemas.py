@@ -5,9 +5,11 @@ payload contracts can evolve independently.
 """
 
 from datetime import date
-from typing import Any
+from typing import Any, Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+from app.services.backtest_simulation import ExecutionCosts
+from app.services.market_research_prices import PriceSource
 
 
 class StrategyInfo(BaseModel):
@@ -26,7 +28,13 @@ class StrategyDetailResponse(BaseModel):
     parameters: dict[str, Any]
 
 
-class SignalRequest(BaseModel):
+class ResearchPriceRequest(BaseModel):
+    price_source: PriceSource = "auto"
+    corporate_action_mode: Literal["price_only", "verified"] = "price_only"
+    dividend_tax_rate: float = Field(0.0, ge=0, le=1, allow_inf_nan=False)
+
+
+class SignalRequest(ResearchPriceRequest):
     """Request model for generating trading signals."""
 
     strategy_name: str
@@ -61,6 +69,7 @@ class SignalResponse(BaseModel):
     end_date: date
     data: list[dict[str, Any]]
     stats: dict[str, Any] | None = None
+    data_provenance: dict[str, Any] | None = None
 
 
 class SignalStats(BaseModel):
@@ -79,7 +88,7 @@ class SignalStats(BaseModel):
     consecutive_losses: int = 0
 
 
-class BacktestRequest(BaseModel):
+class BacktestRequest(ResearchPriceRequest):
     """Request model for running backtest."""
 
     strategy_name: str
@@ -88,6 +97,7 @@ class BacktestRequest(BaseModel):
     end_date: date
     initial_capital: float = 100000
     parameters: dict[str, Any] | None = {}
+    costs: ExecutionCosts | None = None
 
 
 class BacktestTradeItem(BaseModel):
@@ -98,6 +108,7 @@ class BacktestTradeItem(BaseModel):
     price: float
     quantity: int
     amount: float
+    fees: float = 0.0
 
 
 class BacktestMetrics(BaseModel):
@@ -120,6 +131,8 @@ class PortfolioValueItem(BaseModel):
     cash: float
     position_value: float
     position: int
+    receivable: float = 0.0
+    pending_shares: int = 0
 
 
 class BacktestResponse(BaseModel):
@@ -137,9 +150,10 @@ class BacktestResponse(BaseModel):
     metrics: BacktestMetrics
     portfolio_values: list[PortfolioValueItem] | None = None
     parameters: dict[str, Any] | None = None
+    execution_metadata: dict[str, Any] | None = None
 
 
-class OptimizeRequest(BaseModel):
+class OptimizeRequest(ResearchPriceRequest):
     """Request model for parameter optimization."""
 
     strategy_name: str
@@ -171,6 +185,7 @@ class OptimizeResponse(BaseModel):
     best_metrics: dict[str, float]
     total_combinations: int
     all_results: list[OptimizeResultItem]
+    data_provenance: dict[str, Any] | None = None
 
 
 class OptimizeSubmitResponse(BaseModel):
@@ -179,7 +194,7 @@ class OptimizeSubmitResponse(BaseModel):
     message: str
 
 
-class CompareRequest(BaseModel):
+class CompareRequest(ResearchPriceRequest):
     """Request model for comparing all strategies on a stock."""
 
     stock_code: str

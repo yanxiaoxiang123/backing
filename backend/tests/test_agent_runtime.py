@@ -13,7 +13,10 @@ from langgraph.graph import END, StateGraph
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from app.agent_runtime.events import iter_run_events
+from app.agent_runtime.events import (
+    iter_incremental_run_events,
+    iter_run_events,
+)
 from app.agent_runtime.facade import (
     build_tradingagents_graph,
     get_langgraph_checkpointer,
@@ -178,6 +181,53 @@ def test_events_replay_monotonic(stores):
     # tool 事件紧跟其 step 之后
     step_idx = next(i for i, e in enumerate(events) if e["type"] == "step" and e["seq"] == 2)
     assert events[step_idx + 1]["type"] == "tool_call"
+
+
+def test_incremental_run_events(stores):
+    executor = RunExecutor(stores)
+    run_id = executor.create_run("增量事件测试")
+
+    # 1. 初始状态：无 step 无 tool_call
+    events1, seq1, tool1 = iter_incremental_run_events(stores, run_id, after_seq=0, after_tool_id=0)
+    assert events1 == []
+    assert seq1 == 0
+    assert tool1 == 0
+
+    # 2. 模拟 step 1 与 tool call 1
+    s1 = stores.steps.create_step(run_id=run_id, seq=1, node="node_a", status="running")
+    tc1 = stores.tool_calls.create_tool_call(
+        run_id=run_id,
+        step_id=s1["id"],
+        tool_name="market.snapshot",
+        params_hash="hash1",
+        params_json={"code": "sh.600000"},
+    )
+    events2, seq2, tool2 = iter_incremental_run_events(stores, run_id, after_seq=seq1, after_tool_id=tool1)
+    assert len(events2) == 2
+    assert events2[0]["type"] == "step" and events2[0]["seq"] == 1
+    assert events2[1]["type"] == "tool_call" and events2[1]["tool"] == "market.snapshot"
+    assert seq2 == 1
+    assert tool2 == tc1["id"]
+
+    # 3. 在没有新产生事件时轮询：返回空列表，游标保持
+    events3, seq3, tool3 = iter_incremental_run_events(stores, run_id, after_seq=seq2, after_tool_id=tool2)
+    assert events3 == []
+    assert seq3 == seq2
+    assert tool3 == tool2
+
+    # 4. 模拟 step 2
+    stores.steps.create_step(run_id=run_id, seq=2, node="node_b", status="completed")
+    events4, seq4, tool4 = iter_incremental_run_events(stores, run_id, after_seq=seq3, after_tool_id=tool3)
+    assert len(events4) == 1
+    assert events4[0]["type"] == "step" and events4[0]["seq"] == 2
+    assert seq4 == 2
+    assert tool4 == tool3  # 无新 tool call
+
+    # 5. 校验增量合并与全量 iter_run_events 结果完全一致
+    all_incremental = events2 + events4
+    all_replay = iter_run_events(stores, run_id)
+    assert len(all_incremental) == len(all_replay)
+    assert [e["type"] for e in all_incremental] == [e["type"] for e in all_replay]
 
 
 def test_find_tool_call_dedup(stores):

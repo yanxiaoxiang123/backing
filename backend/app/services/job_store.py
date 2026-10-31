@@ -59,20 +59,24 @@ class JobStore:
     # ------------------------------------------------------------------
 
     def reset_stale_jobs(self, *, db: Optional[Session] = None) -> int:
-        """Mark all non-terminal jobs as failed.
+        """Requeue expired executions while preserving queued/live leased work.
 
-        Called on application startup because any in-flight background task
-        was killed when the previous process shut down.
+        A second API/worker starting cannot invalidate another worker's jobs.
+        Runners must remain idempotent because an expired execution can resume.
         """
         with self._session(db) as (session, _owned):
             count = (
                 session.query(JobDbRecord)
-                .filter(JobDbRecord.status.in_(_ACTIVE))
+                .filter(
+                    JobDbRecord.status == "running",
+                    or_(JobDbRecord.lease_until.is_(None), JobDbRecord.lease_until <= datetime.now(timezone.utc).replace(tzinfo=None)),
+                )
                 .update(
                     {
-                        JobDbRecord.status: "failed",
-                        JobDbRecord.error: "Server restarted",
-                        JobDbRecord.message: "Job aborted due to server restart",
+                        JobDbRecord.status: "pending",
+                        JobDbRecord.error: None,
+                        JobDbRecord.lease_until: None,
+                        JobDbRecord.message: "Expired execution requeued after restart",
                     },
                     synchronize_session=False,
                 )

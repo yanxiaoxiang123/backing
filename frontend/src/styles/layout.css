@@ -246,7 +246,7 @@
    ============================================ */
 .page-header {
   margin-bottom: var(--space-xl);
-  padding-top: 80px; /* Account for fixed nav */
+  padding-top: 0; /* The sidebar shell has no floating nav to clear. */
 }
 
 .page-title {
@@ -260,4 +260,53 @@
 .page-subtitle {
   font-size: var(--font-size-sm);
   color: var(--color-text-secondary);
+}
+
+/* ============================================
+   6. Research Copilot Trigger (Nav Pill)
+   ============================================ */
+.research-copilot-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--color-border-medium);
+  border-radius: var(--radius-pill);
+  color: var(--color-ink);
+  background: var(--color-surface-subtle);
+  cursor: pointer;
+  font-size: var(--font-size-xs);
+  white-space: nowrap;
+}
+
+.research-copilot-trigger:hover {
+  border-color: var(--color-accent-blue);
+  color: var(--color-accent-blue);
+}
+
+.copilot-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.copilot-title .anticon {
+  color: var(--color-accent-blue);
+}
+
+.copilot-title small {
+  color: var(--color-text-tertiary);
+  font-weight: 400;
+}
+
+@media (max-width: 767px) {
+  .research-copilot-trigger span {
+    display: none;
+  }
+  .research-copilot-trigger {
+    width: 36px;
+    justify-content: center;
+    padding: 0;
+  }
 }

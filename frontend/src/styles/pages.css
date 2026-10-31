@@ -836,35 +836,7 @@
   }
 }
 
-/* ===== 登录页 ===== */
-.login-page {
-  min-height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: var(--space-lg);
-  background: var(--color-bg);
-}
-
-.login-card {
-  width: 100%;
-  max-width: 380px;
-  padding: var(--space-xl);
-  background: var(--color-canvas-lifted);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-card);
-  box-shadow: var(--shadow-card);
-}
-
-.login-title {
-  margin-bottom: var(--space-xs) !important;
-  text-align: center;
-}
-
-.login-subtitle {
-  margin-bottom: var(--space-lg) !important;
-  text-align: center;
-}
+/* 登录页样式见 styles/login.css */
 
 .auth-loading {
   min-height: 100vh;
@@ -873,4 +845,37 @@
   justify-content: center;
   color: var(--color-text-secondary);
   font-size: 15px;
+}
+.data-quality-panel {
+  padding: var(--space-md);
+  margin-bottom: var(--space-md);
+}
+
+.data-quality-panel__heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+}
+
+.data-quality-panel__heading p {
+  color: var(--color-text-secondary);
+  margin: var(--space-sm) 0;
+}
+
+.data-quality-panel__facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-lg);
+  margin-bottom: 0;
+}
+
+.data-quality-panel__facts dt {
+  color: var(--color-text-secondary);
+}
+
+.data-quality-panel__facts dd {
+  margin: var(--space-sm) 0 0;
+  font-variant-numeric: tabular-nums;
 }

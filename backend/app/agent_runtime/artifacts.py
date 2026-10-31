@@ -44,7 +44,9 @@ def emit_artifact(
         directory.mkdir(parents=True, exist_ok=True)
         path = directory / safe
         content = json.dumps(payload, ensure_ascii=False, indent=2, default=str)
-        path.write_text(content, encoding="utf-8")
+        # Hash exactly the bytes written, including on Windows where text-mode
+        # writes otherwise translate LF to CRLF after the checksum is computed.
+        path.write_bytes(content.encode("utf-8"))
         checksum = hashlib.sha256(content.encode("utf-8")).hexdigest()
         return stores.artifacts.create_artifact(
             run_id=run_id,

@@ -4,6 +4,7 @@ import {
   bootstrapAuth,
   getAuthState,
   loginWithApiKey,
+  loginWithCredentials,
   logout,
   onAuthChange,
 } from './api'
@@ -68,6 +69,19 @@ describe('会话认证状态机', () => {
     expect(mockedAxios.post).toHaveBeenCalledWith(
       '/api/v1/auth/session',
       { api_key: 'my-key' },
+      { baseURL: '' },
+    )
+  })
+
+  it('loginWithCredentials 提交账号密码并进入 authenticated', async () => {
+    mockedAxios.post.mockResolvedValue({
+      data: { success: true, username: 'analyst' },
+    })
+    await loginWithCredentials(' analyst ', 'correct-horse')
+    expect(getAuthState()).toBe('authenticated')
+    expect(mockedAxios.post).toHaveBeenCalledWith(
+      '/api/v1/auth/session',
+      { username: 'analyst', password: 'correct-horse' },
       { baseURL: '' },
     )
   })

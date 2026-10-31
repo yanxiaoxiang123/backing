@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button, Card, Select, message } from 'antd'
 import {
@@ -7,6 +7,8 @@ import {
   HistoryOutlined,
   ReloadOutlined,
 } from '@ant-design/icons'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { screenerKeys } from '../services/queryKeys'
 import {
   submitScreener,
   getScreenerStatus,
@@ -69,7 +71,14 @@ function Screener() {
   const [results, setResults] = useState<StockResult[]>([])
   const [totalScanned, setTotalScanned] = useState(0)
   const [completed, setCompleted] = useState(false)
-  const [history, setHistory] = useState<ScreenerJobRecord[]>([])
+  const queryClient = useQueryClient()
+  const historyQuery = useQuery({
+    queryKey: screenerKeys.history(20),
+    queryFn: () => getScreenerHistory(20),
+    staleTime: 30_000,
+  })
+  const history = useMemo(() => historyQuery.data ?? [], [historyQuery.data])
+  const [hasRestored, setHasRestored] = useState(false)
   const [selectedHistoryId, setSelectedHistoryId] = useState<string>()
   const { waitForJob, cancel } = useJobPolling<ScreenerResult>({
     intervalMs: 2000,
@@ -111,25 +120,17 @@ function Screener() {
     }
   }, [])
 
-  const refreshHistory = useCallback(
-    async (restoreLatest = false) => {
-      const records = await getScreenerHistory()
-      setHistory(records)
-      if (restoreLatest) {
-        const latestCompleted = records.find(
-          (record) => record.status === 'completed' && record.result,
-        )
-        if (latestCompleted) applyCompletedJob(latestCompleted)
-      }
-    },
-    [applyCompletedJob],
-  )
-
   useEffect(() => {
-    refreshHistory(true).catch(() => {
-      // 历史加载失败不阻塞新的筛选任务。
-    })
-  }, [refreshHistory])
+    if (!hasRestored && history.length > 0) {
+      const latestCompleted = history.find(
+        (record) => record.status === 'completed' && record.result,
+      )
+      if (latestCompleted) {
+        applyCompletedJob(latestCompleted)
+      }
+      setHasRestored(true)
+    }
+  }, [hasRestored, history, applyCompletedJob])
 
   const handleRun = async () => {
     try {
@@ -186,7 +187,7 @@ function Screener() {
         },
         true,
       )
-      refreshHistory().catch(() => {})
+      queryClient.invalidateQueries({ queryKey: screenerKeys.all })
     } catch (error: unknown) {
       const detail = error as {
         response?: { data?: { detail?: string } }

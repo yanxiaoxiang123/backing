@@ -6,6 +6,17 @@ import { getStocks } from '../../services/stocks'
 import StockList from '../StockList'
 
 vi.mock('../../services/stocks', () => ({ getStocks: vi.fn() }))
+vi.mock('../../services/marketData', () => ({
+  getDataQuality: vi.fn().mockResolvedValue({
+    total_stocks: 3,
+    covered_stocks: 0,
+    raw_covered_stocks: 0,
+    versioned_bars: 0,
+    invalid_bars: 0,
+    calendar_rows: 0,
+  }),
+  syncRawHistory: vi.fn(),
+}))
 vi.mock('../../services/api', async () => {
   const actual =
     await vi.importActual<typeof import('../../services/api')>('../../services/api')

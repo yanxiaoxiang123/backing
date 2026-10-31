@@ -18,10 +18,14 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.agent_runtime.paper import service as paper_service
-from app.auth import get_current_api_key
+from app.auth import get_current_api_key, get_authenticated_actor
 from app.config import get_db
 from app.models.agent_runtime import ApprovalRecord
 from app.models.paper_trading import PaperCashEvent, PaperOrder, PaperOrderEvent
+from app.models.agent_runtime import AgentRun
+from app.domain.risk import PortfolioRiskRequest
+from app.tools.execution import ProposeOrderParams, _propose_order
+from app.tools.base import ToolContext
 
 logger = logging.getLogger(__name__)
 
@@ -38,13 +42,47 @@ class DecideRequest(BaseModel):
     decided_by: str | None = None
 
 
+@router.post("/agent-runs/{run_id}/paper-orders", status_code=201)
+def propose_run_order(
+    run_id: str, body: ProposeOrderParams, db: Session = Depends(get_db),
+    actor: str = Depends(get_authenticated_actor),
+) -> dict[str, Any]:
+    if db.query(AgentRun.id).filter_by(run_id=run_id).first() is None:
+        raise HTTPException(status_code=404, detail="研究运行不存在")
+    from app.domain.stock_codes import normalize_stock_code
+
+    try:
+        body.stock_code = normalize_stock_code(body.stock_code)
+        return _propose_order(body, ToolContext(db=db, run_id=run_id, actor=actor,
+                                                granted_permissions={"read", "approval"}))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/agent-runs/{run_id}/risk")
+def assess_run_risk(
+    run_id: str, body: PortfolioRiskRequest,
+    db: Session = Depends(get_db), _: str = Depends(get_current_api_key),
+) -> dict[str, Any]:
+    """Evaluate explicit targets against current ledger facts; persist evidence."""
+    if db.query(AgentRun.id).filter_by(run_id=run_id).first() is None:
+        raise HTTPException(status_code=404, detail="Risk assessment run not found")
+    from app.services.paper_risk_assessment import assess_paper_risk, save_risk_request
+
+    try:
+        save_risk_request(db, run_id, body)
+        return assess_paper_risk(db, run_id, body)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
 @router.post("/agent-runs/{run_id}/approvals/{approval_id}/decide")
 def decide_approval(
     run_id: str,
     approval_id: int,
     body: DecideRequest,
     db: Session = Depends(get_db),
-    principal: str = Depends(get_current_api_key),
+    principal: str = Depends(get_authenticated_actor),
 ) -> dict[str, Any]:
     """审批决策：批准/拒绝（联动模拟盘订单与事件；一次性窗口）。"""
     approval = db.get(ApprovalRecord, approval_id)

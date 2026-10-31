@@ -12,9 +12,9 @@
 from __future__ import annotations
 
 import logging
-import queue
 import threading
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from typing import Any, Callable
 
@@ -41,17 +41,31 @@ def _new_turn_id() -> str:
 
 
 class HarnessChatService:
-    """单 worker FIFO 聊天服务（构造后由 lifespan 调 startup/shutdown）。"""
+    """多 worker 线程池 + 按 thread_id 串行 FIFO 聊天服务。
 
-    def __init__(self, session_factory: SessionFactory, seam: HarnessChatSeam) -> None:
+    - 同一 thread_id 内的消息严格 FIFO 串行执行，确保会话上下文时序安全；
+    - 不同 thread_id 之间通过 ThreadPoolExecutor 并发处理，互不阻塞；
+    - 活跃 turn 映射表支持多会话独立精准取消与状态追踪。
+    """
+
+    def __init__(
+        self,
+        session_factory: SessionFactory,
+        seam: HarnessChatSeam,
+        max_workers: int = 4,
+    ) -> None:
         self._session_factory = session_factory
         self._seam = seam
-        self._queue: queue.Queue[str | None] = queue.Queue()
-        self._worker: threading.Thread | None = None
+        self._max_workers = max_workers
+        self._executor: ThreadPoolExecutor | None = None
         self._running = False
-        self._active_session_id: str | None = None
-        self._active_turn_id: str | None = None
-        self._active_lock = threading.Lock()
+        # thread_id -> list[turn_id] (每个会话的待处理 FIFO 队列)
+        self._pending_by_thread: dict[str, list[str]] = {}
+        # active executing turns: session_id/thread_id -> turn_id
+        self._active_turns: dict[str, str] = {}
+        # 当前正在执行 turn 的 thread_id 集合
+        self._running_threads: set[str] = set()
+        self._lock = threading.Lock()
 
     def _stores(self) -> tuple[Session, ChatStores]:
         session = self._session_factory()
@@ -62,20 +76,22 @@ class HarnessChatService:
         if self._running:
             return
         self._running = True
-        self._recover_interrupted()
-        self._worker = threading.Thread(
-            target=self._worker_loop, daemon=True, name="harness-chat-worker"
+        self._executor = ThreadPoolExecutor(
+            max_workers=self._max_workers, thread_name_prefix="harness-chat-worker"
         )
-        self._worker.start()
-        logger.info("HarnessChatService started")
+        self._recover_interrupted()
+        logger.info("HarnessChatService started with %d workers", self._max_workers)
 
     def shutdown(self) -> None:
         self._running = False
-        self._queue.put(None)  # poison pill
         self._seam.shutdown()
-        if self._worker is not None:
-            self._worker.join(timeout=5)
-            self._worker = None
+        with self._lock:
+            self._pending_by_thread.clear()
+            self._running_threads.clear()
+            self._active_turns.clear()
+        if self._executor is not None:
+            self._executor.shutdown(wait=True, cancel_futures=True)
+            self._executor = None
         logger.info("HarnessChatService stopped")
 
     # ------------------------------------------------------------------ 会话
@@ -125,15 +141,15 @@ class HarnessChatService:
                 idempotency_key=idempotency_key,
             )
             stores.threads.update_thread(thread_id, status="running")
-            self._queue.put(turn["turn_id"])
+            self._enqueue_turn(thread_id, turn["turn_id"])
             return turn
         finally:
             session.close()
 
     def stop_turn(self, thread_id: str) -> None:
         """请求取消当前活动 turn；native runtime 使用协作式取消令牌。"""
-        with self._active_lock:
-            if self._active_session_id != thread_id:
+        with self._lock:
+            if thread_id not in self._active_turns:
                 raise ValueError("该会话当前没有正在执行的 turn")
         self._seam.stop(thread_id)
 
@@ -144,20 +160,49 @@ class HarnessChatService:
             return dict(value)
         return {"backend": "fake", "available": True, "reason": None}
 
-    # ------------------------------------------------------------------ worker
-    def _worker_loop(self) -> None:
-        while self._running:
-            turn_id = self._queue.get()
-            if turn_id is None:
-                break
-            try:
-                self._execute_turn(turn_id)
-            except Exception:
-                logger.exception("turn %s 执行异常", turn_id)
-                self._mark_failed(turn_id)
+    # ------------------------------------------------------------------ worker 调度
+    def _enqueue_turn(self, thread_id: str, turn_id: str) -> None:
+        with self._lock:
+            if not self._running:
+                return
+            if thread_id in self._running_threads:
+                # 该 thread 当前正在执行 turn，入队排队等待（保证单 thread 严格 FIFO）
+                self._pending_by_thread.setdefault(thread_id, []).append(turn_id)
+            else:
+                # 该 thread 空闲，立即标记并提交线程池异步执行（不同 thread 并发）
+                self._running_threads.add(thread_id)
+                if self._executor is not None:
+                    self._executor.submit(self._run_turn_worker, thread_id, turn_id)
+
+    def _run_turn_worker(self, thread_id: str, turn_id: str) -> None:
+        try:
+            self._execute_turn(turn_id)
+        except Exception:
+            logger.exception("turn %s 执行异常", turn_id)
+            self._mark_failed(turn_id)
+        finally:
+            self._on_turn_completed(thread_id)
+
+    def _on_turn_completed(self, thread_id: str) -> None:
+        with self._lock:
+            if not self._running:
+                self._running_threads.discard(thread_id)
+                self._pending_by_thread.pop(thread_id, None)
+                return
+            pending = self._pending_by_thread.get(thread_id)
+            if pending:
+                next_turn_id = pending.pop(0)
+                if not pending:
+                    self._pending_by_thread.pop(thread_id, None)
+                if self._executor is not None:
+                    self._executor.submit(self._run_turn_worker, thread_id, next_turn_id)
+            else:
+                self._running_threads.discard(thread_id)
 
     def _execute_turn(self, turn_id: str) -> None:
         session, stores = self._stores()
+        turn = None
+        thread = None
         try:
             turn = stores.turns.get_turn(turn_id)
             if turn is None:
@@ -170,9 +215,9 @@ class HarnessChatService:
             stores.turns.update_turn_status(
                 turn_id, "running", started_at=_now_iso()
             )
-            with self._active_lock:
-                self._active_session_id = session_id
-                self._active_turn_id = turn["turn_id"]
+            with self._lock:
+                self._active_turns[session_id] = turn["turn_id"]
+                self._active_turns[turn["thread_id"]] = turn["turn_id"]
             seq_holder = [0]
             done_holder = [False]
 
@@ -221,10 +266,12 @@ class HarnessChatService:
             )
             stores.threads.update_thread(turn["thread_id"], status="idle")
         finally:
-            with self._active_lock:
-                if self._active_turn_id == turn_id:
-                    self._active_session_id = None
-                    self._active_turn_id = None
+            with self._lock:
+                if turn is not None:
+                    self._active_turns.pop(turn["thread_id"], None)
+                    if thread is not None:
+                        sid = thread["session_id"] or thread["thread_id"]
+                        self._active_turns.pop(sid, None)
             session.close()
 
     def _mark_failed(self, turn_id: str) -> None:
@@ -256,6 +303,6 @@ class HarnessChatService:
                 )
                 stores.threads.update_thread(t["thread_id"], status="idle")
             for t in stores.turns.list_turns_by_status(["queued"]):
-                self._queue.put(t["turn_id"])
+                self._enqueue_turn(t["thread_id"], t["turn_id"])
         finally:
             session.close()

@@ -25,6 +25,9 @@ class User(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String(50), unique=True, nullable=False, index=True)
+    # PBKDF2 哈希（app/passwords.py）。为 NULL 的账号不能通过密码登录，
+    # 例如迁移前创建的 default 用户。
+    password_hash = Column(String(255), nullable=True)
     created_at = Column(DateTime, server_default=func.now())
 
     watchlist_items = relationship("WatchlistItem", back_populates="user")
@@ -191,6 +194,7 @@ class BacktestResult(Base):
     # nullable so historical rows created before this migration remain valid.
     parameters = Column(JSON, nullable=True)
     portfolio_values = Column(JSON, nullable=True)
+    execution_metadata = Column(JSON, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
 
     strategy = relationship("Strategy", back_populates="backtest_results")

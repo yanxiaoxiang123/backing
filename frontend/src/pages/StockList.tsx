@@ -20,6 +20,7 @@ import {
   RowActionMenu,
 } from '../components/research/ResearchPrimitives'
 import { normalizeStockCode } from '../utils/stockIdentity'
+import { DataQualityPanel } from '../components/research/DataQualityPanel'
 
 function StockList() {
   const navigate = useNavigate()
@@ -343,6 +344,9 @@ function StockList() {
       </div>
 
       {/* 股票列表 */}
+      <DataQualityPanel
+        codes={(stocksQuery.data?.items ?? []).map((stock) => stock.code)}
+      />
       <div className="research-panel stock-list-table-panel">
         <AsyncBoundary
           loading={stocksQuery.isLoading}

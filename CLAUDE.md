@@ -42,184 +42,163 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Backing is a stock research and backtesting system with React + FastAPI. The repository contains multiple projects; this file focuses on the `backing/` subdirectory.
+Backing is an A-share (Chinese equity) research, backtesting, AI-analysis and paper-trading platform. The repository root is the application root:
+
+- `backend/` — FastAPI + SQLAlchemy + Pydantic v2 API, task workers, agent runtimes, migrations, tests (`pytest`).
+- `frontend/` — React 18 + TypeScript + Vite + Ant Design + ECharts SPA (`vitest`, Playwright).
+- `TradingAgents-astock/` — separate Python package (v0.2.4) used for optional multi-analyst deep research; installed editable, not run as a service.
+- `docs/` — specs (`docs/specs`), implementation plans (`docs/plans`), and runbooks; the agent runtime specs are authoritative for that subsystem.
+- `deploy/` — Redis docker-compose and systemd units for backend/frontend/maintenance.
+- `dsh-quant-plugin/` and `deepseek-harness/` — historical design references only. Backend runtime must not import, copy, or start code from them.
+
+This is a research/demo system. There is no live broker integration; "trading" means paper trading only.
 
 ## Commands
 
-### Backend
+### Backend (`backend/`)
+
+Requires Python 3.11+ (verified on 3.12). Local dev can use a venv (below) or the existing `stockbacking` conda env used by the systemd units.
 
 ```bash
-cd backing/backend
+cd backend
+python -m venv .venv
+source .venv/bin/activate          # Windows: .venv\Scripts\activate
+pip install -r requirements.txt    # installs patched mootdx from ./vendor/mootdx
+pip install -e ../TradingAgents-astock   # TA bridge and its tests
+cp .env.example .env               # Windows cmd: copy .env.example .env
+alembic upgrade head               # mandatory; server refuses to start without schema
+python main.py                     # http://localhost:8808
+```
 
-# Setup - uses conda virtual environment named 'stockbacking'
-conda activate stockbacking
-pip install -r requirements.txt
-cp .env.example .env
+`requirements.lock` pins the full transitive environment. Never add the PyPI `mootdx` package; the vendored copy relaxes an `httpx` constraint and must stay in place. Optional production task backend: `pip install -r requirements-arq.txt`.
 
-# Run migrations
-alembic upgrade head
-
-# Development server (hot reload)
-python main.py
-# Or: uvicorn main:app --reload --host 0.0.0.0 --port 8808
-
-# Run tests
+```bash
+# Tests
 pytest
-pytest tests/test_backtest_executor.py  # Single test file
-pytest -v  # Verbose output
+pytest -q
+pytest tests/test_backtest_executor.py -v
+pytest tests/test_backtest_executor.py::test_name
 
-# Linting
-ruff check .
-ruff check --fix .  # Auto-fix
+# Lint (ruff.toml in backend/)
+ruff check app/ main.py task_worker.py maintenance_cli.py migrations/ tests/
+ruff check --fix .
 
-# Database migrations
+# Migrations
 alembic upgrade head
-alembic revision --autogenerate -m "description"  # Create new migration
+alembic revision --autogenerate -m "description"
+
+# Arq worker (production multi-instance; TASK_BACKEND=arq + REDIS_URL)
+python task_worker.py
+
+# Data lifecycle
+python maintenance_cli.py jobs --days 30
+python maintenance_cli.py analysis --days 180
+python maintenance_cli.py backtests --days 365
+python maintenance_cli.py alerts --days 90
+python maintenance_cli.py archive-klines --before 2015-01-01
+python maintenance_cli.py backup --out /backup/backing.db
+python maintenance_cli.py all
+
+# Agent evaluation (deterministic replay by default; no API key/network)
+python -m evals.run_eval
+python -m evals.run_eval --output report.json
+EVAL_LIVE=1 python -m evals.run_eval --live   # real LLM calls
 ```
 
-### Frontend
+### Frontend (`frontend/`)
 
 ```bash
-cd backing/frontend
-
-# Install dependencies
-npm install
-
-# Development
-npm run dev
-
-# Build for production
-npm run build
+cd frontend
+npm ci                 # or npm install for first-time dev
+npm run dev            # http://localhost:5174; Vite proxies /api -> :8808
+npm run typecheck      # tsc --noEmit
+npm run lint           # ESLint
+npm run format:check   # Prettier
+npm run build          # tsc + vite build + bundle-budget check
+npm test               # Vitest run
+npm run test:watch
+npm run test:e2e       # Playwright; starts Vite itself (install browsers first)
 ```
 
-### Frontend Page Organization
+### Nested TradingAgents package
 
-- `Dashboard.tsx` — Main dashboard with market overview
-- `StockList.tsx` — Stock sync and management
-- `StockChart.tsx` — K-line chart with indicators
-- `Strategies.tsx` — Main strategy research interface (signals, backtest, optimization)
-- `Backtest.tsx` — Legacy MA-based backtest compatibility page
-- `BacktestHistory.tsx` — Historical backtest results viewer
-- `AgentAnalysis.tsx` — AI multi-stage analysis (technical + news + risk + strategy + decision)
-- `DLPrediction.tsx` — Deep learning price prediction
-- `Screener.tsx` — Stock screener
-- `Watchlist.tsx` — User watchlists
+```bash
+cd TradingAgents-astock
+pip install -e .
+pytest
+```
+
+### CI
+
+`.github/workflows/ci.yml` runs on push/PR: backend `ruff` + `pytest`, the nested TradingAgents suite, and frontend `typecheck` → `lint` → `format:check` → `build` → `test`. Run the same commands locally before pushing.
 
 ## Architecture
 
-### Backend Structure
+### API composition and auth
 
-```
-backend/
-├── app/
-│   ├── api/              # FastAPI route handlers
-│   │   ├── routes.py     # Stock data, backtest, job status
-│   │   ├── strategies.py # Strategy signals, backtest, optimization
-│   │   ├── agent.py      # AI analysis endpoints
-│   │   ├── dl_prediction.py # Deep learning predictions
-│   │   ├── screener.py   # Stock screener
-│   │   └── watchlist.py  # User watchlists
-│   ├── services/         # Business logic
-│   │   ├── backtest_engine.py   # Core backtesting engine
-│   │   ├── backtest_executor.py # Unified backtest executor
-│   │   ├── baostock_service.py  # Stock data sync
-│   │   ├── dashboard_service.py # Dashboard data
-│   │   ├── indicator_service.py # Technical indicators
-│   │   ├── job_store.py         # Async job status storage
-│   │   ├── dl_prediction/       # DL model training & inference
-│   │   │   ├── backtest.py, features.py, model_loader.py, predictor.py
-│   │   └── strategy/
-│   │       ├── base.py    # Strategy abstract class
-│   │       ├── factors.py # Technical indicators library
-│   │       ├── optimizer.py # Parameter optimization
-│   │       ├── registry.py # Strategy registration
-│   │       └── strategies.py # Built-in strategies
-│   ├── agent/            # Multi-stage AI analysis
-│   │   ├── agents/
-│   │   │   ├── technical_agent.py  # Technical analysis
-│   │   │   ├── intel_agent.py      # News/intelligence
-│   │   │   ├── risk_agent.py       # Risk assessment
-│   │   │   ├── strategy_agent.py   # Strategy suggestions
-│   │   │   └── decision_agent.py   # Final decision
-│   │   ├── memory.py       # Agent conversation memory
-│   │   ├── protocols.py     # Agent communication protocols
-│   │   ├── orchestrator.py  # Agent orchestration
-│   │   ├── runner.py       # Agent execution
-│   │   ├── llm_adapter.py  # DeepSeek API integration
-│   │   └── config.py       # Agent configuration
-│   ├── auth.py           # JWT authentication
-│   ├── limiter.py        # Rate limiting
-│   ├── models/           # SQLAlchemy models
-│   ├── schemas/          # Pydantic schemas
-│   └── config.py         # Settings (pydantic-settings)
-├── migrations/           # Alembic DB migrations
-└── tests/                # pytest tests
-```
+`backend/main.py` is the composition root. It imports `app.services.strategy` for its registration side effect, registers unified error handlers, request-logging middleware, CORS, session middleware and CSRF middleware, then mounts every router. **All API endpoints are under `/api/v1`** (including `/api/v1/strategies/*`, `/api/v1/watchlist/*`, `/api/v1/auth/*`); the realtime WebSocket is `/api/v1/ws/realtime/{code}`.
 
-### Key Patterns
+Authentication supports two paths (`app/auth.py`): a signed HttpOnly session cookie issued by `POST /api/v1/auth/session` (the browser exchanges `API_KEY` once at login; 8-hour default, SameSite=Lax), or the `X-API-Key` header for external clients. Cookie-authenticated mutations must carry the `csrf_token` cookie's value in `X-CSRF-Token` (`app/middleware.py`); the login endpoint is exempt and rate-limited to 10/minute. In production (`APP_ENV=production`) startup fails unless `SESSION_SECRET` is set and `SESSION_HTTPS_ONLY=true`.
 
-**Strategy System**: All strategies inherit from `Strategy` base class in `app/services/strategy/base.py`. New strategies are registered using the `@register_strategy` decorator in `app/services/strategy/registry.py`.
+Responses and errors are structured: failures return `{"error": {"code", "message", ...}}` via `app/error_handlers.py`. Raise `AppError` subclasses (`app/exceptions.py`); external provider failures should use `ExternalServiceError` so the client gets a stable status/code and the task executor can decide retryability.
 
-**Backtesting Flow**:
-1. API receives backtest request (`POST /api/strategies/backtest`)
-2. `backtest_executor.py` coordinates execution
-3. `backtest_engine.py` runs the simulation
-4. Returns trade history and metrics
+### Data layer and caching
 
-**Long-running Tasks**: Uses job submission pattern with polling:
-- Submit task → get job_id
-- Poll `GET /api/jobs/{job_id}` for status
-- Job states: `pending` → `running` → `completed` | `failed`
-- **Note**: Job status is stored in-process memory (`job_store.py`); restarts clear state. Use Redis or DB for production.
+- `app/services/baostock_service.py` — stock list and daily K-line sync. `STOCK_LIST_PROVIDER` and `KLINE_PROVIDER` select `akshare`/`baostock`, with fallback; baostock's C client is guarded by a process-wide lock.
+- `app/services/realtime_service.py` — mootdx quotes/bars/indices with server discovery, failover, health counters and L1/L2 caching. Provider reachable but empty → HTTP 200 with `data: []`; provider unreachable → 503 `provider_unavailable`. Health snapshot at `GET /api/v1/realtime/health`.
+- `app/services/indicator_service.py` — technical indicators with a cache keyed by DB engine so test databases cannot share stale values.
+- `app/services/research_data.py` — deterministic evidence layer for news/announcements/financials/index K-lines. Every item carries `source_id`, `as_of`, `vendor`, `data_version`; results cache in the isolated SQLite file `backend/data/research_cache.db` (not Alembic-managed). Eval fixtures are injectable here.
+- `app/services/cache.py` — bounded process-local L1 cache plus optional Redis L2 (`REDIS_URL`). Entries have fresh and stale deadlines; Redis failure degrades to memory and never breaks a market request.
 
-**Agent System**: Multi-stage pipeline:
-```
-technical_agent → intel_agent → risk_agent → strategy_agent → decision_agent
-```
+### Strategy and backtest engine
 
-**API Endpoints** (all under `/api`):
-- Stocks: `GET /stocks`, `GET /stocks/{code}`, `GET /stocks/{code}/kline`, `GET /stocks/{code}/indicators`
-- Backtest: `POST /backtest`, `GET /backtest/results`, `GET /backtest/{id}`
-- Strategies: `GET /strategies`, `POST /strategies/signals`, `POST /strategies/backtest`, `POST /strategies/optimize`
-- Agent: `POST /agent/analyze`, `GET /agent/history`, `GET /agent/indices`
-- Jobs (async): `POST /stocks/sync/submit`, `POST /strategies/optimize/submit`, `GET /jobs/{job_id}`
+Strategies inherit `Strategy` (`app/services/strategy/base.py`) and register with `@register_strategy("name")`. Built-ins are split across `trend.py`, `reversal.py`, and `breakout.py` (13 strategies); `factors.py` holds `TechnicalFactors`, `optimizer.py` the grid-search optimizer, `signals.py` shared signal helpers. The package `__init__` imports all strategy modules, and `main.py` imports the package for registration — new strategy modules must be added to that import path. Parameters expose `min/max/step/options` metadata consumed directly by the frontend.
 
-### Database
+`app/services/backtest_executor.py` is the single backtest engine used by both the legacy `POST /api/v1/backtest` and the strategy endpoint `POST /api/v1/strategies/backtest`. It loads K-lines from the DB, simulates trades, computes metrics/portfolio curve, and persists `backtest_results` + `backtest_trades`. Parameter optimization (`POST /api/v1/strategies/optimize[/submit]`) runs through the shared task executor.
 
-- Default: SQLite (`stock_backtest.db`)
-- Optional: MySQL (configure via `.env`)
-- Uses SQLAlchemy 2.0 with Pydantic v2
+### Background jobs
 
-### Environment Variables
+Job state lives in the `jobs` table (`app/services/job_store.py`), so status survives restarts. Execution location is selected by `TASK_BACKEND` (`threads` default; `arq` for Redis-backed multi-instance workers), but both use the same lifecycle in `app/services/tasks/runner.py`: idempotency keys, lease/heartbeat, retry with backoff for transient provider errors, cooperative cancellation, and metrics. Submit endpoints return a `job_id`; clients poll `GET /api/v1/jobs/{job_id}` (there is also `/jobs/metrics` and `/jobs/{id}/cancel`). Register new job types with `@register_runner("name")` and import the defining module from `task_worker.py` if the Arq worker must see it.
 
-Key variables in `.env`:
-- `DATABASE_URL` - Database connection
-- `DEEPSEEK_API_KEY` - AI model API key
-- `TAVILY_API_KEY` - Web search (optional)
-- `KLINE_PROVIDER` - `akshare` (default) or other
-- `PORT` - Server port (default 8808)
+### Agent systems (three distinct layers)
 
-## Adding New Strategies
+Do not conflate these; they share infrastructure but serve different APIs.
 
-1. Create new class in `app/services/strategy/strategies.py` extending `Strategy`
-2. Use `@register_strategy("strategy_name")` decorator
-3. Implement: `generate_signals()`, `get_parameters()`, `get_name()`, `get_description()`
-4. The strategy auto-registers and appears in API
+1. **Legacy staged analysis** — `app/agent/` (`orchestrator.py`, `pipeline.py`, agents). Modes `quick`, `standard`, `full`, `strategy`; exposed at `/api/v1/agent/analyze`, `/market/analyze`, and history endpoints. LLM via `llm_adapter.py` (DeepSeek, optional Tavily).
+2. **Durable Agent Run engine** — `app/agent_runtime/` plus API `app/agent_api/`. Implements runs that survive refresh/restart: `agent_runs`, `agent_steps`, `tool_calls`, `artifacts`, `approvals`. `runtime.py` executes a sequential `RuntimeNode` pipeline with budget checks, node-boundary cancellation/cancel tokens, resume from the last successful step, and tool-call idempotency by parameter hash. `graphs/supervisor.py` builds a `RunPlan` and selects expert nodes (`data_qa`, `research`, `strategy_engineer`, `backtest_critic`, `portfolio_risk`, optional `ta_research`); `app/domain/` holds the guarded Pydantic output schemas. Routes: `/api/v1/agent-runs[/...]` with SSE events (Last-Event-ID replay), resume, cancel, artifacts.
+3. **Agent Chat workspace** — `app/agent_chat/` plus `/api/v1/agent-chats/*`. `NativeAgentChatRuntime` is a DeepSeek ReAct loop over typed tools (no dependency on the external DeepSeek Harness checkout); `policy.py` deterministically decides which tool scope a turn may use; `service.py` runs a worker pool with strict per-thread FIFO, idempotency keys, cancel, restart recovery, and ordered events in `agent_chat_threads/turns/events`. `AGENT_CHAT_BACKEND=native` (default) or `fake` (tests/demo). A chat turn can emit `run.linked` to attach an `agent_run`.
 
-## Testing Strategy Code
+### Typed tool gateway
 
-```python
-# Pattern for testing strategies
-from app.services.strategy.strategies import MACrossStrategy
-from app.services.strategy.factors import TechnicalFactors
+`app/tools/` is the only permitted way for agents/tests to reach market or portfolio data. `DEFAULT_REGISTRY` contains allowlisted tools across market, fundamental, factor, strategy, backtest, portfolio, execution.paper and event domains. `ToolRegistry.invoke` enforces permission, validates the Pydantic input schema, caps output size, returns a uniform envelope (`ok`, `data`, `source_id`, `as_of`, `vendor`), and records audit rows in `tool_calls` when stores are supplied. External callers use `POST /api/v1/tools/invoke`. The TradingAgents bridge (`app/agent_runtime/ta_bridge/`) routes supported TA data methods through this gateway too; unsupported methods fail explicitly rather than bypassing it.
 
-def test_ma_cross_signal():
-    strategy = MACrossStrategy(short_period=5, long_period=20)
-    # Create test DataFrame with OHLCV data
-    df = pd.DataFrame({...})
-    result = strategy.generate_signals(df)
-    assert 'signal' in result.columns
-```
+### Paper trading, alerts, evaluation
+
+`app/agent_runtime/paper/` implements the default paper account, approval state machine, deterministic matching rules (no approval → no fill, T+1, cash/position checks, fees/price limits), replay/attribution, and a soak loop started by `main.py`. API routes under `/api/v1/paper/*` and approval routes under `/api/v1/agent-runs/{run_id}/approvals`. Alerts are persisted and exposed under `/api/v1/paper/alerts`.
+
+`backend/evals/` is the evaluation harness: golden cases, response cache for deterministic replay, and scorers for schema validity, citation coverage, lookahead bias and A-share trading rules. `EVAL_LIVE=1`/`--live` switches to real LLM calls.
+
+### Persistence and migrations
+
+Default DB is SQLite (`backend/stock_backtest.db`, relative to the backend working directory); MySQL is supported through `DATABASE_URL` (optional `DB_BOOTSTRAP_URL` for database creation). SQLite connections enable foreign keys, WAL and a busy timeout. **Alembic is the only schema authority**: `main.py` no longer calls `create_all` and refuses to start if the `strategies` table is missing. Add migrations with autogenerate, inspect them, and run `alembic upgrade head`. Money/price/return columns are `Numeric`; DB timestamps are naive UTC (new non-model code may use timezone-aware UTC). `backend/data/` (research cache, artifacts, TA outputs) is runtime data and gitignored.
+
+### Frontend
+
+`src/App.tsx` owns routing (lazy-loaded pages, auth gate, responsive navigation, global stock search, Research Copilot). Key pages: Dashboard, StockList, StockChart (`/stocks/:code`), Watchlist, Screener, Strategies (main strategy research UI), DLPrediction, BacktestHistory, AgentAnalysis (`/agent`), AgentWorkspace (`/workspace`), Login. `/backtest` redirects to `/strategies`.
+
+`src/services/api.ts` is the axios base (`/api/v1`) and handles session bootstrap/login/logout plus the CSRF request interceptor. Feature modules (`stocks.ts`, `strategies.ts`, `agentRuns.ts`, `agentChats.ts`, `jobs.ts`, `market.ts`) wrap API calls. TanStack Query is configured in `main.tsx`; hooks in `src/hooks/` encapsulate polling, SSE (`AgentRunStream` with Last-Event-ID reconnect), chat state and realtime WebSocket K-line updates (with HTTP fallback). Components are grouped by area under `src/components/`; global styling lives in `src/index.css`.
+
+Vite splits vendor chunks (antd, echarts, react, etc.) and the production build runs `scripts/check-bundle.mjs`. Unit/component tests are colocated as `*.test.ts(x)` (Vitest + Testing Library, jsdom); Playwright specs live in `frontend/e2e/`.
+
+## Working conventions and gotchas
+
+- `backend/ruff.toml` intentionally ignores UP006/UP007/UP009/UP035/UP045 (legacy typing style), B008 (FastAPI defaults), BLE001 (deliberate provider isolation), and naive-datetime rules. Do not "modernize" those conventions wholesale. `vendor/` is excluded from lint and must remain upstream-identical except its metadata patch.
+- Use four-space Python, type hints on public interfaces, `snake_case` modules/functions, `PascalCase` classes. Keep handlers thin; domain behavior belongs in services. TypeScript follows the existing two-space, semicolon-free style.
+- Provider semantics matter: `FetchResult.status` distinguishes `ok` / `empty` / `unavailable`; preserve the 200-with-empty vs 503 contract and the `stale`/`cache_age_ms` fields.
+- Never add `VITE_*` secrets — they are inlined into the browser bundle. The browser authenticates only via the login page and session cookie.
+- Agent facts must come from tool-gateway envelopes; do not let an LLM invent provider data, and do not bypass the gateway to call vendors directly.
+- The backend must not import `dsh-quant-plugin/` or `deepseek-harness/`; they are historical references.
+- Commit messages use Conventional Commit-style subjects (e.g. `feat: ...`, `fix: ...`), imperative and focused.
 
 ## gstack
 

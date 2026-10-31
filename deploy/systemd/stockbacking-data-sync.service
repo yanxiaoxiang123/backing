@@ -1,0 +1,12 @@
+[Unit]
+Description=Backing daily watchlist historical-data refresh
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=stockbacking
+WorkingDirectory=/opt/stockbacking/backend
+ExecStart=/opt/miniconda3/envs/stockbacking/bin/python data_sync_cli.py --days 730
+TimeoutStartSec=7200
+NoNewPrivileges=true

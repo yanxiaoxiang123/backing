@@ -99,8 +99,10 @@ def test_events_sse_last_event_id_resume(client):
 
 def test_list_runs_with_status_filter(client):
     _create(client)
-    listing = client.get("/api/v1/agent-runs").json()
-    assert listing["total"] >= 1
+    _create(client)
+    listing = client.get("/api/v1/agent-runs?limit=1").json()
+    assert listing["total"] >= 2
+    assert len(listing["runs"]) == 1
     assert all(r["status"] == "completed" for r in listing["runs"])
     listing = client.get("/api/v1/agent-runs?status=failed").json()
     assert listing["total"] == 0

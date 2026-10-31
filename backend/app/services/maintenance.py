@@ -21,6 +21,7 @@ from pathlib import Path
 from sqlalchemy import text
 
 from app.config import SessionLocal, engine, settings
+from app.models.alerts import AlertRecord
 from app.models.analysis import AnalysisRecord
 from app.models.models import BacktestResult, DailyKline, KlineArchive
 from app.services.job_store import job_store
@@ -28,6 +29,7 @@ from app.services.job_store import job_store
 logger = logging.getLogger(__name__)
 
 __all__ = [
+    "DEFAULT_ALERT_RETENTION_DAYS",
     "DEFAULT_ANALYSIS_RETENTION_DAYS",
     "DEFAULT_BACKTEST_RETENTION_DAYS",
     "DEFAULT_JOB_RETENTION_DAYS",
@@ -35,14 +37,17 @@ __all__ = [
     "archive_klines",
     "backup_database",
     "cleanup_old_jobs",
+    "purge_old_alerts",
     "purge_old_analysis",
     "purge_old_backtests",
+    "update_mootdx_servers",
 ]
 
 # 默认保留期（天）
 DEFAULT_JOB_RETENTION_DAYS = 30
 DEFAULT_ANALYSIS_RETENTION_DAYS = 180
 DEFAULT_BACKTEST_RETENTION_DAYS = 365
+DEFAULT_ALERT_RETENTION_DAYS = 30
 
 
 def _utcnow() -> datetime:
@@ -109,6 +114,30 @@ def purge_old_backtests(days: int = DEFAULT_BACKTEST_RETENTION_DAYS, *, db=None)
             session.commit()
         if deleted:
             logger.info("maintenance: purged %d backtest results older than %s days", deleted, days)
+        return deleted
+    except Exception:
+        if owned:
+            session.rollback()
+        raise
+    finally:
+        if owned:
+            session.close()
+
+
+def purge_old_alerts(days: int = DEFAULT_ALERT_RETENTION_DAYS, *, db=None) -> int:
+    """删除超过保留期的告警记录。"""
+    cutoff = _utcnow() - timedelta(days=days)
+    session, owned = _session(db)
+    try:
+        deleted = (
+            session.query(AlertRecord)
+            .filter(AlertRecord.created_at < cutoff)
+            .delete(synchronize_session=False)
+        )
+        if owned:
+            session.commit()
+        if deleted:
+            logger.info("maintenance: purged %d alert records older than %s days", deleted, days)
         return deleted
     except Exception:
         if owned:
@@ -205,8 +234,49 @@ def run_all(*, archive_klines_before: date | None = None) -> dict:
         "jobs_purged": cleanup_old_jobs(),
         "analysis_purged": purge_old_analysis(),
         "backtests_purged": purge_old_backtests(),
+        "alerts_purged": purge_old_alerts(),
     }
     if archive_klines_before is not None:
         report["klines_archived"] = archive_klines(archive_klines_before)
     logger.info("maintenance run_all finished: %s", report)
+    return report
+
+
+def update_mootdx_servers(
+    *,
+    limit: int = 5,
+    timeout_s: float = 1.0,
+    env_file: Path | str | None = None,
+    dry_run: bool = False,
+) -> dict:
+    """并发测速并更新 .env 中的 MOOTDX_SERVERS 列表。"""
+    from app.services.mootdx_discovery import (
+        discover_best_servers,
+        update_env_mootdx_servers as _update_env,
+    )
+
+    discovered = discover_best_servers(limit=limit, timeout_s=timeout_s)
+    if not discovered:
+        raise RuntimeError("No usable mootdx servers discovered")
+
+    report: dict = {
+        "discovered_count": len(discovered),
+        "servers": [
+            {
+                "host": s.host,
+                "port": s.port,
+                "latency_ms": s.latency_ms,
+                "site": s.site,
+                "security_count": s.security_count,
+            }
+            for s in discovered
+        ],
+        "dry_run": dry_run,
+    }
+
+    if not dry_run:
+        target_path, server_str = _update_env(discovered, env_path=env_file)
+        report["env_file"] = str(target_path)
+        report["mootdx_servers"] = server_str
+
     return report

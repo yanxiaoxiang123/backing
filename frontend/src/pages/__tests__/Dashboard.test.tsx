@@ -15,9 +15,24 @@ vi.mock('../../services/api', async () => {
     getRealtimeIndices: vi.fn(),
     getWatchlist: vi.fn(),
     getRealtimeBars: vi.fn(),
-    getDashboardSummary: vi.fn(),
+    getAnalysisHistory: vi.fn(),
   }
 })
+
+// The shell status is not the dashboard's concern; keep it quiet.
+vi.mock('../../hooks/useSystemStatus', () => ({
+  useSystemStatus: () => ({
+    alerts: [],
+    unreadAlerts: 0,
+    completed: 0,
+    failed: 0,
+    isLoading: false,
+    alertsError: false,
+    metricsError: false,
+    isError: false,
+    refetch: vi.fn(),
+  }),
+}))
 
 // jsdom 无 canvas 2d 上下文，echarts 渲染会随机崩溃（"Cannot set properties
 // of null (setting 'dpr')"）。该测试只断言功能行为，不测图表渲染，故 mock 掉
@@ -28,14 +43,14 @@ import {
   getRealtimeIndices,
   getWatchlist,
   getRealtimeBars,
-  getDashboardSummary,
+  getAnalysisHistory,
 } from '../../services/api'
 
 const mockedQuotes = vi.mocked(getRealtimeQuotes)
 const mockedIndices = vi.mocked(getRealtimeIndices)
 const mockedWatchlist = vi.mocked(getWatchlist)
 const mockedBars = vi.mocked(getRealtimeBars)
-const mockedDashboardSummary = vi.mocked(getDashboardSummary)
+const mockedAnalysisHistory = vi.mocked(getAnalysisHistory)
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -43,7 +58,7 @@ beforeEach(() => {
   mockedQuotes.mockReset()
   mockedIndices.mockReset()
   mockedBars.mockReset()
-  mockedDashboardSummary.mockReset()
+  mockedAnalysisHistory.mockReset()
   mockedWatchlist.mockResolvedValue({
     items: [
       {
@@ -111,16 +126,20 @@ beforeEach(() => {
       },
     ],
   })
-  mockedDashboardSummary.mockResolvedValue({
-    as_of: '2026-08-14T09:30:00Z',
-    market_stats: { up: 0, down: 0, flat: 0, total: 0 },
-    indices: [],
-    trend: { name: '', dates: [], values: [] },
-    watchlist: [],
-    research_queue: [],
-    recent_activity: [],
-    alerts: [],
-  })
+  mockedAnalysisHistory.mockResolvedValue([
+    {
+      id: 1,
+      stock_code: '600036',
+      stock_name: '招商银行',
+      analysis_date: '2026-08-14',
+      mode: 'quick',
+      final_signal: 'buy',
+      final_confidence: 0.72,
+      final_reason: '量价配合，短线偏强，关注 10.80 附近的压力位。',
+      duration_s: 12,
+      created_at: '2026-08-14T09:30:00',
+    },
+  ])
 })
 
 function renderDashboard() {
@@ -135,11 +154,13 @@ function renderDashboard() {
 }
 
 describe('Dashboard partial degrade', () => {
-  it('渲染指数、自选股和走势图', async () => {
+  it('渲染指数、自选股、走势图和最新研究结论', async () => {
     renderDashboard()
     await waitFor(() => expect(screen.getByText('上证指数')).toBeInTheDocument())
-    await waitFor(() => expect(screen.getByText('招商银行')).toBeInTheDocument())
+    expect(screen.getAllByText('招商银行').length).toBeGreaterThan(0)
     expect(screen.getByText(/3,000|3000/)).toBeInTheDocument()
+    await waitFor(() => expect(screen.getAllByText('买入').length).toBeGreaterThan(0))
+    expect(screen.getByText('72%')).toBeInTheDocument()
   })
 
   it('quotes 失败但 indices 成功时仍展示指数', async () => {
@@ -166,9 +187,7 @@ describe('Dashboard partial degrade', () => {
     renderDashboard()
 
     await waitFor(() => expect(screen.getByText('上证指数')).toBeInTheDocument())
-    // quotes error renders an Alert + retry button. Verify the message appears.
     await waitFor(() => expect(screen.getByText('行情服务不可用')).toBeInTheDocument())
-    // At least one retry button for the quotes block.
     expect(
       screen.getAllByRole('button', { name: /重试/ }).length,
     ).toBeGreaterThanOrEqual(1)
@@ -197,7 +216,6 @@ describe('Dashboard partial degrade', () => {
 
     renderDashboard()
 
-    // 等待 trend 加载失败 — at least one retry button visible
     await waitFor(() =>
       expect(
         screen.getAllByRole('button', { name: /重试/ }).length,
@@ -220,24 +238,25 @@ describe('Dashboard partial degrade', () => {
         },
       ],
     })
-    // Find the retry button inside the trend block (its onClick calls loadTrendData).
-    // The page-level "刷新" button has icon-only label "刷新" (Refresh), and the
-    // block-level retry buttons say "重试". Click the first "重试" button.
+
     const retryButtons = screen.getAllByRole('button', { name: /重试/ })
     await userEvent.click(retryButtons[0])
 
     await waitFor(() => expect(mockedBars).toHaveBeenCalledTimes(2))
   })
 
-  it('研究摘要失败时仅降级动态模块，不影响行情概览', async () => {
-    mockedDashboardSummary.mockRejectedValueOnce(new Error('研究摘要暂不可用'))
+  it('研究结论失败时只降级 hero，不影响行情概览', async () => {
+    mockedAnalysisHistory.mockRejectedValueOnce(new Error('研究摘要暂不可用'))
 
     renderDashboard()
 
     await waitFor(() => expect(screen.getByText('上证指数')).toBeInTheDocument())
-    expect(screen.getAllByText('研究摘要暂不可用')).toHaveLength(2)
+    await waitFor(() =>
+      expect(screen.getByText('研究摘要暂不可用')).toBeInTheDocument(),
+    )
+    expect(screen.getByText('分析记录暂不可用。')).toBeInTheDocument()
     expect(
       screen.getAllByRole('button', { name: /重试/ }).length,
-    ).toBeGreaterThanOrEqual(2)
+    ).toBeGreaterThanOrEqual(1)
   })
 })

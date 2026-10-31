@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Alert, Button, Input, Modal, Select, Spin, Table } from 'antd'
 import { useQuery } from '@tanstack/react-query'
 import { EyeOutlined } from '@ant-design/icons'
@@ -51,9 +51,34 @@ function BacktestHistory() {
   const [strategyFilter, setStrategyFilter] = useState('')
   const [sortOrder, setSortOrder] = useState<'newest' | 'return'>('newest')
 
+  const [debouncedStock, setDebouncedStock] = useState('')
+  const [debouncedStrategy, setDebouncedStrategy] = useState('')
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedStock(stockFilter)
+      setDebouncedStrategy(strategyFilter)
+      setPage(1)
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [stockFilter, strategyFilter])
+
   const resultsQuery = useQuery({
-    queryKey: backtestKeys.list({ cursor: (page - 1) * pageSize, limit: pageSize }),
-    queryFn: () => getBacktestResults(undefined, (page - 1) * pageSize, pageSize),
+    queryKey: backtestKeys.list({
+      cursor: (page - 1) * pageSize,
+      limit: pageSize,
+      stock: debouncedStock || undefined,
+      strategy: debouncedStrategy || undefined,
+      sort: sortOrder,
+    }),
+    queryFn: () =>
+      getBacktestResults(
+        debouncedStock || undefined,
+        (page - 1) * pageSize,
+        pageSize,
+        debouncedStrategy || undefined,
+        sortOrder,
+      ),
     placeholderData: (previous) => previous,
     staleTime: 30_000,
   })
@@ -69,27 +94,14 @@ function BacktestHistory() {
     enabled: detailVisible && Boolean(detailQuery.data?.stock_code),
     staleTime: 5 * 60_000,
   })
-  const results = useMemo(() => resultsQuery.data ?? [], [resultsQuery.data])
+  const results = useMemo(
+    () => resultsQuery.data?.items ?? [],
+    [resultsQuery.data?.items],
+  )
+  const total = resultsQuery.data?.total ?? 0
   const currentResult = detailQuery.data ?? null
   const stockInfo = stockQuery.data ?? null
-  const visibleResults = useMemo(() => {
-    const stockQuery = stockFilter.trim().toLowerCase()
-    const strategyQuery = strategyFilter.trim().toLowerCase()
-    return [...results]
-      .filter((item) => {
-        const matchesStock =
-          !stockQuery || item.stock_code.toLowerCase().includes(stockQuery)
-        const matchesStrategy =
-          !strategyQuery ||
-          (item.strategy_name ?? '').toLowerCase().includes(strategyQuery)
-        return matchesStock && matchesStrategy
-      })
-      .sort((left, right) =>
-        sortOrder === 'return'
-          ? right.total_return - left.total_return
-          : right.created_at.localeCompare(left.created_at),
-      )
-  }, [results, sortOrder, stockFilter, strategyFilter])
+  const visibleResults = results
   const summary = useMemo(() => {
     const totalReturn = visibleResults.reduce((sum, item) => sum + item.total_return, 0)
     const positive = visibleResults.filter((item) => item.total_return > 0).length
@@ -356,7 +368,10 @@ function BacktestHistory() {
           <Select
             aria-label="回测排序"
             value={sortOrder}
-            onChange={setSortOrder}
+            onChange={(val) => {
+              setSortOrder(val)
+              setPage(1)
+            }}
             options={[
               { value: 'newest', label: '最新运行' },
               { value: 'return', label: '收益率优先' },
@@ -379,9 +394,15 @@ function BacktestHistory() {
           pagination={{
             current: page,
             pageSize: pageSize,
+            total,
             onChange: (p, ps) => {
-              setPage(p)
-              setPageSize(ps)
+              if (ps !== pageSize) {
+                setPage(1)
+                setPageSize(ps)
+              } else {
+                setPage(p)
+                setPageSize(ps)
+              }
             },
             showSizeChanger: true,
             showTotal: (t) => `共 ${t} 条`,

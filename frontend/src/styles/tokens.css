@@ -1,85 +1,110 @@
 /* ============================================
-   1. CSS Custom Properties (Design Tokens)
+   1. Design tokens — Backing research terminal
+   Direction: editorial-greeting (seed 563119555)
+   Ink + deep teal, white ground, tonal panels.
    ============================================ */
 :root {
   color-scheme: light;
-  /* Primary Surfaces */
-  --color-canvas: #f3f0ee; /* Page background - warm putty cream */
-  --color-canvas-lifted: #fcfbfa; /* Card backgrounds - elevated surfaces */
-  --color-white: #ffffff; /* Navigation, modals, select backgrounds */
 
-  /* Brand Colors */
-  --color-ink: #141413; /* Primary text, primary CTAs, footer */
-  --color-charcoal: #262627; /* Secondary text variant */
-  --color-accent: #cf4500; /* Signal Orange - consent/legal ONLY */
-  --color-accent-light: #f37338; /* Light Signal Orange - decorative arcs */
-  --color-clay: #9a3a0a; /* Deep rust - secondary link buttons */
+  /* Surfaces */
+  --color-canvas: #ffffff;
+  --color-canvas-lifted: #f9f9f9;
+  --color-white: #ffffff;
+  --color-surface: #f9f9f9;
+  --color-surface-subtle: #f9f9f9;
+  --color-surface-muted: #f1f1ef;
+  --color-active: #eeeeee;
 
-  /* Stock Semantic Colors */
-  --color-up: #ff3b30; /* Stock price up (China standard) */
-  --color-down: #34c759; /* Stock price down */
-  --color-flat: #86868b; /* Unchanged price */
+  /* Brand and ink */
+  --color-ink: #1f201d;
+  --color-charcoal: #3d3d3a;
+  --color-accent: #1b6e66;
+  --color-accent-light: #2f8a80;
+  --color-clay: #1b6e66;
 
-  /* Functional Colors */
-  --color-success: #16803c; /* workflow success, separate from A-share down */
-  --color-success-light: rgba(52, 199, 89, 0.1);
-  --color-danger: #c7352b; /* workflow failure, separate from A-share up */
-  --color-danger-light: rgba(255, 59, 48, 0.1);
-  --color-warning: #f79e1b;
-  --color-warning-light: rgba(247, 158, 27, 0.1);
+  /* A-share price semantics: red up, green down */
+  --color-up: #c4242a;
+  --color-down: #1e7a4d;
+  --color-flat: #636361;
+  --price-up: var(--color-up);
+  --price-down: var(--color-down);
+  --price-flat: var(--color-flat);
 
-  /* Background Colors */
-  --color-bg-secondary: rgba(0, 0, 0, 0.04);
+  /* Workflow semantics (separate from price direction) */
+  --color-success: #2e7d32;
+  --color-success-light: rgba(46, 125, 50, 0.1);
+  --color-danger: #b42318;
+  --color-danger-light: rgba(180, 35, 24, 0.1);
+  --color-warning: #92400e;
+  --color-warning-light: rgba(146, 64, 14, 0.1);
 
-  /* Text Colors */
+  /* Text */
   --color-text-primary: var(--color-ink);
-  --color-text-secondary: #696969; /* Slate Gray */
-  --color-text-tertiary: #77716b; /* Secondary metadata; readable on light surfaces */
-  --color-text-disabled: #a8a5a0; /* Disabled text (readable on light bg) */
-  --color-bg-disabled: rgba(20, 20, 19, 0.07);
-  --color-border-disabled: rgba(20, 20, 19, 0.16);
-
-  /* Focus ring (WCAG visible focus) */
+  --color-text-secondary: #636361;
+  --color-text-tertiary: #6b6b6b;
+  --color-text-disabled: #9a9a97;
+  --color-bg-secondary: #f3f3f1;
+  --color-bg-disabled: #f1f1ef;
+  --color-border-disabled: #d9d9d6;
   --color-focus-ring: var(--color-accent);
 
-  /* Borders */
-  --color-border: rgba(0, 0, 0, 0.06);
-  --color-border-medium: rgba(0, 0, 0, 0.12);
-  --color-border-strong: rgba(0, 0, 0, 0.2);
-  --color-surface-subtle: #f7f5f3;
-  --color-surface-muted: #eeebe8;
-  --color-accent-blue: #145bd7;
-  --color-accent-blue-light: rgba(20, 91, 215, 0.1);
+  /* Lines */
+  --color-border: #eaeaea;
+  --color-border-medium: #d9d9d6;
+  --color-border-strong: #bdbdb8;
+  --color-rule: #f3f3f3;
 
-  /* Semantic market and research states */
+  /* Secondary accent used by existing chart/copilot code */
+  --color-accent-blue: #1b6e66;
+  --color-accent-blue-light: rgba(27, 110, 102, 0.1);
+
+  /* Market aliases used by existing pages */
   --color-market-up: var(--color-up);
   --color-market-down: var(--color-down);
-  --color-action-buy: #b42318;
-  --color-action-sell: #18794e;
-  --color-risk-high: #b42318;
-  --color-risk-low: #18794e;
-  --color-chart-primary: #145bd7;
+  --color-action-buy: var(--color-up);
+  --color-action-sell: var(--color-down);
+  --color-risk-high: var(--color-danger);
+  --color-risk-low: var(--color-success);
+  --color-chart-primary: var(--color-accent);
   --color-chart-up: var(--color-up);
   --color-chart-down: var(--color-down);
-  --color-chart-volume: #536dba;
-  --color-chart-grid: rgba(20, 20, 19, 0.1);
+  --color-chart-volume: #8c8c88;
+  --color-chart-grid: #eaeaea;
 
-  /* Quiet scrollbars keep dense research surfaces readable. */
-  --scrollbar-thumb: rgba(20, 20, 19, 0.22);
-  --scrollbar-thumb-hover: rgba(20, 20, 19, 0.38);
+  /* Signal pills: A-share convention (buy red, sell green, hold neutral) */
+  --pill-buy-bg: #fdecea;
+  --pill-buy-ink: #7a1d14;
+  --pill-sell-bg: #dcfae5;
+  --pill-sell-ink: #04250e;
+  --pill-hold-bg: #f3f3f3;
+  --pill-hold-ink: #3d3d3a;
+  --pill-positive-bg: #dcfae5;
+  --pill-positive-ink: #04250e;
+  --pill-negative-bg: #fdecea;
+  --pill-negative-ink: #7a1d14;
+  --pill-warning-bg: #fffbeb;
+  --pill-warning-ink: #92400e;
+  --pill-neutral-bg: #f3f3f3;
+  --pill-neutral-ink: #3d3d3a;
 
-  /* Shadows */
-  --shadow-nav: rgba(0, 0, 0, 0.04) 0px 4px 24px 0px;
-  --shadow-card: rgba(0, 0, 0, 0.08) 0px 24px 48px 0px;
-  --shadow-hover: rgba(0, 0, 0, 0.12) 0px 24px 48px 0px;
+  /* Quiet scrollbars */
+  --scrollbar-thumb: rgba(31, 32, 29, 0.18);
+  --scrollbar-thumb-hover: rgba(31, 32, 29, 0.32);
 
-  /* Border Radius Scale */
-  --radius-sm: 6px;
-  --radius-btn: 20px;
-  --radius-card: 18px;
+  /* No shadows at rest; floating surfaces get the browser/AntD default */
+  --shadow-nav: none;
+  --shadow-card: none;
+  --shadow-hover: none;
+
+  /* Radius: soft cards, pill controls, nested steps down */
+  --radius-sm: 8px;
+  --radius-btn: 999px;
+  --radius-card: 22px;
+  --radius-inner: 14px;
+  --radius-control: 10px;
   --radius-pill: 999px;
 
-  /* Spacing Scale */
+  /* Spacing */
   --space-xs: 4px;
   --space-sm: 8px;
   --space-md: 16px;
@@ -88,44 +113,62 @@
   --space-2xl: 48px;
   --space-3xl: 64px;
 
-  /* Typography */
+  /* Typography: CJK UI face + a serif with one job (the research conclusion) */
   --font-family:
-    'Sofia Sans', -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
+    'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', 'Segoe UI', Roboto,
+    'Helvetica Neue', Arial, sans-serif;
+  --font-serif: 'Songti SC', 'STSong', 'SimSun', 'Noto Serif CJK SC', serif;
   --font-size-xs: 11px;
   --font-size-sm: 13px;
   --font-size-base: 14px;
-  --font-size-md: 17px;
+  --font-size-md: 16px;
   --font-size-lg: 20px;
   --font-size-xl: 24px;
   --font-size-2xl: 28px;
-  --font-size-3xl: 34px;
+  --font-size-3xl: 32px;
 
-  /* Transitions */
+  /* App-screen type roles */
+  --fs-title: 30px;
+  --fs-section: 14px;
+  --fs-kpi: 28px;
+  --fs-body: 14px;
+  --fs-small: 12px;
+
+  /* Motion */
   --transition-fast: 0.15s ease;
   --transition-normal: 0.25s ease;
   --transition-slow: 0.4s ease;
-  --content-max-width: 1440px;
-  --nav-height: 56px;
+
+  /* Layout */
+  --content-max-width: 1100px;
+  --sidebar-width: 224px;
+  --nav-height: 48px;
   --panel-padding: 20px;
-  --focus-ring: 0 0 0 3px rgba(20, 91, 215, 0.22);
+  --row-height: 44px;
+  --control-height: 36px;
+  --focus-ring: 0 0 0 3px rgba(27, 110, 102, 0.22);
 }
 
 [data-theme='dark'] {
   color-scheme: dark;
-  --color-canvas: #151515;
-  --color-canvas-lifted: #202020;
-  --color-white: #252525;
-  --color-ink: #f5f3f0;
-  --color-charcoal: #d7d3ce;
-  --color-text-primary: #f5f3f0;
-  --color-text-secondary: #aaa59f;
-  --color-text-tertiary: #77716b;
-  --color-border: rgba(255, 255, 255, 0.1);
-  --color-border-medium: rgba(255, 255, 255, 0.18);
-  --color-surface-subtle: #282625;
-  --color-surface-muted: #302d2a;
-  --shadow-nav: rgba(0, 0, 0, 0.3) 0 8px 28px;
-  --shadow-card: rgba(0, 0, 0, 0.24) 0 16px 36px;
+  --color-canvas: #000000;
+  --color-canvas-lifted: #111111;
+  --color-white: #111111;
+  --color-surface: #111111;
+  --color-surface-subtle: #171717;
+  --color-surface-muted: #222222;
+  --color-active: #222222;
+  --color-ink: #ffffff;
+  --color-charcoal: #d4d4d0;
+  --color-text-primary: #ffffff;
+  --color-text-secondary: #b4b4b4;
+  --color-text-tertiary: #949494;
+  --color-text-disabled: #6b6b6b;
+  --color-border: #1a1a1a;
+  --color-border-medium: #2e2e2e;
+  --color-border-strong: #4c4c4c;
+  --color-rule: #161616;
+  --color-chart-grid: #2b2b2b;
   --scrollbar-thumb: rgba(255, 255, 255, 0.26);
   --scrollbar-thumb-hover: rgba(255, 255, 255, 0.42);
 }

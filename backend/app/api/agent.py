@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 from typing import Any, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, ConfigDict, model_validator
 from sqlalchemy.orm import Session
 
 from app.agent.orchestrator import AgentOrchestrator
@@ -75,8 +75,7 @@ class AnalysisRecordResponse(BaseModel):
     error: Optional[str]
     created_at: str
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
     @model_validator(mode="before")
     @classmethod

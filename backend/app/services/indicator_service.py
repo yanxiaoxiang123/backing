@@ -2,25 +2,22 @@
 技术指标计算服务
 """
 
-import time
 from datetime import date
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 import pandas as pd
 from sqlalchemy.orm import Session
 
 from app.services.cache import indicator_cache
+from app.services.market_data import digest
+from app.services.market_research_prices import load_research_bars
 
 
 class IndicatorService:
     """技术指标计算服务"""
 
     def __init__(self):
-        self._cache: Dict[str, Tuple[float, List[Dict[str, Any]]]] = {}
         self._cache_ttl: int = 300  # 5 分钟缓存有效期
-        self._max_size: int = 200  # 最大缓存条目数（防止内存持续增长）
-        self._access_count: int = 0  # 读写计数，定期触发过期清理
-        self._cleanup_interval: int = 10  # 每 10 次读写自动清理过期条目
 
     def _cache_key(
         self,
@@ -29,6 +26,7 @@ class IndicatorService:
         period: str,
         start_date: Optional[date],
         end_date: Optional[date],
+        data_version: str = "",
     ) -> str:
         # 缓存按数据源 engine 隔离：不同数据库（如各测试内存库）的同代码
         # 行情不得串缓存（回归：跨测试 latest close 错误）。
@@ -37,66 +35,19 @@ class IndicatorService:
         if bind is not None:
             engine_id = str(id(bind))
         return (
-            f"indicator:{engine_id}:{stock_code}:{period}:"
-            f"{start_date}:{end_date}"
+            f"{engine_id}:{stock_code}:{period}:"
+            f"{start_date}:{end_date}:v2:{data_version}"
         )
 
-    def _cache_get(self, key: str) -> Optional[List[Dict[str, Any]]]:
-        self._maybe_cleanup()
-        entry = self._cache.get(key)
-        if entry is None:
-            return None
-        ts, result = entry
-        if time.monotonic() - ts > self._cache_ttl:
-            del self._cache[key]
-            return None
-        return result
-
-    def _cache_set(self, key: str, result: List[Dict[str, Any]]) -> None:
-        self._maybe_cleanup()
-        self._cache[key] = (time.monotonic(), result)
-        if len(self._cache) > self._max_size:
-            self._evict()
-
-    def _maybe_cleanup(self) -> None:
-        """定期清理过期条目 —— 防缓存沉默增长（即使 _cache_get 从未访问）。"""
-        self._access_count += 1
-        if self._access_count % self._cleanup_interval != 0:
-            return
-        now = time.monotonic()
-        expired = [k for k, (ts, _) in self._cache.items() if now - ts > self._cache_ttl]
-        for k in expired:
-            del self._cache[k]
-
-    def _evict(self) -> None:
-        """移除过期条目；仍超上限时淘汰最旧条目（按写入时间排序）。"""
-        now = time.monotonic()
-        # 先清除过期条目
-        expired_keys = [
-            k for k, (ts, _) in self._cache.items()
-            if now - ts > self._cache_ttl
-        ]
-        for k in expired_keys:
-            del self._cache[k]
-
-        # 仍超上限 → 淘汰最旧的一半
-        if len(self._cache) > self._max_size:
-            sorted_keys = sorted(
-                self._cache.keys(),
-                key=lambda k: self._cache[k][0],  # 按写入时间戳升序
-            )
-            to_drop = len(self._cache) - self._max_size
-            for k in sorted_keys[:to_drop]:
-                del self._cache[k]
-
     def clear_cache(self, stock_code: Optional[str] = None) -> None:
-        """清除全部或指定股票的缓存"""
+        """清除全部或指定股票的指标缓存"""
         if stock_code is None:
-            self._cache.clear()
+            indicator_cache.clear()
         else:
-            self._cache = {
-                k: v for k, v in self._cache.items() if stock_code not in k
-            }
+            with indicator_cache._lock:
+                keys_to_del = [k for k in indicator_cache._local if stock_code in k]
+            for k in keys_to_del:
+                indicator_cache.delete(k)
 
     @staticmethod
     def calculate_ma(series: pd.Series, periods: List[int]) -> Dict[str, pd.Series]:
@@ -225,54 +176,19 @@ class IndicatorService:
         start_date: Optional[date] = None,
         end_date: Optional[date] = None,
     ) -> List[Dict[str, Any]]:
-        """获取K线数据及技术指标（带 5 分钟缓存）"""
-        cache_key = self._cache_key(db, stock_code, period, start_date, end_date)
-        cached = self._cache_get(cache_key)
-        if cached is not None:
-            return cached
-
-        from app.models.models import DailyKline
-
-        # 查询K线数据
-        query = db.query(DailyKline).filter(DailyKline.stock_code == stock_code)
-
-        if start_date:
-            query = query.filter(DailyKline.date >= start_date)
-        if end_date:
-            query = query.filter(DailyKline.date <= end_date)
-
-        klines = query.order_by(DailyKline.date).all()
-
-        if not klines:
+        """获取K线数据及技术指标（统一使用 indicator_cache 缓存）"""
+        df = load_research_bars(db, stock_code, start_date or date(1990, 1, 1),
+                                end_date or date.today(), require_complete=False)
+        if df.empty:
             return []
-
-        data_version = (
-            f"{len(klines)}:{klines[-1].date}:{float(klines[-1].close):.8f}"
+        provenance = df.attrs["provenance"]
+        data_version = digest({"prices": df.to_dict(orient="records"), "provenance": provenance})
+        cache_key = self._cache_key(
+            db, stock_code, period, start_date, end_date, data_version
         )
-        redis_key = (
-            f"{stock_code}:{period}:{start_date}:{end_date}:v2:{data_version}"
-        )
-        if indicator_cache.enabled:
-            redis_record = indicator_cache.get(redis_key, allow_stale=False)
-            if redis_record is not None and isinstance(redis_record.get("payload"), list):
-                result = redis_record["payload"]
-                self._cache_set(cache_key, result)
-                return result
-
-        # 转换为DataFrame
-        df = pd.DataFrame(
-            [
-                {
-                    "date": k.date,
-                    "open": k.open,
-                    "high": k.high,
-                    "low": k.low,
-                    "close": k.close,
-                    "volume": k.volume,
-                }
-                for k in klines
-            ]
-        )
+        cached_record = indicator_cache.get(cache_key, allow_stale=False)
+        if cached_record is not None and isinstance(cached_record.get("payload"), list):
+            return cached_record["payload"]
 
         # SQLite Numeric 列读出为 Decimal，pandas 3 下指标计算会崩溃；
         # 先统一转 float（生产路径同样受益）。
@@ -323,6 +239,8 @@ class IndicatorService:
                     "low": float(row["low"]),
                     "close": float(row["close"]),
                     "volume": float(row["volume"]),
+                    "adjustment": provenance["adjustment"],
+                    "versioned": provenance["versioned"],
                     "ma5": float(row["ma5"]) if pd.notna(row["ma5"]) else None,
                     "ma10": float(row["ma10"]) if pd.notna(row["ma10"]) else None,
                     "ma20": float(row["ma20"]) if pd.notna(row["ma20"]) else None,
@@ -340,15 +258,13 @@ class IndicatorService:
                 }
             )
 
-        self._cache_set(cache_key, result)
-        if indicator_cache.enabled:
-            indicator_cache.set(
-                redis_key,
-                result,
-                fresh_ttl_s=self._cache_ttl,
-                stale_ttl_s=24 * 3600.0,
-                metadata={"data_version": data_version},
-            )
+        indicator_cache.set(
+            cache_key,
+            result,
+            fresh_ttl_s=self._cache_ttl,
+            stale_ttl_s=24 * 3600.0,
+            metadata={"data_version": data_version},
+        )
         return result
 
     @staticmethod

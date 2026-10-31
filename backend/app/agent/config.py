@@ -3,7 +3,7 @@
 
 from typing import Optional
 
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class AgentSettings(BaseSettings):
@@ -28,10 +28,11 @@ class AgentSettings(BaseSettings):
     # 风控配置
     AGENT_RISK_OVERRIDE: bool = True
 
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
-        extra = "allow"
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="allow",
+    )
 
 
 agent_settings = AgentSettings()

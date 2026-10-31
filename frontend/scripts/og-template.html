@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        width: 1200px;
+        height: 630px;
+      }
+      body {
+        background: #f3f0ee;
+        color: #141413;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
+          'Microsoft YaHei', sans-serif;
+      }
+      .card {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        padding: 64px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        overflow: hidden;
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        font-size: 24px;
+        font-weight: 600;
+      }
+      h1 {
+        max-width: 960px;
+        margin: 0;
+        font-size: 48px;
+        line-height: 1;
+        font-weight: 600;
+      }
+      p {
+        max-width: 640px;
+        margin: 24px 0 0;
+        font-size: 20px;
+        line-height: 28px;
+        color: #696969;
+      }
+      .tag {
+        position: absolute;
+        right: 64px;
+        top: 64px;
+        font-size: 16px;
+        font-weight: 600;
+        color: #9a3a0a;
+      }
+      .chart {
+        position: absolute;
+        right: -40px;
+        bottom: -30px;
+        width: 560px;
+        height: 300px;
+        opacity: 0.9;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <div>
+        <div class="brand">
+          <svg width="32" height="32" viewBox="0 0 20 20" aria-hidden="true">
+            <rect x="3" y="9" width="3" height="8" rx="1" fill="#141413"></rect>
+            <rect x="8.5" y="5" width="3" height="12" rx="1" fill="#141413"></rect>
+            <rect x="14" y="2" width="3" height="15" rx="1" fill="#cf4500"></rect>
+          </svg>
+          Backing
+        </div>
+        <h1>从 K 线到模拟成交，<br />把 A 股研究跑成一条可复现的链路</h1>
+        <p>回测、参数优化、AI 分析与模拟盘，都在一个工作台里。</p>
+      </div>
+      <div class="tag">A 股研究台</div>
+      <svg class="chart" viewBox="0 0 560 300" aria-hidden="true">
+        <path
+          d="M0 240 L80 210 L150 225 L230 160 L310 180 L390 110 L470 130 L560 60"
+          fill="none"
+          stroke="#cf4500"
+          stroke-width="3"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        ></path>
+        <path
+          d="M0 260 L80 240 L150 250 L230 210 L310 220 L390 180 L470 190 L560 150"
+          fill="none"
+          stroke="#141413"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          opacity="0.25"
+        ></path>
+      </svg>
+    </div>
+  </body>
+</html>

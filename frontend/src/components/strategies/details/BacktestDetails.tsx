@@ -250,3 +250,5 @@ export function BacktestDetails({
     </>
   )
 }
+
+export default BacktestDetails

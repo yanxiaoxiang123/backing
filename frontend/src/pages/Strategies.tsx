@@ -1,11 +1,19 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
-import { message } from 'antd'
+import {
+  useState,
+  useEffect,
+  useRef,
+  useCallback,
+  useMemo,
+  lazy,
+  Suspense,
+} from 'react'
+import { Card, message } from 'antd'
 import { useQuery } from '@tanstack/react-query'
 import {
   generateSignals,
   runStrategyBacktest,
   submitOptimizeParameters,
-  getRealtimeBars,
+  getStockKline,
   compareStrategies,
   getApiErrorMessage,
 } from '../services/api'
@@ -19,7 +27,9 @@ import dayjs from 'dayjs'
 import { StrategyList } from '../components/strategies/StrategyList'
 import { StrategyConfig } from '../components/strategies/StrategyConfig'
 import { StrategyResults } from '../components/strategies/StrategyResults'
-import { BacktestDetails } from '../components/strategies/details/BacktestDetails'
+const BacktestDetails = lazy(
+  () => import('../components/strategies/details/BacktestDetails'),
+)
 import type {
   StrategyInfo,
   SignalDataPoint,
@@ -32,6 +42,7 @@ import { PageHeader } from '../components/research/ResearchPrimitives'
 import { strategyKeys } from '../services/queryKeys'
 import { normalizeStockCode } from '../utils/stockIdentity'
 import { useSearchParams } from 'react-router-dom'
+import { syncResearchHistory } from '../services/marketData'
 
 function Strategies() {
   const chartRef = useRef<HTMLDivElement>(null)
@@ -55,6 +66,28 @@ function Strategies() {
   const [loadingSignals, setLoadingSignals] = useState(false)
   const [loadingBacktest, setLoadingBacktest] = useState(false)
   const [loadingOptimize, setLoadingOptimize] = useState(false)
+  const [loadingData, setLoadingData] = useState(false)
+  const [priceSource, setPriceSource] = usePersistedState<'raw' | 'legacy'>(
+    'strategies_priceSource',
+    'raw',
+  )
+  const [corporateActionMode, setCorporateActionMode] = usePersistedState<
+    'price_only' | 'verified'
+  >('strategies_corporateActionMode', 'verified')
+  const [dividendTaxRate, setDividendTaxRate] = usePersistedState(
+    'strategies_dividendTaxRate',
+    0,
+  )
+  const executionOptions = useMemo(
+    () => ({
+      price_source: priceSource,
+      corporate_action_mode:
+        priceSource === 'legacy' ? ('price_only' as const) : corporateActionMode,
+      dividend_tax_rate: dividendTaxRate,
+    }),
+    [priceSource, corporateActionMode, dividendTaxRate],
+  )
+  const chartRequest = useRef(0)
 
   // Form state
   const [stockCode, setStockCode] = usePersistedState<string | null>(
@@ -67,7 +100,10 @@ function Strategies() {
   }, [requestedStock, setStockCode, stockCode])
   const [dateRange, setDateRange] = usePersistedState<[string, string]>(
     'strategies_dateRange',
-    [dayjs().subtract(1, 'year').format('YYYY-MM-DD'), dayjs().format('YYYY-MM-DD')],
+    [
+      dayjs().subtract(1, 'year').format('YYYY-MM-DD'),
+      dayjs().subtract(1, 'day').format('YYYY-MM-DD'),
+    ],
   )
   const [initialCapital, setInitialCapital] = usePersistedState(
     'strategies_initialCapital',
@@ -105,30 +141,51 @@ function Strategies() {
     }
   }, [selectedStrategy, strategies])
 
-  const loadMootdxData = useCallback(async () => {
+  const loadResearchData = useCallback(async () => {
     if (!stockCode || !dateRange[0] || !dateRange[1]) return []
-    const response = await getRealtimeBars(stockCode, 'daily', true)
-    const data = response.data.filter(
-      (bar) => bar.date >= dateRange[0] && bar.date <= dateRange[1],
-    )
-    setKlineData(data)
+    const generation = ++chartRequest.current
+    let data
+    try {
+      data = await getStockKline(stockCode, dateRange[0], dateRange[1], priceSource)
+    } catch (error) {
+      if (generation === chartRequest.current) setKlineData([])
+      throw error
+    }
+    if (generation === chartRequest.current) setKlineData(data)
     if (data.length === 0) {
-      throw new Error('mootdx 未返回所选区间的 K 线数据')
+      throw new Error('所选区间暂无研究行情，请先补齐研究数据')
     }
     return data
-  }, [stockCode, dateRange])
+  }, [stockCode, dateRange, priceSource])
 
-  // 与股票管理页使用同一 mootdx 行情源；选股或修改区间后立即刷新图表。
+  // Historical chart and execution use the same price source and interval.
   useEffect(() => {
     if (!stockCode) {
       setKlineData([])
       return
     }
-    loadMootdxData().catch((error) => {
-      setKlineData([])
+    loadResearchData().catch((error) => {
       logger.error(error)
     })
-  }, [stockCode, dateRange, loadMootdxData])
+    return () => {
+      chartRequest.current += 1
+    }
+  }, [stockCode, dateRange, loadResearchData])
+
+  const handleSyncData = useCallback(async () => {
+    if (!stockCode) return
+    setLoadingData(true)
+    try {
+      const jobId = await syncResearchHistory(stockCode, dateRange[0], dateRange[1])
+      await waitForJob(jobId)
+      await loadResearchData()
+      message.success('原始行情、停牌状态及分红复权数据已补齐')
+    } catch (error) {
+      message.error(getApiErrorMessage(error))
+    } finally {
+      setLoadingData(false)
+    }
+  }, [stockCode, dateRange, waitForJob, loadResearchData])
 
   const handleGenerateSignals = useCallback(async () => {
     if (!selectedStrategy || !stockCode || !dateRange[0] || !dateRange[1]) {
@@ -140,13 +197,14 @@ function Strategies() {
     setBacktestResult(null)
     setOptimizeResult(null)
     try {
-      await loadMootdxData()
+      await loadResearchData()
       const response = await generateSignals({
         strategy_name: selectedStrategy,
         stock_code: stockCode,
         start_date: dateRange[0],
         end_date: dateRange[1],
         parameters,
+        ...executionOptions,
       })
       setSignals(response.data)
       setSignalStats(response.stats ?? null)
@@ -156,7 +214,14 @@ function Strategies() {
     } finally {
       setLoadingSignals(false)
     }
-  }, [selectedStrategy, stockCode, dateRange, parameters, loadMootdxData])
+  }, [
+    selectedStrategy,
+    stockCode,
+    dateRange,
+    parameters,
+    loadResearchData,
+    executionOptions,
+  ])
 
   const handleRunBacktest = useCallback(async () => {
     if (!selectedStrategy || !stockCode || !dateRange[0] || !dateRange[1]) {
@@ -166,7 +231,7 @@ function Strategies() {
 
     setLoadingBacktest(true)
     try {
-      await loadMootdxData()
+      await loadResearchData()
       const response = await runStrategyBacktest({
         strategy_name: selectedStrategy,
         stock_code: stockCode,
@@ -174,6 +239,7 @@ function Strategies() {
         end_date: dateRange[1],
         initial_capital: initialCapital,
         parameters,
+        ...executionOptions,
       })
       setBacktestResult(response)
       setSignals([])
@@ -190,7 +256,8 @@ function Strategies() {
     dateRange,
     initialCapital,
     parameters,
-    loadMootdxData,
+    loadResearchData,
+    executionOptions,
   ])
 
   const handleOptimize = useCallback(async () => {
@@ -201,7 +268,7 @@ function Strategies() {
 
     setLoadingOptimize(true)
     try {
-      await loadMootdxData()
+      await loadResearchData()
       const strategy = strategies.find((s) => s.name === selectedStrategy)
       if (!strategy) return
 
@@ -224,6 +291,7 @@ function Strategies() {
         initial_capital: initialCapital,
         param_grid: paramGrid,
         metric: 'sharpe_ratio',
+        ...executionOptions,
       })
       const response = await waitForJob(submission.job_id)
       setOptimizeResult(response)
@@ -242,7 +310,8 @@ function Strategies() {
     initialCapital,
     strategies,
     waitForJob,
-    loadMootdxData,
+    loadResearchData,
+    executionOptions,
   ])
 
   const handleCompare = useCallback(async () => {
@@ -253,12 +322,13 @@ function Strategies() {
     setLoadingCompare(true)
     setCompareResult(null)
     try {
-      await loadMootdxData()
+      await loadResearchData()
       const response = await compareStrategies({
         stock_code: stockCode,
         start_date: dateRange[0],
         end_date: dateRange[1],
         initial_capital: initialCapital,
+        ...executionOptions,
       })
       setCompareResult(response)
       message.success(`对比完成: ${response.total_strategies} 个策略`)
@@ -268,7 +338,7 @@ function Strategies() {
     } finally {
       setLoadingCompare(false)
     }
-  }, [stockCode, dateRange, initialCapital, loadMootdxData])
+  }, [stockCode, dateRange, initialCapital, loadResearchData, executionOptions])
 
   const getCurrentChartOption = useMemo(
     () => getChartOption(klineData, signals, backtestResult),
@@ -304,6 +374,14 @@ function Strategies() {
           dateRange={dateRange}
           initialCapital={initialCapital}
           parameters={parameters}
+          priceSource={priceSource}
+          corporateActionMode={corporateActionMode}
+          dividendTaxRate={dividendTaxRate}
+          loadingData={loadingData}
+          onPriceSourceChange={setPriceSource}
+          onCorporateActionModeChange={setCorporateActionMode}
+          onDividendTaxRateChange={setDividendTaxRate}
+          onSyncData={handleSyncData}
           loading={{
             signals: loadingSignals,
             backtest: loadingBacktest,
@@ -330,12 +408,18 @@ function Strategies() {
           chartOption={getCurrentChartOption}
           portfolioChartOption={getCurrentPortfolioChartOption}
         >
-          <BacktestDetails
-            optimizeResult={optimizeResult}
-            compareResult={compareResult}
-            onRunBestBacktest={handleRunBacktest}
-            onSelectStrategy={setSelectedStrategy}
-          />
+          {Boolean(optimizeResult || compareResult) && (
+            <Suspense
+              fallback={<Card loading style={{ marginTop: 'var(--space-md)' }} />}
+            >
+              <BacktestDetails
+                optimizeResult={optimizeResult}
+                compareResult={compareResult}
+                onRunBestBacktest={handleRunBacktest}
+                onSelectStrategy={setSelectedStrategy}
+              />
+            </Suspense>
+          )}
         </StrategyResults>
       </div>
     </div>

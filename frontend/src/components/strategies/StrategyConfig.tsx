@@ -18,6 +18,14 @@ interface StrategyConfigProps {
   dateRange: [string, string]
   initialCapital: number
   parameters: Record<string, number | string>
+  priceSource: 'raw' | 'legacy'
+  corporateActionMode: 'price_only' | 'verified'
+  dividendTaxRate: number
+  loadingData: boolean
+  onPriceSourceChange: (value: 'raw' | 'legacy') => void
+  onCorporateActionModeChange: (value: 'price_only' | 'verified') => void
+  onDividendTaxRateChange: (value: number) => void
+  onSyncData: () => void
   loading: { signals: boolean; backtest: boolean; optimize: boolean; compare: boolean }
   onStockCodeChange: (code: string) => void
   onDateRangeChange: (range: [string, string]) => void
@@ -113,6 +121,14 @@ export function StrategyConfig({
   dateRange,
   initialCapital,
   parameters,
+  priceSource,
+  corporateActionMode,
+  dividendTaxRate,
+  loadingData,
+  onPriceSourceChange,
+  onCorporateActionModeChange,
+  onDividendTaxRateChange,
+  onSyncData,
   loading,
   onStockCodeChange,
   onDateRangeChange,
@@ -167,6 +183,7 @@ export function StrategyConfig({
               回测区间
             </label>
             <RangePicker
+              disabledDate={(current) => current.isAfter(dayjs(), 'day')}
               value={[dayjs(dateRange[0]), dayjs(dateRange[1])]}
               onChange={(dates) => {
                 if (dates) {
@@ -201,6 +218,51 @@ export function StrategyConfig({
               parser={(value) => Number(value!.replace(/\$\s?|(,*)/g, ''))}
             />
           </div>
+
+          <div>
+            <label htmlFor="research-price-source">历史行情口径</label>
+            <Select
+              id="research-price-source"
+              value={priceSource}
+              onChange={onPriceSourceChange}
+              style={{ width: '100%' }}
+              options={[
+                { value: 'raw', label: '原始价格 · 按交易日历核验' },
+                { value: 'legacy', label: '旧行情 · 复权口径未知' },
+              ]}
+            />
+          </div>
+          <div>
+            <label htmlFor="research-corporate-actions">收益计算</label>
+            <Select
+              id="research-corporate-actions"
+              value={priceSource === 'legacy' ? 'price_only' : corporateActionMode}
+              disabled={priceSource === 'legacy'}
+              onChange={onCorporateActionModeChange}
+              style={{ width: '100%' }}
+              options={[
+                { value: 'verified', label: '含分红送转 · 核对登记及到账日期' },
+                { value: 'price_only', label: '仅价格收益 · 不计分红送转' },
+              ]}
+            />
+          </div>
+          {priceSource === 'raw' && corporateActionMode === 'verified' ? (
+            <div>
+              <label htmlFor="research-dividend-tax">分红税率假设（%）</label>
+              <InputNumber
+                id="research-dividend-tax"
+                value={dividendTaxRate * 100}
+                min={0}
+                max={100}
+                onChange={(value) => onDividendTaxRateChange((value ?? 0) / 100)}
+                style={{ width: '100%' }}
+              />
+              <small>固定研究假设；0 表示税前收益。</small>
+            </div>
+          ) : null}
+          <Button disabled={!stockCode} loading={loadingData} onClick={onSyncData}>
+            补齐研究数据
+          </Button>
 
           <div
             style={{

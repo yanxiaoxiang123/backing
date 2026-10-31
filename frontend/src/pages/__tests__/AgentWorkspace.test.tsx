@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 
@@ -15,6 +15,7 @@ const mockRun = vi.hoisted(() => ({
   error: null as string | null,
   start: vi.fn(),
   attach: vi.fn(),
+  detach: vi.fn(),
   cancel: vi.fn(),
   resume: vi.fn(),
   decide: vi.fn(),
@@ -24,6 +25,7 @@ const mockChat = vi.hoisted(() => ({
   threads: [] as Array<Record<string, unknown>>,
   currentThread: null as Record<string, unknown> | null,
   messages: [] as Array<Record<string, unknown>>,
+  stockCode: null as string | null,
   streamState: 'idle',
   running: false,
   error: null as string | null,
@@ -47,6 +49,7 @@ vi.mock('../../hooks/useAgentRun', () => ({
     error: mockRun.error,
     start: mockRun.start,
     attach: mockRun.attach,
+    detach: mockRun.detach,
     cancel: mockRun.cancel,
     resume: mockRun.resume,
     decide: mockRun.decide,
@@ -58,6 +61,7 @@ vi.mock('../../hooks/useAgentChat', () => ({
     threads: mockChat.threads,
     currentThread: mockChat.currentThread,
     messages: mockChat.messages,
+    stockCode: mockChat.stockCode,
     streamState: mockChat.streamState,
     running: mockChat.running,
     error: mockChat.error,
@@ -75,11 +79,18 @@ vi.mock('../../services/api', async (importOriginal) => {
 })
 
 import AgentWorkspace from '../AgentWorkspace'
+import { getStockKline } from '../../services/api'
 
-function renderWorkspace() {
+vi.mock('../../components/charts/LazyECharts', () => ({
+  LazyECharts: ({ option }: { option: { xAxis: Array<{ data: string[] }> } }) => (
+    <div data-testid="workspace-candles">{option.xAxis[0].data.join(',')}</div>
+  ),
+}))
+
+function renderWorkspace(path = '/workspace') {
   return render(
     <MemoryRouter
-      initialEntries={['/workspace']}
+      initialEntries={[path]}
       future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
     >
       <AgentWorkspace />
@@ -98,10 +109,13 @@ beforeEach(() => {
   mockRun.approvals = []
   mockRun.start.mockClear()
   mockRun.attach.mockClear()
+  mockRun.detach.mockClear()
+  vi.mocked(getStockKline).mockReset().mockResolvedValue([])
   mockRun.decide.mockClear()
   mockChat.threads = []
   mockChat.currentThread = null
   mockChat.messages = []
+  mockChat.stockCode = null
   mockChat.running = false
   mockChat.error = null
   mockChat.selectThread.mockClear()
@@ -265,6 +279,113 @@ describe('AgentWorkspace', () => {
       short_period: 5,
       long_period: 30,
     })
+  })
+
+  it('confirmed chat stock drives candles while older research keeps its identity', () => {
+    mockChat.currentThread = { thread_id: 't-1', last_run_id: 'run-1' }
+    mockChat.stockCode = 'sz.000001'
+    mockRun.run = {
+      run_id: 'run-1',
+      objective: '分析 sh.600000',
+      status: 'completed',
+      steps: [],
+    }
+    renderWorkspace()
+    expect(getStockKline).toHaveBeenLastCalledWith('sz.000001')
+    expect(screen.getByText('股票：sz.000001')).toBeInTheDocument()
+    expect(screen.getByText('研究股票：sh.600000')).toBeInTheDocument()
+  })
+
+  it('URL suffix stock remains a fallback before selecting a thread', () => {
+    renderWorkspace('/workspace?stock=000001.sz')
+    expect(getStockKline).toHaveBeenCalledWith('sz.000001')
+  })
+
+  it('new thread detaches current research immediately', async () => {
+    const user = userEvent.setup()
+    mockChat.currentThread = { thread_id: 't-1', last_run_id: 'run-1' }
+    renderWorkspace()
+    mockRun.detach.mockClear()
+    await user.click(screen.getByRole('button', { name: /新对话/ }))
+    expect(mockRun.detach).toHaveBeenCalledTimes(1)
+    expect(mockChat.newThread).toHaveBeenCalledTimes(1)
+  })
+
+  it('clears loaded candles immediately when the target changes', async () => {
+    let resolveNew!: (value: Awaited<ReturnType<typeof getStockKline>>) => void
+    const row = (date: string) => ({
+      date,
+      open: 1,
+      close: 2,
+      low: 1,
+      high: 2,
+      volume: 100,
+    })
+    vi.mocked(getStockKline)
+      .mockResolvedValueOnce([row('old-date')] as Awaited<
+        ReturnType<typeof getStockKline>
+      >)
+      .mockReturnValueOnce(
+        new Promise((resolve) => {
+          resolveNew = resolve
+        }),
+      )
+    mockChat.stockCode = 'sz.000001'
+    const { rerender } = renderWorkspace()
+    await act(async () => {})
+    expect(screen.getByTestId('workspace-candles')).toHaveTextContent('old-date')
+    mockChat.stockCode = 'sh.600000'
+    rerender(
+      <MemoryRouter>
+        <AgentWorkspace />
+      </MemoryRouter>,
+    )
+    expect(screen.queryByTestId('workspace-candles')).toBeNull()
+    expect(screen.getByText('暂无 sh.600000 的 K 线数据')).toBeInTheDocument()
+    await act(async () => {
+      resolveNew([row('new-date')] as Awaited<ReturnType<typeof getStockKline>>)
+    })
+    expect(screen.getByTestId('workspace-candles')).toHaveTextContent('new-date')
+  })
+
+  it('ignores the obsolete candle response after a target switch', async () => {
+    let resolveOld!: (value: Awaited<ReturnType<typeof getStockKline>>) => void
+    let resolveNew!: (value: Awaited<ReturnType<typeof getStockKline>>) => void
+    vi.mocked(getStockKline)
+      .mockReturnValueOnce(
+        new Promise((resolve) => {
+          resolveOld = resolve
+        }),
+      )
+      .mockReturnValueOnce(
+        new Promise((resolve) => {
+          resolveNew = resolve
+        }),
+      )
+    mockChat.stockCode = 'sz.000001'
+    const { rerender } = renderWorkspace()
+    mockChat.stockCode = 'sh.600000'
+    rerender(
+      <MemoryRouter>
+        <AgentWorkspace />
+      </MemoryRouter>,
+    )
+    const row = (date: string) => ({
+      date,
+      open: 1,
+      close: 2,
+      low: 1,
+      high: 2,
+      volume: 100,
+    })
+    await act(async () => {
+      resolveNew([row('new-date')] as Awaited<ReturnType<typeof getStockKline>>)
+    })
+    await act(async () => {
+      resolveOld([row('old-date')] as Awaited<ReturnType<typeof getStockKline>>)
+    })
+    expect(screen.getByTestId('workspace-candles')).toHaveTextContent('new-date')
+    expect(screen.getByTestId('workspace-candles')).not.toHaveTextContent('old-date')
   })
 
   it('当前会话带 last_run_id 时右栏自动 attach', () => {

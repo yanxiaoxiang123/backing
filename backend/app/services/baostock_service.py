@@ -1,4 +1,5 @@
 import logging
+import threading
 import time
 from datetime import datetime, timedelta
 from typing import List, Optional, Tuple
@@ -17,6 +18,9 @@ except Exception:  # pragma: no cover - optional dependency at runtime
 
 logger = logging.getLogger(__name__)
 
+# Baostock C 扩展底层通信非多线程安全，使用进程级递归锁保护
+_bs_lock = threading.RLock()
+
 
 class BaostockService:
     def __init__(self):
@@ -24,19 +28,21 @@ class BaostockService:
 
     def login(self) -> bool:
         """Login to baostock"""
-        if not self.is_login:
-            lg = bs.login()
-            if lg.error_code != "0":
-                logger.error(f"Baostock login failed: {lg.error_msg}")
-                return False
-            self.is_login = True
-        return True
+        with _bs_lock:
+            if not self.is_login:
+                lg = bs.login()
+                if lg.error_code != "0":
+                    logger.error(f"Baostock login failed: {lg.error_msg}")
+                    return False
+                self.is_login = True
+            return True
 
     def logout(self) -> None:
         """Logout from baostock"""
-        if self.is_login:
-            bs.logout()
-            self.is_login = False
+        with _bs_lock:
+            if self.is_login:
+                bs.logout()
+                self.is_login = False
 
     def _infer_market_by_code(self, code_digits: str) -> str:
         if code_digits.startswith(("8", "4")):
@@ -52,32 +58,33 @@ class BaostockService:
         return f"{mkt}.{code_digits}"
 
     def _get_stock_list_baostock(self) -> List[dict]:
-        if not self.login():
-            return []
+        with _bs_lock:
+            if not self.login():
+                return []
 
-        rs = bs.query_stock_basic()
-        stocks: List[dict] = []
-        while rs.error_code == "0" and rs.next():
-            row = rs.get_row_data()
-            # row: code,name,ipoDate,outDate,type,status
-            if len(row) < 6:
-                continue
-            # Filter: type=1 (A股), status=1 (上市)
-            if row[4] != "1" or row[5] != "1":
-                continue
-            code = row[0]
-            market = (
-                code.split(".")[0] if "." in code else self._infer_market_by_code(code)
-            )
-            stocks.append(
-                {
-                    "code": code,
-                    "name": row[1],
-                    "list_date": row[2] or None,
-                    "market": market,
-                }
-            )
-        return stocks
+            rs = bs.query_stock_basic()
+            stocks: List[dict] = []
+            while rs.error_code == "0" and rs.next():
+                row = rs.get_row_data()
+                # row: code,name,ipoDate,outDate,type,status
+                if len(row) < 6:
+                    continue
+                # Filter: type=1 (A股), status=1 (上市)
+                if row[4] != "1" or row[5] != "1":
+                    continue
+                code = row[0]
+                market = (
+                    code.split(".")[0] if "." in code else self._infer_market_by_code(code)
+                )
+                stocks.append(
+                    {
+                        "code": code,
+                        "name": row[1],
+                        "list_date": row[2] or None,
+                        "market": market,
+                    }
+                )
+            return stocks
 
     def _get_stock_list_akshare(self) -> List[dict]:
         if ak is None:
@@ -250,10 +257,6 @@ class BaostockService:
         self, stock_code: str, start_date: str, end_date: str
     ) -> pd.DataFrame:
         """Get daily kline data from baostock."""
-        if not self.login():
-            return pd.DataFrame()
-
-        # Format stock code for baostock (already has prefix like "sh.600000")
         if "." in stock_code:
             bs_code = stock_code
         elif stock_code.startswith("6"):
@@ -261,42 +264,53 @@ class BaostockService:
         else:
             bs_code = f"sz.{stock_code}"
 
-        rs = bs.query_history_k_data_plus(
-            bs_code,
-            "date,open,high,low,close,volume,amount",
-            start_date=start_date,
-            end_date=end_date,
-            frequency="d",
-            adjustflag="2",  # 前复权
-        )
-
         data_list = []
-        while rs.error_code == "0" and rs.next():
-            try:
-                row = rs.get_row_data()
-                # Skip rows with invalid data (encoding issues)
-                if not row or len(row) < 7:
-                    continue
-                # Try to convert each value to handle encoding issues
-                cleaned_row = []
-                for val in row:
-                    if val is None:
-                        cleaned_row.append("0")
-                    else:
-                        try:
-                            # Try to encode/decode to handle encoding issues
-                            str(val).encode("utf-8").decode("utf-8")
-                            cleaned_row.append(val)
-                        except (UnicodeDecodeError, UnicodeEncodeError):
+        fields = []
+        with _bs_lock:
+            if not self.login():
+                return pd.DataFrame()
+
+            rs = bs.query_history_k_data_plus(
+                bs_code,
+                "date,open,high,low,close,volume,amount",
+                start_date=start_date,
+                end_date=end_date,
+                frequency="d",
+                adjustflag="2",  # 前复权
+            )
+
+            fields = getattr(rs, "fields", None) or [
+                "date",
+                "open",
+                "high",
+                "low",
+                "close",
+                "volume",
+                "amount",
+            ]
+            while rs.error_code == "0" and rs.next():
+                try:
+                    row = rs.get_row_data()
+                    if not row or len(row) < 7:
+                        continue
+                    cleaned_row = []
+                    for val in row:
+                        if val is None:
                             cleaned_row.append("0")
-                data_list.append(cleaned_row)
-            except Exception as e:
-                logger.warning("处理数据行时跳过异常行: %s", e)
+                        else:
+                            try:
+                                str(val).encode("utf-8").decode("utf-8")
+                                cleaned_row.append(val)
+                            except (UnicodeDecodeError, UnicodeEncodeError):
+                                cleaned_row.append("0")
+                    data_list.append(cleaned_row)
+                except Exception as e:
+                    logger.warning("处理数据行时跳过异常行: %s", e)
 
         if not data_list:
             return pd.DataFrame()
 
-        df = pd.DataFrame(data_list, columns=rs.fields)
+        df = pd.DataFrame(data_list, columns=fields)
         df["stock_code"] = stock_code
 
         # Convert types and replace NaN with None
@@ -429,10 +443,12 @@ class BaostockService:
                 inserted = 0
                 for row in rows:
                     try:
-                        db.execute(DailyKline.__table__.insert(), [row])
+                        # A duplicate must not roll back successful earlier rows.
+                        with db.begin_nested():
+                            db.execute(DailyKline.__table__.insert(), [row])
                         inserted += 1
                     except IntegrityError:
-                        db.rollback()
+                        continue
                 db.commit()
                 return inserted
 
@@ -523,42 +539,53 @@ class BaostockService:
         self, index_code: str, start_date: str, end_date: str
     ) -> pd.DataFrame:
         """Get index daily kline data"""
-        if not self.login():
-            return pd.DataFrame()
-
-        rs = bs.query_history_k_data_plus(
-            index_code,
-            "date,open,high,low,close,volume,amount",
-            start_date=start_date,
-            end_date=end_date,
-            frequency="d",
-            adjustflag="3",  # 不复权
-        )
-
         data_list = []
-        while rs.error_code == "0" and rs.next():
-            try:
-                row = rs.get_row_data()
-                if not row or len(row) < 7:
-                    continue
-                cleaned_row = []
-                for val in row:
-                    if val is None:
-                        cleaned_row.append("0")
-                    else:
-                        try:
-                            str(val).encode("utf-8").decode("utf-8")
-                            cleaned_row.append(val)
-                        except (UnicodeDecodeError, UnicodeEncodeError):
+        fields = []
+        with _bs_lock:
+            if not self.login():
+                return pd.DataFrame()
+
+            rs = bs.query_history_k_data_plus(
+                index_code,
+                "date,open,high,low,close,volume,amount",
+                start_date=start_date,
+                end_date=end_date,
+                frequency="d",
+                adjustflag="3",  # 不复权
+            )
+
+            fields = getattr(rs, "fields", None) or [
+                "date",
+                "open",
+                "high",
+                "low",
+                "close",
+                "volume",
+                "amount",
+            ]
+            while rs.error_code == "0" and rs.next():
+                try:
+                    row = rs.get_row_data()
+                    if not row or len(row) < 7:
+                        continue
+                    cleaned_row = []
+                    for val in row:
+                        if val is None:
                             cleaned_row.append("0")
-                data_list.append(cleaned_row)
-            except Exception as e:
-                logger.warning("处理数据行时跳过异常行: %s", e)
+                        else:
+                            try:
+                                str(val).encode("utf-8").decode("utf-8")
+                                cleaned_row.append(val)
+                            except (UnicodeDecodeError, UnicodeEncodeError):
+                                cleaned_row.append("0")
+                    data_list.append(cleaned_row)
+                except Exception as e:
+                    logger.warning("处理数据行时跳过异常行: %s", e)
 
         if not data_list:
             return pd.DataFrame()
 
-        df = pd.DataFrame(data_list, columns=rs.fields)
+        df = pd.DataFrame(data_list, columns=fields)
         df["stock_code"] = index_code
 
         df["open"] = pd.to_numeric(df["open"], errors="coerce").fillna(0)

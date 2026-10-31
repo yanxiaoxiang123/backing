@@ -1,7 +1,7 @@
-/*** Backing - Mastercard-inspired Design System ***/
+/*** Backing — research terminal (editorial-greeting) ***/
 
 /* ============================================
-   样式分层入口：tokens / base / layout / components / pages
+   样式分层入口：tokens / base / layout / components / pages / shell / dashboard
    保持此导入顺序以维持层叠顺序（AntD 覆盖在组件之后）。
    ============================================ */
 @import './styles/tokens.css';
@@ -9,4 +9,6 @@
 @import './styles/layout.css';
 @import './styles/components.css';
 @import './styles/pages.css';
-@import './styles/chat.css';
+@import './styles/shell.css';
+@import './styles/dashboard.css';
+@import './styles/login.css';

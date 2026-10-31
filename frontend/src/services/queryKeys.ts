@@ -47,6 +47,7 @@ export const backtestKeys = {
     limit: number
     strategy?: string
     stock?: string
+    sort?: string
   }) => [...backtestKeys.all, 'list', filters] as const,
   detail: (id: number) => [...backtestKeys.all, 'detail', id] as const,
 }

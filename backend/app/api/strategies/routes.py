@@ -40,6 +40,7 @@ from app.config import SessionLocal, get_db, settings
 from app.exceptions import NotFoundError, ValidationError
 from app.models.models import Stock
 from app.services.backtest_executor import BacktestExecutor
+from app.services.corporate_actions import execution_actions
 from app.services.job_store import job_store
 from app.services.strategy.optimizer import GridSearchOptimizer
 from app.services.strategy.registry import StrategyRegistry
@@ -72,6 +73,21 @@ def get_strategy_class(strategy_name: str):
     return strategy_class
 
 
+def _load_history(db: Session, request) -> pd.DataFrame:
+    try:
+        frame = get_kline_data(db, request.stock_code, request.start_date, request.end_date,
+                               price_source=request.price_source)
+        if request.corporate_action_mode == "verified":
+            if frame.attrs["provenance"]["source"] != "raw":
+                raise ValueError("Verified corporate-action execution requires raw prices")
+            actions, provenance = execution_actions(db, request.stock_code, request.start_date, request.end_date)
+            frame.attrs.update(corporate_actions=actions, dividend_tax_rate=request.dividend_tax_rate,
+                               corporate_action_provenance=provenance)
+        return frame
+    except ValueError as exc:
+        raise ValidationError(detail=str(exc)) from exc
+
+
 def _validate_optimize_request(
     db: Session, request: OptimizeRequest
 ) -> pd.DataFrame:
@@ -80,7 +96,7 @@ def _validate_optimize_request(
     if not stock:
         raise NotFoundError(detail=f"Stock '{request.stock_code}' not found")
 
-    df = get_kline_data(db, request.stock_code, request.start_date, request.end_date)
+    df = _load_history(db, request)
     if df.empty:
         raise ValidationError(
             detail=(
@@ -184,6 +200,7 @@ def _run_optimize(db: Session, request: OptimizeRequest) -> OptimizeResponse:
         best_metrics=result.best_metrics,
         total_combinations=result.total_combinations,
         all_results=all_results,
+        data_provenance=df.attrs.get("provenance"),
     )
 
 
@@ -257,7 +274,7 @@ def generate_signals(
         raise NotFoundError(detail=f"Stock '{request.stock_code}' not found")
 
     # Get kline data
-    df = get_kline_data(db, request.stock_code, request.start_date, request.end_date)
+    df = _load_history(db, request)
     if df.empty:
         raise ValidationError(
             detail=(
@@ -280,9 +297,11 @@ def generate_signals(
         signal_data = strategy.generate_signals(df.copy())
 
     except (ValueError, TypeError, KeyError):
+        if not settings.is_production:
+            raise
         # Expected strategy-level issues (bad params, missing columns):
-        # fall back to the built-in MA cross strategy instead of failing.
-        logger.warning(
+        # fall back to the built-in MA cross strategy in production instead of failing.
+        logger.error(
             "Strategy signal generation failed, falling back to MA cross",
             exc_info=True,
         )
@@ -328,6 +347,7 @@ def generate_signals(
         end_date=request.end_date,
         data=data,
         stats=stats,
+        data_provenance=df.attrs.get("provenance"),
     )
 
 
@@ -348,6 +368,10 @@ def run_backtest(
             end_date=request.end_date,
             initial_capital=request.initial_capital,
             parameters=request.parameters or {},
+            costs=request.costs,
+            price_source=request.price_source,
+            corporate_action_mode=request.corporate_action_mode,
+            dividend_tax_rate=request.dividend_tax_rate,
         )
     except ValueError as exc:
         message = str(exc)
@@ -375,6 +399,7 @@ def run_backtest(
         metrics=BacktestMetrics(**api_result["metrics"]),
         portfolio_values=[PortfolioValueItem(**pv) for pv in api_result["portfolio_values"]],
         parameters=execution.parameters,
+        execution_metadata=execution.execution_metadata,
     )
 
 
@@ -459,6 +484,9 @@ def compare_strategies(
                 start_date=request.start_date,
                 end_date=request.end_date,
                 initial_capital=request.initial_capital,
+                price_source=request.price_source,
+                corporate_action_mode=request.corporate_action_mode,
+                dividend_tax_rate=request.dividend_tax_rate,
             )
 
             # Reuse the executor's end-of-bar equity snapshots so comparison

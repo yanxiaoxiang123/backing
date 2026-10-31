@@ -10,6 +10,7 @@ import {
 import { sameStock } from '../utils/stockIdentity'
 
 interface StockSearchProps {
+  id?: string
   value?: string
   onChange?: (code: string, option: StockOption) => void
   placeholder?: string
@@ -20,6 +21,7 @@ interface StockSearchProps {
 }
 
 export default function StockSearch({
+  id,
   value,
   onChange,
   placeholder = '搜索股票（代码/名称）',
@@ -55,6 +57,7 @@ export default function StockSearch({
 
   return (
     <Select
+      id={id}
       showSearch
       value={value}
       placeholder={placeholder}

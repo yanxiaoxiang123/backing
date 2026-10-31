@@ -8,7 +8,9 @@ export interface Stock {
 }
 
 export interface DailyKline {
-  id: number
+  id?: number | null
+  adjustment?: 'raw' | 'qfq' | 'hfq' | 'legacy_unknown'
+  versioned?: boolean
   stock_code: string
   date: string
   open: number
@@ -172,6 +174,7 @@ export interface BacktestTradeItem {
   price: number
   quantity: number
   amount: number
+  fees?: number
 }
 
 export interface BacktestMetrics {
@@ -190,6 +193,14 @@ export interface PortfolioValue {
   cash: number
   position_value: number
   position: number
+  receivable?: number
+  pending_shares?: number
+}
+
+export interface ResearchExecutionOptions {
+  price_source?: 'auto' | 'raw' | 'legacy'
+  corporate_action_mode?: 'price_only' | 'verified'
+  dividend_tax_rate?: number
 }
 
 export interface StrategyBacktestResponse {
@@ -205,6 +216,14 @@ export interface StrategyBacktestResponse {
   metrics: BacktestMetrics
   portfolio_values?: PortfolioValue[]
   parameters?: Record<string, number | string | boolean> | null
+  execution_metadata?: {
+    engine_version?: string
+    corporate_action_mode?: 'price_only' | 'verified'
+    dividend_tax_rate?: number
+    data_provenance?: { source?: string; adjustment?: string }
+    limitations?: string[]
+    snapshot_sha256?: string
+  }
 }
 
 export interface OptimizeResultItem {
@@ -476,7 +495,7 @@ export interface ScreenerResponse {
 
 // ==================== Strategy Comparison Types ====================
 
-export interface CompareRequest {
+export interface CompareRequest extends ResearchExecutionOptions {
   stock_code: string
   start_date: string
   end_date: string

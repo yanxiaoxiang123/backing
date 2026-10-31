@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Alert, Button, Empty, Tabs, Tag } from 'antd'
 import { MenuFoldOutlined, MenuUnfoldOutlined } from '@ant-design/icons'
 import { LazyECharts } from '../components/charts/LazyECharts'
@@ -8,7 +8,7 @@ import { ChatConversation } from '../components/chat/ChatConversation'
 import { ChatInput } from '../components/chat/ChatInput'
 import { EvidencePanel } from '../components/agent/EvidencePanel'
 import { BacktestPanel } from '../components/agent/BacktestPanel'
-import { RiskPanel } from '../components/agent/RiskPanel'
+import { RiskAssessmentPanel } from '../components/agent/RiskAssessmentPanel'
 import { ApprovalCard } from '../components/agent/ApprovalCard'
 import { ArtifactViewer } from '../components/agent/ArtifactViewer'
 import { AttributionPanel } from '../components/agent/AttributionPanel'
@@ -101,6 +101,7 @@ export default function AgentWorkspace() {
     riskData,
     error: runError,
     attach,
+    detach,
     start,
     decide,
   } = useAgentRun()
@@ -117,10 +118,12 @@ export default function AgentWorkspace() {
   )
   const [researchMobileOpen, setResearchMobileOpen] = useState(false)
   const [researchTab, setResearchTab] = useState('market')
+  const attachedThreadRef = useRef<string | null>(null)
 
-  const stockCode = useMemo(() => {
-    return extractStockCode(run?.objective) ?? requestedStock
-  }, [requestedStock, run])
+  // 行情优先跟随当前会话最新确认的股票；没有会话目标时才回退到
+  // 研究 run 的目标或页面 URL，避免普通查股后右栏仍停在旧研究标的。
+  const runStockCode = useMemo(() => extractStockCode(run?.objective), [run?.objective])
+  const stockCode = chat.stockCode ?? runStockCode ?? requestedStock
 
   useEffect(() => {
     try {
@@ -139,10 +142,10 @@ export default function AgentWorkspace() {
   }, [researchCollapsed])
 
   useEffect(() => {
-    if (!stockCode) {
-      setKlines([])
-      return
-    }
+    // A target switch must never keep showing the previous stock's candles
+    // under the new stock's label while the new request is in flight.
+    setKlines([])
+    if (!stockCode) return
     let cancelled = false
     void getStockKline(stockCode)
       .then((data) => {
@@ -156,11 +159,20 @@ export default function AgentWorkspace() {
     }
   }, [stockCode])
 
-  // 恢复/切换会话时，右栏自动跟随该会话最近一次量化 run
+  // 恢复/切换会话时，右栏自动跟随该会话最近一次量化 run；没有则清空，
+  // 防止上一个会话的 run 与行情串到新会话。
   useEffect(() => {
+    const threadId = chat.currentThread?.thread_id ?? null
+    if (threadId === attachedThreadRef.current) return
+    attachedThreadRef.current = threadId
+    if (threadId === null) {
+      detach()
+      return
+    }
     const lastRunId = chat.currentThread?.last_run_id
     if (lastRunId) void attach(lastRunId)
-  }, [chat.currentThread?.last_run_id, attach])
+    else detach()
+  }, [chat.currentThread?.thread_id, chat.currentThread?.last_run_id, attach, detach])
 
   const decideApproval = (
     approval: ApprovalRequest,
@@ -177,8 +189,14 @@ export default function AgentWorkspace() {
         <ChatSidebar
           threads={chat.threads}
           currentThreadId={chat.currentThread?.thread_id ?? null}
-          onSelect={(threadId) => void chat.selectThread(threadId)}
-          onNew={() => void chat.newThread()}
+          onSelect={(threadId) => {
+            if (threadId !== chat.currentThread?.thread_id) detach()
+            void chat.selectThread(threadId)
+          }}
+          onNew={() => {
+            detach()
+            void chat.newThread()
+          }}
           onArchive={(threadId) => void chat.archive(threadId)}
           collapsed={sidebarCollapsed}
           onToggleCollapsed={() => setSidebarCollapsed((value) => !value)}
@@ -322,11 +340,23 @@ export default function AgentWorkspace() {
                           className="agent-research-error"
                         />
                       )}
+                      {stockCode ? (
+                        <div className="agent-run-meta-line">
+                          <span>股票：{stockCode}</span>
+                          {runStockCode && runStockCode !== stockCode ? (
+                            <span>研究股票：{runStockCode}</span>
+                          ) : null}
+                        </div>
+                      ) : null}
                       {klines.length > 0 ? (
                         <KlineChart klines={klines} />
                       ) : (
                         <Empty
-                          description="暂无 K 线数据"
+                          description={
+                            stockCode
+                              ? `暂无 ${stockCode} 的 K 线数据`
+                              : '暂无 K 线数据'
+                          }
                           className="agent-empty-state"
                         />
                       )}
@@ -357,7 +387,15 @@ export default function AgentWorkspace() {
                   label: '风险',
                   children: (
                     <div>
-                      <RiskPanel data={riskData} />
+                      <RiskAssessmentPanel
+                        key={`${run?.run_id ?? ''}:${stockCode ?? ''}`}
+                        runId={run?.run_id}
+                        stockCode={stockCode}
+                        data={riskData}
+                        onAssessed={() => {
+                          if (run) void attach(run.run_id)
+                        }}
+                      />
                       {approvals.length === 0 ? (
                         <div className="agent-approval-empty">暂无待审批事项</div>
                       ) : (

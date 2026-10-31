@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useMemo } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import {
   Card,
@@ -144,7 +144,7 @@ function DLPrediction() {
     }
   }
 
-  const getChartOption = (): EChartsOption => {
+  const chartOption = useMemo<EChartsOption>(() => {
     if (
       !predictionResult ||
       !Array.isArray(predictionResult.kline_data) ||
@@ -288,9 +288,9 @@ function DLPrediction() {
         },
       ],
     }
-  }
+  }, [predictionResult])
 
-  const getBacktestChartOption = (): EChartsOption => {
+  const backtestChartOption = useMemo<EChartsOption>(() => {
     if (!backtestResult || !backtestResult.dates || backtestResult.dates.length === 0) {
       return {}
     }
@@ -447,7 +447,7 @@ function DLPrediction() {
         },
       ],
     }
-  }
+  }, [backtestResult])
 
   const tradeColumns = [
     { title: '日期', dataIndex: 'date', key: 'date' },
@@ -645,7 +645,7 @@ function DLPrediction() {
             </div>
           ) : backtestResult ? (
             <LazyECharts
-              option={getBacktestChartOption()}
+              option={backtestChartOption}
               style={{ height: 400 }}
               opts={{ renderer: 'canvas' }}
             />
@@ -656,7 +656,7 @@ function DLPrediction() {
           ) : predictionResult ? (
             <LazyECharts
               ref={chartRef}
-              option={getChartOption()}
+              option={chartOption}
               style={{ height: 400 }}
               opts={{ renderer: 'canvas' }}
             />

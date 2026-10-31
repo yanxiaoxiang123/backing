@@ -80,6 +80,9 @@ def test_run_list_filter_by_status(stores):
     assert {r["run_id"] for r in stores.runs.list_runs()} == {"run-a", "run-b"}
     assert {r["run_id"] for r in stores.runs.list_runs(status="running")} == {"run-b"}
     assert len(stores.runs.list_runs(limit=1)) == 1
+    assert stores.runs.count_runs() == 2
+    assert stores.runs.count_runs(status="running") == 1
+    assert stores.runs.count_runs(status="failed") == 0
 
 
 def test_run_invalid_status_rejected(stores):

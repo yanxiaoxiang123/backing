@@ -26,7 +26,7 @@ _SOCIAL = re.compile(
     re.IGNORECASE,
 )
 _CAPABILITY = re.compile(r"(?:你能做什么|你会什么|有什么功能|怎么使用|帮助|help|capabilit)", re.IGNORECASE)
-_READ = re.compile(r"(?:查询|查看|获取|拉取|行情|k\s*线|kline|财报|基本面|快照|数据来源)", re.IGNORECASE)
+_READ = re.compile(r"(?:查询|搜索|查找|查看|获取|拉取|行情|k\s*线|kline|财报|财务|基本面|快照|数据来源|新闻|公告|看看|看一下)", re.IGNORECASE)
 _ANALYSIS = re.compile(
     r"(?:分析|研究|回测|策略|选股|预测|信号|ma[_ -]?cross|收益|风险|组合|优化|验证)",
     re.IGNORECASE,
@@ -41,6 +41,7 @@ _STOCK = re.compile(
 class ToolAdmission:
     scope: ToolScope
     reason: str
+    stock_code: str | None = None
 
     @property
     def allow_analysis(self) -> bool:
@@ -66,6 +67,10 @@ class TurnToolPolicy:
             return ToolAdmission(ToolScope.READ, "explicit_read_query")
         if has_analysis_intent:
             return ToolAdmission(ToolScope.NONE, "analysis_target_missing")
+        if has_stock or has_read_intent:
+            return ToolAdmission(ToolScope.READ, "stock_lookup")
+        if re.fullmatch(r"[㐀-鿿A-Za-z*]{2,20}", text) and not re.search(r"你|自己|介绍|什么|怎么|为何|为什么|吗|天气|聊天|故事", text):
+            return ToolAdmission(ToolScope.READ, "possible_stock_name")
         return ToolAdmission(ToolScope.NONE, "general_conversation")
 
 

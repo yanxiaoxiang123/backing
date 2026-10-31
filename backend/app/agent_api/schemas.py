@@ -5,6 +5,7 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.domain.plans import RunBudget
+from app.domain.risk import PortfolioRiskRequest
 
 
 class CreateRunRequest(BaseModel):
@@ -22,6 +23,7 @@ class CreateRunRequest(BaseModel):
         default=None,
         description="策略参数（如 ma_cross 的 short_period/long_period）；参数修改产生新 run，旧回测永不覆盖（US-2.2/2.8）",
     )
+    risk_request: PortfolioRiskRequest | None = None
     execute_inline: bool = Field(
         default=False, description="测试/调试用：同步执行到完成后再返回"
     )

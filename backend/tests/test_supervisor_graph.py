@@ -115,6 +115,9 @@ def test_full_pipeline_basic_run(stores, session):
     research_out = by_node["research"]["output_json"]
     assert all(isinstance(ResearchClaim.model_validate(c), ResearchClaim) for c in research_out["claims"])
     PortfolioProposal.model_validate(by_node["portfolio_risk"]["output_json"])
+    assert by_node["portfolio_risk"]["output_json"]["rejected"] is True
+    assert by_node["portfolio_risk"]["output_json"]["positions"] == []
+    assert stores.approvals.list_approvals(run_id) == []
 
 
 def test_full_pipeline_with_backtest_critic(stores, session):

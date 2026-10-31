@@ -30,11 +30,7 @@ export function RiskPanel({ data }: { data?: RiskPanelData | null }) {
               dataIndex: 'weight',
               render: (value: number) => `${(value * 100).toFixed(1)}%`,
             },
-            {
-              title: '置信度',
-              dataIndex: 'confidence',
-              render: (value: number) => `${Math.round(value * 100)}%`,
-            },
+            { title: '理由', dataIndex: 'reason' },
           ]}
         />
       )}

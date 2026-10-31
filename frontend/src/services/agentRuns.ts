@@ -9,9 +9,35 @@ import type {
   RiskPanelData,
   RunDetail,
   RunRecord,
+  PortfolioRiskIntent,
+  PortfolioRiskAssessment,
 } from '../types/agent'
 
 export type StreamState = 'idle' | 'connecting' | 'active' | 'closed' | 'error'
+
+export async function assessRunRisk(
+  runId: string,
+  request: PortfolioRiskIntent,
+): Promise<PortfolioRiskAssessment> {
+  const response = await api.post<PortfolioRiskAssessment>(
+    `/agent-runs/${runId}/risk`,
+    request,
+  )
+  return response.data
+}
+
+export async function proposeRiskOrder(
+  runId: string,
+  order: {
+    stock_code: string
+    side: 'buy' | 'sell'
+    quantity: number
+    risk_artifact_id: number
+  },
+): Promise<{ order_id: string; approval_id: number; status: string }> {
+  const response = await api.post(`/agent-runs/${runId}/paper-orders`, order)
+  return response.data
+}
 
 export interface CreateRunResult {
   run_id: string

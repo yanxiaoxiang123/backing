@@ -1,7 +1,7 @@
 from datetime import date, datetime
-from typing import List, Optional
+from typing import List, Literal, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
 
 
 # Stock schemas
@@ -20,8 +20,7 @@ class StockResponse(StockBase):
     list_date: Optional[date] = None
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # Daily Kline schemas
@@ -37,10 +36,11 @@ class DailyKlineBase(BaseModel):
 
 
 class DailyKlineResponse(DailyKlineBase):
-    id: int
+    id: int | None = None
+    adjustment: str = "legacy_unknown"
+    versioned: bool = False
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # Strategy schemas
@@ -59,8 +59,7 @@ class StrategyResponse(StrategyBase):
     id: int
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # Backtest schemas
@@ -71,6 +70,9 @@ class BacktestRequest(BaseModel):
     end_date: date
     initial_capital: float = 100000
     parameters: Optional[dict] = None
+    price_source: Literal["auto", "raw", "legacy"] = "auto"
+    corporate_action_mode: Literal["price_only", "verified"] = "price_only"
+    dividend_tax_rate: float = Field(0.0, ge=0, le=1, allow_inf_nan=False)
 
 
 class BacktestTradeResponse(BaseModel):
@@ -81,8 +83,7 @@ class BacktestTradeResponse(BaseModel):
     quantity: int
     amount: float
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class BacktestResultResponse(BaseModel):
@@ -102,11 +103,11 @@ class BacktestResultResponse(BaseModel):
     total_trades: int
     parameters: Optional[dict] = None
     portfolio_values: Optional[list[dict]] = None
+    execution_metadata: Optional[dict] = None
     created_at: datetime
     trades: List[BacktestTradeResponse] = []
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class BacktestListResponse(BaseModel):
@@ -121,8 +122,7 @@ class BacktestListResponse(BaseModel):
     portfolio_values: Optional[list[dict]] = None
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # Sync status
@@ -144,8 +144,7 @@ class WatchlistItemResponse(BaseModel):
     stock_name: Optional[str] = None
     added_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class WatchlistListResponse(BaseModel):
@@ -171,8 +170,7 @@ class JobRecordSchema(BaseModel):
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # Screener schemas

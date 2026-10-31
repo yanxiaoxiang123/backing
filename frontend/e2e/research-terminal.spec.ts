@@ -132,8 +132,9 @@ async function mockApi(page: Page) {
 
 async function login(page: Page) {
   await page.goto('/login')
-  await page.getByPlaceholder('API Key').fill('e2e-key')
-  await page.getByRole('button', { name: /登\s*录/ }).click()
+  await page.getByLabel('账号').fill('e2e-user')
+  await page.getByLabel('登录密码').fill('e2e-key')
+  await page.getByRole('button', { name: /进入量化系统/ }).click()
   await expect(page).toHaveURL(/\/$/)
 }
 
@@ -144,7 +145,7 @@ test.describe('研究终端桌面主流程', () => {
 
   test('登录后从仪表盘进入个股并切换 K 线周期', async ({ page }) => {
     await login(page)
-    await expect(page.getByRole('heading', { name: '市场概览' })).toBeVisible()
+    await expect(page.locator('#dash-title')).toBeVisible()
     await expect(page.locator('tbody tr').first()).toContainText('浦发银行')
     await page.locator('tbody tr').first().click()
     await expect(page).toHaveURL(/\/stocks\/sh\.600000$/)

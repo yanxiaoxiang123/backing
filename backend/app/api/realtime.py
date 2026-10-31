@@ -388,24 +388,50 @@ async def ws_realtime_bars(
     code: str,
     period: str = 'daily',
 ):
-    """WebSocket 推送实时K线数据（需 api_key 查询参数认证）。
+    """WebSocket 推送实时K线数据。
 
     1. 连接后立即推送完整历史数据 → ``{ type: "init", data: [...] }``
     2. 每隔 10s 推送最新 2 根 K 线 → ``{ type: "update", data: [...] }``
 
-    查询参数: ``period`` (daily|weekly|monthly, 默认 daily)
-               ``api_key`` (必填，与 X-API-Key 相同)
+    认证方式（按优先级）：
+    1. HTTP-only session cookie（前端浏览器已登录会话，无 URL 泄露风险）
+    2. X-API-Key 请求头（非浏览器客户端在升级请求中提供）
+    3. 首条消息认证（handshake message，通过 ``auth=handshake`` 查询参数启用）
+    4. 查询参数 ``api_key``（向后兼容，不建议在生产环境使用）
     """
-    # ── 认证：浏览器复用已签名 session，外部客户端仍可使用 api_key ──
     session = websocket.scope.get("session", {})
-    if not session.get("authenticated"):
-        api_key = websocket.query_params.get('api_key', '')
+    authenticated = bool(session.get("authenticated"))
+
+    # 1. 优先使用已有的 Session Cookie 认证
+    if not authenticated:
+        # 2. X-API-Key 请求头（外部客户端在握手头部传输）
+        header_key = websocket.headers.get("x-api-key")
+        if header_key:
+            try:
+                validate_api_key(header_key)
+                authenticated = True
+            except AuthError:
+                logger.warning("ws_realtime_bars auth rejected (header): %s", code)
+                await websocket.close(code=4008)
+                return
+
+    # 3. 兼容过渡：查询参数 api_key（若提供则直接校验）
+    query_key = websocket.query_params.get('api_key', '')
+    if not authenticated and query_key:
         try:
-            validate_api_key(api_key)
+            validate_api_key(query_key)
+            authenticated = True
         except AuthError:
-            logger.warning("ws_realtime_bars auth rejected: %s", code)
+            logger.warning("ws_realtime_bars auth rejected (query): %s", code)
             await websocket.close(code=4008)
             return
+
+    # 4. 首条握手消息认证（避免密钥进 URL）
+    use_handshake = websocket.query_params.get("auth") in ("handshake", "message")
+    if not authenticated and not use_handshake:
+        logger.warning("ws_realtime_bars auth rejected (missing credentials): %s", code)
+        await websocket.close(code=4008)
+        return
 
     # ── 简单的每 IP 连接频率限制 ──
     client_host = websocket.client.host if websocket.client else 'unknown'
@@ -421,6 +447,27 @@ async def ws_realtime_bars(
         return
 
     await websocket.accept()
+
+    # 首条消息握手认证
+    if not authenticated and use_handshake:
+        try:
+            auth_msg = await asyncio.wait_for(websocket.receive_json(), timeout=5.0)
+            token = (
+                auth_msg.get("api_key")
+                or auth_msg.get("token")
+                or (auth_msg if isinstance(auth_msg, str) else None)
+            )
+            validate_api_key(token)
+            authenticated = True
+        except Exception:
+            logger.warning("ws_realtime_bars handshake auth failed: %s", code)
+            cnt = _ws_conn_tracker.get(client_host, 0)
+            if cnt > 1:
+                _ws_conn_tracker[client_host] = cnt - 1
+            elif cnt == 1:
+                del _ws_conn_tracker[client_host]
+            await websocket.close(code=4008)
+            return
 
     symbol = code.split('.')[-1] if '.' in code else code
 

@@ -16,10 +16,14 @@ from app.agent_api.routes import router as agent_runtime_router
 from app.agent_api.tools import router as tools_router
 from app.agent_chat.api import router as agent_chat_router
 from app.api.agent import router as agent_router
+from app.api.ai_settings import router as ai_settings_router
 from app.api.auth import router as auth_router
 from app.api.dl_prediction import router as dl_prediction_router
+from app.api.data_quality import router as data_quality_router
+from app.api.portfolio_research import router as portfolio_research_router
 from app.api.realtime import router as realtime_router
 from app.api.routes import router
+from app.api.screener import router as screener_router
 from app.api.screener_agent import router as screener_agent_router
 from app.api.strategies import router as strategies_router
 from app.api.watchlist import router as watchlist_router
@@ -34,6 +38,7 @@ from app.limiter import limiter
 from app.logging_config import setup_logging
 from app.middleware import CsrfMiddleware, RequestLoggingMiddleware
 from app.models.models import Strategy
+from app.services.auth_users import ensure_auth_user, resolve_credentials
 from app.services.cache import close_caches
 from app.services.job_store import job_store
 from app.services.tasks import get_task_executor
@@ -89,6 +94,18 @@ def init_db():
         # Create default strategy if not exists
         db = SessionLocal()
         try:
+            # 浏览器登录账号：AUTH_PASSWORD 未配置时回退到 API_KEY。
+            username, password = resolve_credentials(
+                settings.AUTH_USERNAME, settings.AUTH_PASSWORD, settings.API_KEY
+            )
+            if password:
+                ensure_auth_user(db, username=username, password=password)
+            else:
+                logger.warning(
+                    "Neither AUTH_PASSWORD nor API_KEY is configured: "
+                    "browser login will fail until one is set"
+                )
+
             strategy = (
                 db.query(Strategy).filter(Strategy.name == "均线交叉策略").first()
             )
@@ -130,7 +147,7 @@ async def lifespan(app: FastAPI):
     elif settings.AGENT_CHAT_BACKEND.lower() == "native":
         seam = NativeAgentChatRuntime(
             session_factory=SessionLocal,
-            api_key=settings.DEEPSEEK_API_KEY,
+            api_key_provider=lambda: settings.DEEPSEEK_API_KEY,
             base_url=settings.DEEPSEEK_BASE_URL,
             model_name=settings.DEEPSEEK_MODEL,
             max_steps=settings.AGENT_CHAT_MAX_STEPS,
@@ -143,6 +160,7 @@ async def lifespan(app: FastAPI):
     chat_service = HarnessChatService(
         session_factory=SessionLocal,
         seam=seam,
+        max_workers=settings.AGENT_CHAT_MAX_WORKERS,
     )
     chat_service.startup()
     app.state.harness_chat_service = chat_service
@@ -160,6 +178,9 @@ async def lifespan(app: FastAPI):
     soak.stop()
     chat_service.shutdown()
     task_executor.shutdown()
+    from app.services.baostock_rpc import market_data_rpc
+
+    market_data_rpc.close()
     close_caches()
     logger.info("Shutting down...")
 
@@ -214,8 +235,11 @@ assert_safe_production_settings(settings)
 # Include routers
 app.include_router(router, prefix="/api/v1", tags=["api"])
 app.include_router(auth_router)
+app.include_router(ai_settings_router)
+app.include_router(data_quality_router)
 app.include_router(realtime_router, prefix="/api/v1", tags=["realtime"])
 app.include_router(strategies_router)
+app.include_router(portfolio_research_router)
 app.include_router(agent_router, prefix="/api/v1", tags=["agent"])
 app.include_router(agent_runtime_router, prefix="/api/v1", tags=["agent-runs"])
 app.include_router(agent_chat_router, prefix="/api/v1", tags=["agent-chats"])
@@ -224,6 +248,7 @@ app.include_router(tools_router, prefix="/api/v1", tags=["tools"])
 app.include_router(dl_prediction_router, prefix="/api/v1/dl", tags=["dl"])
 app.include_router(watchlist_router)
 app.include_router(screener_agent_router, prefix="/api/v1", tags=["screener_agent"])
+app.include_router(screener_router, prefix="/api/v1", tags=["screener"])
 
 
 @app.get("/")

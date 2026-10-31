@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from app.auth import get_current_api_key
+from app.exceptions import ExternalServiceError
 from app.services.baostock_service import BaostockService
 from app.services.dl_prediction.backtest import DLBacktester
 from app.services.dl_prediction.predictor import DLPredictor
@@ -93,9 +94,9 @@ def predict(request: DLPredictRequest, _: str = Depends(get_current_api_key)):
 
     except HTTPException:
         raise
-    except Exception:
+    except Exception as exc:
         logger.exception("预测失败")
-        return DLPredictResponse(success=False, error="Prediction failed")
+        raise ExternalServiceError("prediction_failed", str(exc)) from exc
 
 
 @router.post("/backtest", response_model=DLBacktestResponse)
@@ -114,16 +115,18 @@ def backtest(request: DLBacktestRequest, _: str = Depends(get_current_api_key)):
 
         return DLBacktestResponse(success=True, data=result)
 
-    except Exception:
+    except HTTPException:
+        raise
+    except Exception as exc:
         logger.exception("回测失败")
-        return DLBacktestResponse(success=False, error="Backtest failed")
+        raise ExternalServiceError("backtest_failed", str(exc)) from exc
 
 
 def _convert_to_baostock_code(stock_code: str) -> str:
     """转换股票代码为 baostock 格式"""
     if stock_code.startswith("6"):
-        return f"{stock_code}.sh"
+        return f"sh.{stock_code}"
     elif stock_code.startswith(("0", "3")):
-        return f"{stock_code}.sz"
+        return f"sz.{stock_code}"
     else:
         return stock_code

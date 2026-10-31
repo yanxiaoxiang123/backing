@@ -8,8 +8,18 @@ from app.models.agent_runtime import (
     ToolCallRecord,
 )
 from app.models.alerts import AlertRecord
+from app.models.portfolio_research import PortfolioExperiment
 from app.models.analysis import AnalysisRecord
 from app.models.models import BacktestResult, BacktestTrade, DailyKline, Stock, Strategy
+from app.models.market_data import (
+    CorporateActionObservation,
+    MarketDailyBar,
+    MarketDataBatch,
+    MarketMetadataBatch,
+    SecurityObservation,
+    SecuritySessionObservation,
+    TradingSession,
+)
 from app.models.paper_trading import (
     PaperAccount,
     PaperCashEvent,
@@ -32,7 +42,15 @@ __all__ = [
     "BacktestResult",
     "BacktestTrade",
     "DailyKline",
+    "CorporateActionObservation",
+    "MarketDailyBar",
+    "MarketDataBatch",
+    "MarketMetadataBatch",
+    "SecurityObservation",
+    "SecuritySessionObservation",
+    "TradingSession",
     "PaperAccount",
+    "PortfolioExperiment",
     "PaperCashEvent",
     "PaperFill",
     "PaperOrder",

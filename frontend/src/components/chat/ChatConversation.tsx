@@ -3,6 +3,7 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Button, Empty, Tag } from 'antd'
 import { DownOutlined } from '@ant-design/icons'
+import '../../styles/chat.css'
 import type { ChatMessage, ToolRow } from '../../types/chat'
 import type { ChatStreamState } from '../../services/agentChats'
 

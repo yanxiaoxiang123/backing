@@ -453,8 +453,8 @@ class DLBacktester:
     def _convert_to_baostock_code(self, stock_code: str) -> str:
         """转换股票代码为 baostock 格式"""
         if stock_code.startswith("6"):
-            return f"{stock_code}.sh"
+            return f"sh.{stock_code}"
         elif stock_code.startswith(("0", "3")):
-            return f"{stock_code}.sz"
+            return f"sz.{stock_code}"
         else:
             return stock_code

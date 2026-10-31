@@ -1,0 +1,193 @@
+/* Existing Backing palette and face; 360px + 24px + remaining width = canvas. */
+.portfolio-research {
+  display: grid;
+  gap: 24px;
+}
+.portfolio-research-grid {
+  display: grid;
+  grid-template-columns: 360px minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+.portfolio-research h2 {
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 500;
+  margin: 0 0 16px;
+}
+.portfolio-config,
+.portfolio-results,
+.portfolio-history {
+  padding: 24px;
+  min-width: 0;
+}
+.portfolio-research .ant-form-item {
+  margin-bottom: 16px;
+}
+.portfolio-weight-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 72px 48px;
+  gap: 8px;
+  align-items: end;
+}
+.portfolio-weight-row > button {
+  margin-bottom: 16px;
+  padding-inline: 4px;
+}
+.portfolio-research .ant-input-number,
+.portfolio-research .ant-picker {
+  width: 100%;
+}
+.portfolio-allocation-total,
+.portfolio-section-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.portfolio-section-heading h2 {
+  margin: 0;
+  scroll-margin-top: 72px;
+}
+.portfolio-allocation-total {
+  font-size: 12px;
+  line-height: 16px;
+}
+.portfolio-fields-pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 16px;
+}
+.portfolio-history-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 16px;
+  font-size: 12px;
+  line-height: 20px;
+  color: var(--color-text-secondary);
+}
+.portfolio-note {
+  font-size: 12px;
+  line-height: 20px;
+  color: var(--color-text-secondary);
+  margin: 0 0 16px;
+  text-wrap: pretty;
+}
+.portfolio-config .ant-alert {
+  margin-bottom: 16px;
+}
+.portfolio-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+  margin: 24px 0;
+  font-variant-numeric: tabular-nums;
+}
+.portfolio-metrics dt {
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--color-text-secondary);
+  margin-bottom: 8px;
+}
+.portfolio-metrics dd {
+  font-size: 24px;
+  line-height: 32px;
+  font-weight: 400;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.portfolio-chart-key {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--color-text-secondary);
+}
+.portfolio-chart-key span::before {
+  content: '';
+  display: inline-block;
+  width: 12px;
+  height: 2px;
+  background: var(--color-accent);
+  margin-right: 8px;
+  vertical-align: middle;
+}
+.portfolio-chart-key span + span::before {
+  background: none;
+  border-top: 2px dashed var(--color-text-tertiary);
+}
+.portfolio-equity svg {
+  display: block;
+  width: 100%;
+}
+.portfolio-equity text {
+  font-family: inherit;
+  font-size: 12px;
+  fill: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+.portfolio-grid-line {
+  stroke: var(--color-chart-grid);
+  stroke-width: 1;
+}
+.portfolio-equity-line,
+.portfolio-benchmark-line {
+  fill: none;
+  stroke: var(--color-accent);
+  stroke-width: 2;
+}
+.portfolio-benchmark-line {
+  stroke: var(--color-text-tertiary);
+  stroke-dasharray: 4 4;
+}
+.portfolio-research td {
+  font-variant-numeric: tabular-nums;
+}
+.portfolio-research .ant-table-thead > tr > th {
+  font-size: 12px;
+  letter-spacing: normal;
+  text-transform: none;
+}
+.portfolio-empty {
+  color: var(--color-text-secondary);
+  font-size: 14px;
+  line-height: 24px;
+  padding: 32px 0;
+}
+.portfolio-checksum {
+  overflow-wrap: anywhere;
+  font-size: 12px;
+  line-height: 20px;
+  color: var(--color-text-secondary);
+}
+@media (max-width: 1100px) {
+  .portfolio-research-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (max-width: 640px) {
+  .portfolio-config,
+  .portfolio-results,
+  .portfolio-history {
+    padding: 16px;
+  }
+  .portfolio-metrics {
+    gap: 16px;
+  }
+  .portfolio-metrics dd {
+    font-size: 20px;
+    line-height: 28px;
+  }
+  .portfolio-research button,
+  .portfolio-research .ant-input,
+  .portfolio-research .ant-input-number,
+  .portfolio-research .ant-picker {
+    min-height: 40px;
+  }
+}

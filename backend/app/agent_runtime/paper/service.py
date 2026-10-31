@@ -11,7 +11,6 @@
 from __future__ import annotations
 
 import logging
-import threading
 from datetime import date, datetime, time, timezone
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -26,8 +25,10 @@ from app.agent_runtime.paper.rules import (
     match_order,
     price_limit_pct,
 )
+from app.agent_runtime.paper.locking import paper_mutation_lock
+from app.services.market_data import load_bars, next_session, session_statuses
+from app.services.paper_order_risk import validate_order_risk
 from app.models.agent_runtime import ApprovalRecord
-from app.models.models import DailyKline, Stock
 from app.models.paper_trading import (
     PaperAccount,
     PaperCashEvent,
@@ -41,7 +42,6 @@ logger = logging.getLogger(__name__)
 
 #: 进程级撮合互斥：soak 线程与手动 match API 不得并发处理同一订单
 #: （否则 cash/order 事件 seq 分配竞态；规格风险 4：SQLite 并发写）。
-_MATCH_LOCK = threading.Lock()
 
 DEFAULT_ACCOUNT_ID = "default"
 DEFAULT_INITIAL_CASH = 1_000_000.0
@@ -89,58 +89,27 @@ def _next_cash_event_seq(db: Session) -> int:
 
 
 def _next_trading_day(db: Session, stock_code: str, after: date) -> str | None:
-    """股票 K 线日历上的下一交易日（严格晚于 after）。"""
-    row = (
-        db.query(DailyKline.date)
-        .filter(DailyKline.stock_code == stock_code, DailyKline.date > after)
-        .order_by(DailyKline.date.asc())
-        .first()
-    )
-    return row[0].isoformat() if row else None
+    """Use an explicit verified calendar, independently of price arrival."""
+    try:
+        return next_session(db, stock_code.split(".")[0], after).isoformat()
+    except ValueError:
+        return None
 
 
 def _find_bar(db: Session, stock_code: str, trade_date: str) -> tuple[Bar | None, float | None]:
     """返回 (target 日 bar, prev_close)；无 bar 或无可比前收盘返回 (None, None)。"""
     target = date.fromisoformat(trade_date)
-    rows = (
-        db.query(DailyKline)
-        .filter(DailyKline.stock_code == stock_code, DailyKline.date <= target)
-        .order_by(DailyKline.date.desc())
-        .limit(2)
-        .all()
-    )
-    if not rows:
+    from datetime import timedelta
+
+    frame, _ = load_bars(db, stock_code, target - timedelta(days=45), target, observed_before=_now_utc())
+    if frame.empty:
         return None, None
-
-    bar: Bar | None = None
-    prev_close: float | None = None
-
-    if rows[0].date == target:
-        bar = Bar(
-            date=trade_date,
-            open=float(rows[0].open),
-            high=float(rows[0].high),
-            low=float(rows[0].low),
-            close=float(rows[0].close),
-        )
-        if len(rows) > 1:
-            prev_close = float(rows[1].close)
-    else:
-        prev_close = float(rows[0].close)
-
-    return bar, prev_close
-
-
-def _has_bar_after(db: Session, stock_code: str, trade_date: str) -> bool:
-    return (
-        db.query(DailyKline.id)
-        .filter(
-            DailyKline.stock_code == stock_code,
-            DailyKline.date > date.fromisoformat(trade_date),
-        )
-        .first()
-        is not None
-    )
+    row = frame.iloc[-1]
+    if row["date"] != target:
+        return None, float(row["close"])
+    previous = float(frame.iloc[-2]["close"]) if len(frame) > 1 else None
+    return Bar(date=trade_date, **{key: float(row[key]) for key in ("open", "high", "low", "close")},
+               volume=float(row["volume"]), suspended=bool(row["suspended"]), is_st=row["is_st"]), previous
 
 
 def _bought_today(db: Session, stock_code: str, trade_date: str) -> int:
@@ -164,6 +133,11 @@ def decide_approval(
     *,
     decided_by: str = "user",
 ) -> dict[str, Any]:
+    with paper_mutation_lock(db):
+        return _decide_approval_locked(db, approval_id, decision, decided_by=decided_by)
+
+
+def _decide_approval_locked(db: Session, approval_id: int, decision: str, *, decided_by: str) -> dict[str, Any]:
     """审批状态机：pending → approved/rejected（联动 paper 订单）。
 
     - approved：订单进入 approved，target_trade_date = 审批后下一交易日
@@ -180,18 +154,25 @@ def decide_approval(
 
     decided_at = _now_utc()
     trade_day = decided_at.astimezone(CHINA_TZ).date()
-    approval.status = decision
-    approval.decided_by = decided_by
-    approval.decided_at = decided_at
-
     order = (
         db.query(PaperOrder)
         .filter(PaperOrder.approval_id == approval.id)
         .one_or_none()
     )
+    proof, target = None, None
+    if order is not None and decision == "approved":
+        proof = validate_order_risk(db, run_id=order.run_id, risk_artifact_id=order.risk_artifact_id,
+                                     stock_code=order.stock_code, side=order.side, quantity=order.quantity,
+                                     at=decided_at, stage="approve", limit_price=order.limit_price,
+                                     order_id=order.order_id)
+        target = _next_trading_day(db, order.stock_code, trade_day)
+        if target is None:
+            raise ValueError("缺少审批后下一交易日的已验证日历，不能批准订单")
+    approval.status = decision
+    approval.decided_by = decided_by
+    approval.decided_at = decided_at
     if order is not None:
         if decision == "approved":
-            target = _next_trading_day(db, order.stock_code, trade_day)
             order.status = "approved"
             order.target_trade_date = target
             db.add(
@@ -199,7 +180,7 @@ def decide_approval(
                     order_id=order.order_id,
                     seq=_next_order_event_seq(db, order.order_id),
                     event_type="approved",
-                    detail_json={"target_trade_date": target, "decided_by": decided_by},
+                    detail_json={"target_trade_date": target, "decided_by": decided_by, "risk_check": proof},
                 )
             )
             if target:
@@ -248,6 +229,7 @@ def _fill_order(
     bar: Bar,
     fill_price: float,
     fees: Any,
+    risk_check: dict,
 ) -> None:
     """成交：写 fill + 现金事件 + 持仓更新 + 订单终态（单事务）。"""
     notional = round(fill_price * order.quantity, 4)
@@ -317,6 +299,7 @@ def _fill_order(
                 "trade_date": bar.date,
                 "price": fill_price,
                 "quantity": order.quantity,
+                "risk_check": risk_check,
                 "fees": {
                     "commission": fees.commission,
                     "stamp_tax": fees.stamp_tax,
@@ -339,34 +322,51 @@ def _resolve_target(db: Session, order: PaperOrder) -> str | None:
     approval = db.get(ApprovalRecord, order.approval_id)
     if approval is None or approval.decided_at is None:
         return None
-    return _next_trading_day(db, order.stock_code, approval.decided_at.date())
+    decided = approval.decided_at
+    if decided.tzinfo is None:
+        decided = decided.replace(tzinfo=timezone.utc)
+    return _next_trading_day(db, order.stock_code, decided.astimezone(CHINA_TZ).date())
 
 
 def _match_one(db: Session, account: PaperAccount, order: PaperOrder) -> str:
     """处理单个 approved 订单，返回 'filled' | 'expired' | 'noop'。"""
+    if order.risk_artifact_id is None:
+        _expire_order(db, order, "历史委托缺少可核验风险证据，禁止成交")
+        return "expired"
     target = _resolve_target(db, order)
     if target is None:
         # 下一交易日数据未到（周末/同步滞后）：等待，不消费窗口
         return "noop"
     order.target_trade_date = target
+    now = _now_utc()
+    local = now.astimezone(CHINA_TZ)
+    target_day = date.fromisoformat(target)
+    if target_day < local.date():
+        _expire_order(db, order, "一次性撮合窗口已过期")
+        return "expired"
+    if target_day > local.date() or local.time() < time(15, 30):
+        return "noop"
+    if session_statuses(db, order.stock_code, target_day, target_day, observed_before=now).get(target_day, False):
+        _expire_order(db, order, "目标交易日已确认停牌")
+        return "expired"
 
     bar, prev_close = _find_bar(db, order.stock_code, order.target_trade_date)
     if bar is None:
         # 窗口已过（停牌/缺数据）→ 过期；数据未到 → 稍后再试（noop）
-        if _has_bar_after(db, order.stock_code, order.target_trade_date):
-            _expire_order(db, order, f"窗口过期（{order.target_trade_date} 无行情）")
+        if session_statuses(db, order.stock_code, target_day, target_day).get(target_day, False):
+            _expire_order(db, order, "目标交易日已确认停牌")
             return "expired"
         return "noop"
     if prev_close is None:
         _expire_order(db, order, "缺少前收盘价，无法判定涨跌停")
         return "expired"
 
-    stock = (
-        db.query(Stock).filter(Stock.code == order.stock_code).one_or_none()
-    )
+    if bar.is_st is None:
+        _expire_order(db, order, "缺少目标交易日的历史风险警示状态")
+        return "expired"
     limit_pct = price_limit_pct(
         order.stock_code,
-        stock.name if stock else None,
+        "ST" if bar.is_st else None,
         as_of=date.fromisoformat(order.target_trade_date),
     )
 
@@ -401,14 +401,21 @@ def _match_one(db: Session, account: PaperAccount, order: PaperOrder) -> str:
     if not decision.fill:
         _expire_order(db, order, decision.reason)
         return "expired"
-
-    _fill_order(db, account, order, bar, decision.fill_price, decision.fees)
+    try:
+        proof = validate_order_risk(db, run_id=order.run_id, risk_artifact_id=order.risk_artifact_id,
+                                     stock_code=order.stock_code, side=order.side, quantity=order.quantity,
+                                     at=now, stage="fill", limit_price=order.limit_price, order_id=order.order_id,
+                                     trade_date=target_day, fill_price=decision.fill_price)
+    except ValueError as exc:
+        _expire_order(db, order, str(exc))
+        return "expired"
+    _fill_order(db, account, order, bar, decision.fill_price, decision.fees, proof)
     return "filled"
 
 
 def run_matching_cycle(db: Session) -> dict[str, int]:
     """每日撮合循环：处理全部 approved 订单（确定性、可重入、进程内互斥）。"""
-    with _MATCH_LOCK:
+    with paper_mutation_lock(db):
         return _run_matching_cycle_locked(db)
 
 
@@ -423,7 +430,7 @@ def _run_matching_cycle_locked(db: Session) -> dict[str, int]:
     orders = (
         db.query(PaperOrder)
         .filter(PaperOrder.status == "approved")
-        .order_by(PaperOrder.created_at.asc())
+        .order_by(PaperOrder.created_at.asc(), PaperOrder.id.asc())
         .all()
     )
     for order in orders:
@@ -451,6 +458,7 @@ def list_orders(db: Session, *, status: str | None = None, limit: int = 100) -> 
             "order_id": row.order_id,
             "run_id": row.run_id,
             "approval_id": row.approval_id,
+            "risk_artifact_id": row.risk_artifact_id,
             "stock_code": row.stock_code,
             "side": row.side,
             "quantity": row.quantity,

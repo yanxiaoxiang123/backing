@@ -12,41 +12,15 @@ from typing import Any
 import pandas as pd
 from sqlalchemy.orm import Session
 
-from app.models.models import DailyKline
+from app.services.market_research_prices import PriceSource, load_research_bars
 from app.services.strategy.factors import TechnicalFactors
 
 
 def get_kline_data(
-    db: Session, stock_code: str, start_date: date, end_date: date
+    db: Session, stock_code: str, start_date: date, end_date: date, *, price_source: PriceSource = "auto"
 ) -> pd.DataFrame:
-    """Fetch kline data from database."""
-    klines = (
-        db.query(DailyKline)
-        .filter(
-            DailyKline.stock_code == stock_code,
-            DailyKline.date >= start_date,
-            DailyKline.date <= end_date,
-        )
-        .order_by(DailyKline.date)
-        .all()
-    )
-
-    if not klines:
-        return pd.DataFrame()
-
-    data = [
-        {
-            "date": k.date,
-            "open": float(k.open),
-            "high": float(k.high),
-            "low": float(k.low),
-            "close": float(k.close),
-            "volume": float(k.volume),
-        }
-        for k in klines
-    ]
-
-    return pd.DataFrame(data)
+    """Use the same raw-first selection and completeness policy as backtests."""
+    return load_research_bars(db, stock_code, start_date, end_date, source=price_source)
 
 
 def generate_ma_cross_signals(df: pd.DataFrame, params: dict[str, Any]) -> pd.DataFrame:

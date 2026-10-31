@@ -324,7 +324,16 @@ def _value_key_for_indicator(indicator: str) -> str:
 # ---------------------------------------------------------------------------
 
 
-@router.post("/screener", response_model=ScreenerResponse)
+@router.post(
+    "/screener",
+    response_model=ScreenerResponse,
+    deprecated=True,
+    summary="Synchronous stock screener (Deprecated)",
+    description=(
+        "Deprecated: Synchronously scanning stocks blocks HTTP threads and consumes memory. "
+        "Use the asynchronous task endpoint POST /api/v1/screener/submit instead."
+    ),
+)
 @limiter.limit("5/minute")
 def run_screener(
     request: Request,
@@ -333,7 +342,13 @@ def run_screener(
     db: Session = Depends(get_db),
     _: str = Depends(get_current_api_key),
 ):
-    """Run a stock screener with the given conditions."""
+    """Run a stock screener with the given conditions.
+
+    .. deprecated::
+       Use ``POST /api/v1/screener/submit`` for asynchronous background screening.
+    """
+    response.headers["Deprecation"] = "true"
+    response.headers["Warning"] = '299 - "Deprecated: use /api/v1/screener/submit instead"'
     import time
 
     t0 = time.monotonic()
@@ -368,73 +383,88 @@ def run_screener(
 
     def process_stock(stock: Stock) -> Optional[ScreenerResultItem]:
         """Fetch mootdx bars and evaluate screener conditions for one stock."""
-        # strip market prefix: sh.600036 → 600036
-        symbol = stock.code.split('.')[-1] if '.' in stock.code else stock.code
-        bars = realtime_service.normalise_bars(symbol=symbol, frequency=9, offset=bar_offset)
-        if len(bars) < 20:
-            return None
+        try:
+            # strip market prefix: sh.600036 → 600036
+            symbol = stock.code.split('.')[-1] if '.' in stock.code else stock.code
+            bars = realtime_service.normalise_bars(symbol=symbol, frequency=9, offset=bar_offset)
+            if len(bars) < 20:
+                return None
 
-        df = pd.DataFrame(bars)
-        df = df.rename(columns={'vol': 'volume'})
-        df = completed_daily_bars(df)
-        if len(df) < 20:
-            return None
+            df = pd.DataFrame(bars)
+            df = df.rename(columns={'vol': 'volume'})
+            df = completed_daily_bars(df)
+            if len(df) < 20:
+                return None
 
-        indicators = _compute_indicators(df, req.conditions, stock.code)
-        if not indicators:
-            return None
+            indicators = _compute_indicators(df, req.conditions, stock.code)
+            if not indicators:
+                return None
 
-        # evaluate conditions
-        matched_conds: List[str] = []
-        for cond in req.conditions:
-            key = _value_key_for_indicator(cond.indicator)
-            val = indicators.get(key)
-            if _check_condition(val, cond.operator, cond.value):
-                matched_conds.append(cond.indicator)
+            # evaluate conditions
+            matched_conds: List[str] = []
+            for cond in req.conditions:
+                key = _value_key_for_indicator(cond.indicator)
+                val = indicators.get(key)
+                if _check_condition(val, cond.operator, cond.value):
+                    matched_conds.append(cond.indicator)
 
-        if logic_and:
-            ok = len(matched_conds) == len(req.conditions)
-        else:
-            ok = len(matched_conds) > 0
+            if logic_and:
+                ok = len(matched_conds) == len(req.conditions)
+            else:
+                ok = len(matched_conds) > 0
 
-        if not ok:
-            return None
+            if not ok:
+                return None
 
-        change_pct = None
-        if len(df) >= 2:
-            prev = df["close"].iloc[-2]
-            cur = df["close"].iloc[-1]
-            if prev > 0:
-                change_pct = round((cur - prev) / prev * 100, 2)
+            change_pct = None
+            if len(df) >= 2:
+                prev = df["close"].iloc[-2]
+                cur = df["close"].iloc[-1]
+                if prev > 0:
+                    change_pct = round((cur - prev) / prev * 100, 2)
 
-        display_indicators: Dict[str, Optional[float]] = {}
-        for cond in req.conditions:
-            key = _value_key_for_indicator(cond.indicator)
-            val = indicators.get(key)
-            display_indicators[cond.indicator] = (
-                round(val, 2) if val is not None else None
+            display_indicators: Dict[str, Optional[float]] = {}
+            for cond in req.conditions:
+                key = _value_key_for_indicator(cond.indicator)
+                val = indicators.get(key)
+                display_indicators[cond.indicator] = (
+                    round(val, 2) if val is not None else None
+                )
+
+            return ScreenerResultItem(
+                stock_code=stock.code,
+                stock_name=stock.name,
+                close=round(df["close"].iloc[-1], 2),
+                volume=int(df["volume"].iloc[-1]),
+                change_pct=change_pct,
+                indicators=display_indicators,
+                matched_conditions=matched_conds,
             )
+        except Exception:
+            logger.warning("Failed screening stock %s", stock.code, exc_info=True)
+            return None
 
-        return ScreenerResultItem(
-            stock_code=stock.code,
-            stock_name=stock.name,
-            close=round(df["close"].iloc[-1], 2),
-            volume=int(df["volume"].iloc[-1]),
-            change_pct=change_pct,
-            indicators=display_indicators,
-            matched_conditions=matched_conds,
-        )
-
+    batch_size = 50
     executor = ThreadPoolExecutor(max_workers=10)
     try:
-        futures = {executor.submit(process_stock, s): s for s in stocks}
-        for future in as_completed(futures):
+        for i in range(0, len(stocks), batch_size):
             if len(matched) >= req.max_results:
                 break
-            result_item = future.result()
-            total_scanned += 1
-            if result_item is not None:
-                matched.append(result_item)
+            batch = stocks[i : i + batch_size]
+            futures = [executor.submit(process_stock, s) for s in batch]
+            for future in as_completed(futures):
+                total_scanned += 1
+                try:
+                    result_item = future.result()
+                except Exception:
+                    logger.warning("Error getting screener future result", exc_info=True)
+                    result_item = None
+                if result_item is not None:
+                    matched.append(result_item)
+                    if len(matched) >= req.max_results:
+                        for rem in futures:
+                            rem.cancel()
+                        break
     finally:
         executor.shutdown(wait=False, cancel_futures=True)
 
