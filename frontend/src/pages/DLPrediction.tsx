@@ -1,5 +1,5 @@
-import { useState, useRef, useMemo } from 'react'
-import { useMutation } from '@tanstack/react-query'
+import { useMemo } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import {
   Card,
   InputNumber,
@@ -11,6 +11,10 @@ import {
   Descriptions,
   Table,
   Tag,
+  Select,
+  Slider,
+  Alert,
+  Progress,
 } from 'antd'
 import {
   LoadingOutlined,
@@ -19,62 +23,39 @@ import {
 } from '@ant-design/icons'
 import { LazyECharts } from '../components/charts/LazyECharts'
 import type { EChartsOption, TooltipComponentFormatterCallbackParams } from 'echarts'
-import { dlPredict, dlBacktest } from '../services/dl'
+import {
+  getDLModels,
+  type DLForecast,
+  type DLBacktest,
+  type DLModelId,
+  type DLExperimentRequest,
+} from '../services/dl'
+import { useDLExperiment } from '../hooks/useDLExperiment'
 import StockSearch from '../components/StockSearch'
-import { logger } from '../utils/logger'
 import { usePersistedState } from '../hooks/usePersistedState'
 import dayjs from 'dayjs'
 import { PageHeader } from '../components/research/ResearchPrimitives'
 
 const { RangePicker } = DatePicker
 
-interface DLPredictionResult {
-  stock_code: string
-  current_price: number
-  last_date: string
-  prediction_dates: string[]
-  predicted_prices: number[]
-  kline_data: {
-    date: string
-    open: number
-    close: number
-    high: number
-    low: number
-    volume: number
-  }[]
-}
-
-interface DLBacktestResult {
-  total_return: number
-  annualized_return: number
-  sharpe_ratio: number
-  max_drawdown: number
-  win_rate: number
-  total_trades: number
-  trades: {
-    date: string
-    action: 'BUY' | 'SELL'
-    price: number
-    quantity: number
-    cost?: number
-    revenue?: number
-    return?: number
-    profit?: number
-  }[]
-  portfolio_values: number[]
-  dates: string[]
-  close_prices: number[]
-}
-
 function DLPrediction() {
-  const chartRef = useRef<HTMLDivElement>(null)
+  const experiment = useDLExperiment()
+  const models = useQuery({
+    queryKey: ['dl-models'],
+    queryFn: getDLModels,
+    refetchInterval: 15000,
+  })
+  const [model, setModel] = usePersistedState<DLModelId>('dl_model', 'kronos-small')
+  const [predictionDays, setPredictionDays] = usePersistedState('dl_predictionDays', 5)
+  const isKronos = model !== 'legacy'
+  const selectedModel = models.data?.models.find((item) => item.id === model)
 
   // Form state
   const [stockCode, setStockCode] = usePersistedState<string | null>(
     'dl_stockCode',
     null,
   )
-  const [klineDays, setKlineDays] = usePersistedState('dl_klineDays', 60)
+  const [klineDays, setKlineDays] = usePersistedState('dl_klineDays', 256)
   const [dateRange, setDateRange] = usePersistedState<[string, string]>(
     'dl_dateRange',
     [dayjs().subtract(1, 'year').format('YYYY-MM-DD'), dayjs().format('YYYY-MM-DD')],
@@ -84,64 +65,55 @@ function DLPrediction() {
     100000,
   )
 
-  // Results state
-  const [predictionResult, setPredictionResult] = useState<DLPredictionResult | null>(
-    null,
-  )
-  const [backtestResult, setBacktestResult] = useState<DLBacktestResult | null>(null)
-  const predictMutation = useMutation({ mutationFn: dlPredict })
-  const backtestMutation = useMutation({ mutationFn: dlBacktest })
-  const loadingPredict = predictMutation.isPending
-  const loadingBacktest = backtestMutation.isPending
-
-  const handlePredict = async () => {
+  const predictionResult =
+    experiment.result?.kind === 'predict'
+      ? (experiment.result.response.data as DLForecast)
+      : null
+  const backtestResult =
+    experiment.result?.kind === 'backtest'
+      ? (experiment.result.response.data as DLBacktest)
+      : null
+  const loadingPredict = experiment.running && experiment.saved?.kind === 'predict'
+  const loadingBacktest = experiment.running && experiment.saved?.kind === 'backtest'
+  const request: DLExperimentRequest = {
+    model,
+    stock_code: stockCode || '',
+    kline_days: isKronos ? klineDays : Math.min(250, klineDays),
+    prediction_days: isKronos ? predictionDays : 5,
+  }
+  const currentRequest =
+    experiment.result?.kind === 'backtest'
+      ? {
+          ...request,
+          start_date: dateRange[0],
+          end_date: dateRange[1],
+          initial_capital: initialCapital,
+        }
+      : request
+  const staleResult =
+    experiment.result &&
+    JSON.stringify(experiment.result.request) !== JSON.stringify(currentRequest)
+  const handlePredict = () => {
     if (!stockCode) {
       message.warning('请选择股票')
       return
     }
 
-    setBacktestResult(null)
-    try {
-      const response = await predictMutation.mutateAsync({
-        stock_code: stockCode,
-        kline_days: klineDays,
-      })
-      if (!response.success || !response.data) {
-        message.error(response.error || '预测失败')
-        return
-      }
-      setPredictionResult(response.data)
-      message.success('预测完成')
-    } catch (error) {
-      message.error('预测失败')
-      logger.error(error)
-    }
+    experiment.start('predict', request)
   }
 
-  const handleBacktest = async () => {
+  const handleBacktest = () => {
     if (!stockCode || !dateRange[0] || !dateRange[1]) {
       message.warning('请选择股票和回测区间')
       return
     }
 
-    setPredictionResult(null)
-    try {
-      const response = await backtestMutation.mutateAsync({
-        stock_code: stockCode,
-        start_date: dateRange[0],
-        end_date: dateRange[1],
-        initial_capital: initialCapital,
-      })
-      if (!response.success || !response.data) {
-        message.error(response.error || '回测失败')
-        return
-      }
-      setBacktestResult(response.data as DLBacktestResult)
-      message.success('回测完成')
-    } catch (error) {
-      message.error('回测失败')
-      logger.error(error)
-    }
+    experiment.start('backtest', {
+      ...request,
+      start_date: dateRange[0],
+      end_date: dateRange[1],
+      initial_capital: initialCapital,
+    })
   }
 
   const chartOption = useMemo<EChartsOption>(() => {
@@ -189,7 +161,11 @@ function DLPrediction() {
         data: allDates,
         boundaryGap: false,
         axisLine: { onZero: false },
-        axisLabel: { color: 'var(--color-text-tertiary)', fontSize: 10 },
+        axisLabel: {
+          color: 'var(--color-text-tertiary)',
+          fontSize: 10,
+          hideOverlap: true,
+        },
         splitLine: { show: false },
       },
       yAxis: {
@@ -277,7 +253,8 @@ function DLPrediction() {
                 },
                 label: {
                   show: true,
-                  position: 'start',
+                  position: 'insideEndTop',
+                  rotate: 0,
                   formatter: '预测起点',
                   color: '#ff9500',
                   fontSize: 11,
@@ -471,7 +448,7 @@ function DLPrediction() {
     {
       title: '金额',
       key: 'amount',
-      render: (_: number | undefined, record: DLBacktestResult['trades'][number]) => {
+      render: (_: number | undefined, record: DLBacktest['trades'][number]) => {
         const amount =
           record.action === 'BUY'
             ? (record.cost ?? record.price * record.quantity)
@@ -482,7 +459,7 @@ function DLPrediction() {
     {
       title: '收益率',
       key: 'return',
-      render: (_: number | undefined, record: DLBacktestResult['trades'][number]) => {
+      render: (_: number | undefined, record: DLBacktest['trades'][number]) => {
         if (record.action === 'BUY' || record.return === undefined) return '-'
         const color = record.return >= 0 ? '#34c759' : '#ff3b30'
         const sign = record.return >= 0 ? '+' : ''
@@ -501,8 +478,28 @@ function DLPrediction() {
       <PageHeader
         eyebrow="MODEL LAB"
         title="DL 预测"
-        subtitle="深度学习模型预测未来 5 天股票价格，并用历史区间验证策略"
+        subtitle="选择 Kronos 或现有预测器，研究未来行情并验证历史表现"
       />
+      {experiment.error && <Alert type="error" showIcon message={experiment.error} />}
+      {experiment.running && (
+        <Alert
+          role="status"
+          type="info"
+          message={experiment.lastStatus?.message || '正在提交实验'}
+          description={
+            <Progress
+              percent={Math.round((experiment.lastStatus?.progress || 0) * 100)}
+            />
+          }
+          action={<Button onClick={() => void experiment.cancel()}>取消任务</Button>}
+        />
+      )}
+      {staleResult && (
+        <Alert
+          type="warning"
+          message={`当前显示原实验：${experiment.result?.request.stock_code} · ${experiment.result?.request.model}，配置已变更`}
+        />
+      )}
 
       <div className="dl-lab-layout">
         {/* Left: Configuration */}
@@ -518,9 +515,48 @@ function DLPrediction() {
           <div
             style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}
           >
+            <div>
+              <label htmlFor="dl-model">预测模型</label>
+              <Select
+                id="dl-model"
+                value={model}
+                style={{ width: '100%' }}
+                disabled={experiment.running}
+                onChange={(value: DLModelId) => {
+                  setModel(value)
+                  if (value === 'legacy') {
+                    setKlineDays(Math.min(250, klineDays))
+                    setPredictionDays(5)
+                  } else {
+                    setKlineDays(Math.max(60, klineDays))
+                  }
+                }}
+                options={[
+                  { value: 'kronos-small', label: 'Kronos-small' },
+                  { value: 'kronos-base', label: 'Kronos-base' },
+                  { value: 'legacy', label: '现有预测器（含技术指标降级）' },
+                ]}
+              />
+            </div>
+            {isKronos && (!selectedModel?.available || models.isError) && (
+              <Alert
+                type="warning"
+                message={
+                  selectedModel?.reason ||
+                  (models.isError ? '模型状态读取失败' : '正在检测远程模型')
+                }
+                action={
+                  <Button size="small" onClick={() => void models.refetch()}>
+                    重试
+                  </Button>
+                }
+              />
+            )}
             {/* Stock Selection */}
             <div>
+              <label htmlFor="dl-stock">股票代码</label>
               <StockSearch
+                id="dl-stock"
                 value={stockCode ?? undefined}
                 onChange={(code) => setStockCode(code)}
               />
@@ -529,6 +565,7 @@ function DLPrediction() {
             {/* Kline Days */}
             <div>
               <label
+                htmlFor="dl-context"
                 style={{
                   display: 'block',
                   fontSize: 'var(--font-size-sm)',
@@ -539,13 +576,51 @@ function DLPrediction() {
                 历史K线天数
               </label>
               <InputNumber
+                id="dl-context"
                 value={klineDays}
                 onChange={(value) => setKlineDays(value ?? 60)}
-                min={30}
-                max={250}
+                min={isKronos ? 60 : 30}
+                max={isKronos ? 512 : 250}
                 step={10}
                 style={{ width: '100%' }}
               />
+            </div>
+            <div>
+              <label htmlFor="dl-horizon">预测交易日数</label>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 'var(--space-md)',
+                }}
+              >
+                <Slider
+                  ariaLabelForHandle="滑动选择预测天数"
+                  value={isKronos ? predictionDays : 5}
+                  min={1}
+                  max={30}
+                  step={1}
+                  marks={{ 1: '1', 15: '15', 30: '30' }}
+                  disabled={!isKronos || experiment.running}
+                  onChange={setPredictionDays}
+                  tooltip={{ formatter: (value) => `${value} 个交易日` }}
+                  style={{ flex: 1, minWidth: 0 }}
+                />
+                <InputNumber
+                  id="dl-horizon"
+                  value={isKronos ? predictionDays : 5}
+                  min={1}
+                  max={30}
+                  step={1}
+                  precision={0}
+                  disabled={!isKronos || experiment.running}
+                  onChange={(value) => {
+                    if (value !== null)
+                      setPredictionDays(Math.min(30, Math.max(1, Math.round(value))))
+                  }}
+                  style={{ width: 80, flexShrink: 0 }}
+                />
+              </div>
             </div>
 
             {/* Buttons */}
@@ -559,13 +634,17 @@ function DLPrediction() {
             >
               <Button
                 type="primary"
-                icon={<LoadingOutlined spin={loadingPredict} />}
+                icon={<LineChartOutlined />}
                 onClick={handlePredict}
                 loading={loadingPredict}
-                disabled={!stockCode}
+                disabled={
+                  !stockCode ||
+                  experiment.running ||
+                  (isKronos && !selectedModel?.available)
+                }
                 block
               >
-                预测未来5天
+                预测未来 {isKronos ? predictionDays : 5} 个交易日
               </Button>
             </div>
 
@@ -577,6 +656,7 @@ function DLPrediction() {
               }}
             >
               <label
+                htmlFor="dl-dates"
                 style={{
                   display: 'block',
                   fontSize: 'var(--font-size-sm)',
@@ -587,6 +667,7 @@ function DLPrediction() {
                 回测区间
               </label>
               <RangePicker
+                id={{ start: 'dl-dates', end: 'dl-end-date' }}
                 value={[dayjs(dateRange[0]), dayjs(dateRange[1])]}
                 onChange={(dates) => {
                   if (dates) {
@@ -600,6 +681,7 @@ function DLPrediction() {
               />
 
               <label
+                htmlFor="dl-capital"
                 style={{
                   display: 'block',
                   fontSize: 'var(--font-size-sm)',
@@ -611,6 +693,7 @@ function DLPrediction() {
                 初始资金
               </label>
               <InputNumber
+                id="dl-capital"
                 value={initialCapital}
                 onChange={(value) => setInitialCapital(value ?? 100000)}
                 min={10000}
@@ -625,11 +708,21 @@ function DLPrediction() {
                 icon={<PlayCircleOutlined />}
                 onClick={handleBacktest}
                 loading={loadingBacktest}
-                disabled={!stockCode}
+                disabled={
+                  !stockCode ||
+                  experiment.running ||
+                  (isKronos && !selectedModel?.available)
+                }
                 style={{ marginTop: 'var(--space-md)', width: '100%' }}
               >
                 执行回测
               </Button>
+              {isKronos && (
+                <p>
+                  每 5 个交易日生成 5
+                  日预测，下一交易日开盘执行。历史回溯不等于独立样本外验证。
+                </p>
+              )}
             </div>
           </div>
         </Card>
@@ -655,14 +748,13 @@ function DLPrediction() {
             </div>
           ) : predictionResult ? (
             <LazyECharts
-              ref={chartRef}
               option={chartOption}
               style={{ height: 400 }}
               opts={{ renderer: 'canvas' }}
             />
           ) : (
             <Empty
-              description="点击「预测未来5天」或「执行回测」查看图表"
+              description="配置模型与股票后，运行预测或回测查看图表"
               image={Empty.PRESENTED_IMAGE_SIMPLE}
               style={{ padding: 'var(--space-2xl)' }}
             />
@@ -680,6 +772,21 @@ function DLPrediction() {
                 <Descriptions.Item label="股票代码">
                   {predictionResult.stock_code}
                 </Descriptions.Item>
+                <Descriptions.Item label="实际模型">
+                  {predictionResult.prediction_backend === 'technical_indicator'
+                    ? '技术指标降级预测（非神经网络）'
+                    : predictionResult.model || '现有预测器'}
+                </Descriptions.Item>
+                <Descriptions.Item label="预测期限">
+                  {predictionResult.prediction_dates.length} 个交易日
+                </Descriptions.Item>
+                <Descriptions.Item label="输入区间">
+                  {predictionResult.input_start || predictionResult.kline_data[0]?.date}{' '}
+                  至 {predictionResult.last_date}
+                </Descriptions.Item>
+                <Descriptions.Item label="总耗时">
+                  {((predictionResult.execution_time_ms || 0) / 1000).toFixed(1)} 秒
+                </Descriptions.Item>
                 <Descriptions.Item label="当前价格">
                   {predictionResult.current_price.toFixed(2)}
                 </Descriptions.Item>
@@ -689,7 +796,9 @@ function DLPrediction() {
               </Descriptions>
 
               <div style={{ marginTop: 'var(--space-md)' }}>
-                <h4 style={{ marginBottom: 'var(--space-sm)' }}>未来5天预测</h4>
+                <h4 style={{ marginBottom: 'var(--space-sm)' }}>
+                  未来 {predictionResult.prediction_dates.length} 个交易日预测
+                </h4>
                 <Table
                   dataSource={predictionResult.prediction_dates.map((date, index) => ({
                     key: index,
@@ -733,6 +842,47 @@ function DLPrediction() {
                   pagination={false}
                   size="small"
                 />
+                {predictionResult.predicted_klines && (
+                  <>
+                    <h4>预测 K 线明细</h4>
+                    <p>
+                      三条采样路径的均值，非统计置信区间；不满足 OHLC
+                      约束的输出保留并标记。
+                    </p>
+                    <Table
+                      dataSource={predictionResult.predicted_klines}
+                      rowKey="date"
+                      size="small"
+                      scroll={{ x: 640 }}
+                      pagination={false}
+                      columns={[
+                        { title: '日期', dataIndex: 'date', width: 110 },
+                        ...(['open', 'high', 'low', 'close'] as const).map(
+                          (field, i) => ({
+                            title: ['开盘', '最高', '最低', '收盘'][i],
+                            dataIndex: field,
+                            render: (value: number) => value.toFixed(2),
+                          }),
+                        ),
+                        {
+                          title: '成交量/股',
+                          dataIndex: 'volume',
+                          render: (v: number) => v.toFixed(0),
+                        },
+                        {
+                          title: '成交额/元',
+                          dataIndex: 'amount',
+                          render: (v: number) => v.toFixed(0),
+                        },
+                        {
+                          title: '校验',
+                          dataIndex: 'ohlc_valid',
+                          render: (v: boolean) => (v ? '有效' : 'OHLC 无效'),
+                        },
+                      ]}
+                    />
+                  </>
+                )}
               </div>
             </Card>
           )}
@@ -740,6 +890,12 @@ function DLPrediction() {
           {/* Backtest Results */}
           {backtestResult && (
             <Card title="回测结果">
+              <p>
+                {backtestResult.experiment?.stock_code} ·{' '}
+                {backtestResult.model || '现有预测器'} ·{' '}
+                {backtestResult.experiment?.start_date} 至{' '}
+                {backtestResult.experiment?.end_date}
+              </p>
               <Descriptions column={2} size="small" bordered>
                 <Descriptions.Item label="总收益率">
                   <span
@@ -800,11 +956,11 @@ function DLPrediction() {
               <dl>
                 <div>
                   <dt>预测范围</dt>
-                  <dd>未来 5 个交易日</dd>
+                  <dd>{isKronos ? '未来 1–30 个交易日' : '未来 5 个交易日'}</dd>
                 </div>
                 <div>
                   <dt>建议样本</dt>
-                  <dd>至少 60 个交易日</dd>
+                  <dd>{isKronos ? '默认 256 根，最大 512 根' : '至少 60 个交易日'}</dd>
                 </div>
                 <div>
                   <dt>数据来源</dt>

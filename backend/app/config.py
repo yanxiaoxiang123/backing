@@ -108,6 +108,10 @@ class Settings(BaseSettings):
     DL_OUTPUT_SIZE: int = 5
     DL_DEVICE: str = "cuda:0"
     DL_USE_LLM: bool = True  # 是否加载 LLM 模型，设置为 False 可跳过 LLM 加载
+    KRONOS_SERVICE_URL: str = ""
+    KRONOS_SERVICE_TOKEN: str = ""
+    KRONOS_REQUEST_TIMEOUT_S: float = Field(default=180, ge=1, le=600)
+    KRONOS_JOB_TIMEOUT_S: float = Field(default=3600, ge=30, le=14400)
 
     model_config = SettingsConfigDict(env_file=".env", extra="allow")
 

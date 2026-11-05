@@ -201,6 +201,7 @@ class DLPredictor:
             features = df_with_features[feature_cols].values[-time_steps:]
 
             # 模型预测
+            prediction_backend = "lstm_finance_llama"
             try:
                 predicted_prices = self.model_loader.predict(features)
             except Exception as e:
@@ -209,6 +210,7 @@ class DLPredictor:
                 predicted_prices = TechnicalIndicatorPredictor.predict(
                     df, days=settings.DL_OUTPUT_SIZE
                 )
+                prediction_backend = "technical_indicator"
 
             # 获取当前价格和最后日期
             current_price = float(df["close"].iloc[-1])
@@ -232,6 +234,7 @@ class DLPredictor:
                 "prediction_dates": prediction_dates,
                 "predicted_prices": [float(p) for p in predicted_prices],
                 "kline_data": self._format_kline_data(df),
+                "prediction_backend": prediction_backend,
             }
 
             logger.info(f"预测完成: {stock_code}, 预测价格: {predicted_prices}")

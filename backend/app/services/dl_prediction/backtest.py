@@ -291,9 +291,7 @@ class DLBacktester:
                     predicted_price = float(predicted_prices[0])
 
                 except Exception as e:
-                    logger.warning(f"模型预测失败: {e}，使用简化预测")
-                    # 如果模型预测失败，使用简化预测
-                    predicted_price = current_price * 1.01
+                    raise RuntimeError(f"{current_date} 模型预测失败，回测已停止") from e
 
                 # 交易决策
                 if strategy.position == 0:

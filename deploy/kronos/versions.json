@@ -1,0 +1,54 @@
+{
+  "source_revision": "67b630e67f6a18c9e9be918d9b4337c960db1e9a",
+  "python": "3.10.19",
+  "torch_runtime": "2.9.1+cu128",
+  "device": "cuda:1",
+  "gpu": "NVIDIA GeForce RTX 3090",
+  "dependencies": {
+    "torch": "2.9.1",
+    "numpy": "2.2.6",
+    "pandas": "2.3.3",
+    "fastapi": "0.115.12",
+    "uvicorn": "0.34.2",
+    "pydantic": "2.11.4",
+    "huggingface-hub": "0.36.0",
+    "safetensors": "0.7.0",
+    "einops": "0.8.1",
+    "tqdm": "4.67.1"
+  },
+  "weights": {
+    "Kronos-small": {
+      "repo": "NeoQuasar/Kronos-small",
+      "revision": "901c26c1332695a2a8f243eb2f37243a37bea320",
+      "files": {
+        "config.json": "5e0f6a605d5f81b5c9b559fe5cf716a1acb041c744e6f41bd05b097b7a685396",
+        "model.safetensors": "b082dfcbd8e8c142a725c8bbb99781802f38fec81210e13479effb32b3c3e020"
+      }
+    },
+    "Kronos-base": {
+      "repo": "NeoQuasar/Kronos-base",
+      "revision": "2b554741eca47781b64468546e77fef3e85130e6",
+      "files": {
+        "config.json": "77ebc3038b647709b92be002f801d72e1a385f4c8c2c5aa1cc6cf21fcfe44eb2",
+        "model.safetensors": "abff193acab6db1a0368e9773e75799d11403b6d054ee6d5f0a11aeabc5f4b83"
+      },
+      "transport": "validated ranges from AI-ModelScope/Kronos-base; original Git/LFS hashes"
+    },
+    "Kronos-Tokenizer-base": {
+      "repo": "NeoQuasar/Kronos-Tokenizer-base",
+      "revision": "0e0117387f39004a9016484a186a908917e22426",
+      "files": {
+        "config.json": "2366e7ccfec76cbc19cf3c4c1b9c5d901be336ca1e83f2d2292c9bff381b77a2",
+        "model.safetensors": "59d85f6af76a2c3b8240ea06cb21db4213b4eeca053f246b23e29cf832fc6bee"
+      }
+    }
+  },
+  "service_files_sha256": {
+    "bootstrap.sh": "53c964cb02c0b645784e2486f5eb1a4e2f97654374389d04e9ff0729a186d3d2",
+    "requirements.lock": "1842e56e9903424992bfcfd9e87301b0956fca3a0afe364231d40872e6dbd3e9",
+    "backing-kronos.service": "a27620557a70319bebae9fef8ab54f9f6aebc2bc8c1cc6e34005075ca7b7a3b3",
+    "service.py": "fed71819df41c85ec613450e384b91f7d607687bfe0c6e6651345a3df140f26c",
+    "lock_runtime.py": "67fd0f0dc34598a232602cf21d08f88712f292b50102b2b60d96178975f51695",
+    "requirements.txt": "e1a0b8f0c5b838671c608a55397e1c6ad36b4700f33eb47b5bf428f0a0609945"
+  }
+}

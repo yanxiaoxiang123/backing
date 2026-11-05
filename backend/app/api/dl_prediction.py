@@ -5,11 +5,18 @@ DL 预测 API 接口
 import logging
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
-from app.auth import get_current_api_key
-from app.exceptions import ExternalServiceError
+from app.auth import get_authenticated_actor, get_current_api_key
+from app.exceptions import ConflictError, ExternalServiceError
+from app.limiter import limiter
+from app.services.dl_prediction.contracts import BacktestExperimentRequest, ExperimentRequest
+from app.services.dl_prediction import experiments  # noqa: F401 - register durable runners
+from app.services.dl_prediction.remote import KronosClient
+from app.services.job_store import job_store
+from app.services.market_data import digest
+from app.services.tasks import get_task_executor
 from app.services.baostock_service import BaostockService
 from app.services.dl_prediction.backtest import DLBacktester
 from app.services.dl_prediction.predictor import DLPredictor
@@ -17,6 +24,57 @@ from app.services.dl_prediction.predictor import DLPredictor
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+
+@router.get("/models")
+def models(_: str = Depends(get_current_api_key)):
+    try:
+        remote = KronosClient().status()
+        reason = None
+    except Exception as exc:
+        remote = {"available": False}
+        reason = getattr(exc, "detail", "远程 Kronos 服务不可用")
+    return {
+        "models": [
+            {"id": name, "name": name.replace("kronos", "Kronos"), "min_context": 60,
+             "max_context": 512, "min_horizon": 1, "max_horizon": 30,
+             "available": bool(remote.get("available")), "reason": reason}
+            for name in ("kronos-small", "kronos-base")
+        ] + [{"id": "legacy", "name": "现有预测器（含技术指标降级）", "min_context": 30,
+              "max_context": 250, "min_horizon": 5, "max_horizon": 5, "available": True}],
+        "remote": remote,
+    }
+
+
+def _submit_experiment(request: Request, body: ExperimentRequest, actor: str, backtest: bool) -> dict:
+    payload = body.model_dump(mode="json")
+    operation = "dl_backtest" if backtest else "dl_predict"
+    key = request.headers.get("Idempotency-Key")
+    if key and len(key) > 128:
+        raise HTTPException(400, detail="Idempotency-Key too long")
+    job_key = f"{operation}:{digest(actor)}:{key}" if key else None
+    if job_key:
+        existing = job_store._find_by_key(job_key)
+        if existing and existing.payload != payload:
+            raise ConflictError("同一 Idempotency-Key 不能提交不同实验")
+    job = get_task_executor().submit(operation, payload=payload, job_key=job_key)
+    return {"job_id": job.id, "status": job.status, "job_type": operation, "message": job.message}
+
+
+@router.post("/predict/submit", status_code=202)
+@limiter.limit("10/minute")
+def submit_predict(
+    request: Request, body: ExperimentRequest, actor: str = Depends(get_authenticated_actor),
+):
+    return _submit_experiment(request, body, actor, False)
+
+
+@router.post("/backtest/submit", status_code=202)
+@limiter.limit("5/minute")
+def submit_backtest(
+    request: Request, body: BacktestExperimentRequest, actor: str = Depends(get_authenticated_actor),
+):
+    return _submit_experiment(request, body, actor, True)
 
 
 # ============== Request/Response Models ==============

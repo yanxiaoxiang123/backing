@@ -1,5 +1,15 @@
 # Backing
 
+### Remote Kronos on the DL prediction page
+
+The DL page supports remote Kronos-small/base forecasts (60–512 historical bars,
+1–30 future exchange sessions) alongside the existing predictor. Forecasts and
+rolling backtests use durable jobs with progress, cancellation and refresh
+recovery. Configure `KRONOS_SERVICE_URL` and the backend-only
+`KRONOS_SERVICE_TOKEN`; deployment, pinned revisions, unit conventions, operational
+checks and historical evaluation limitations are in
+[deploy/kronos/README.md](deploy/kronos/README.md).
+
 ### Quant foundation update (2026-10-30)
 
 Backend commands on this Windows workstation use the `backing` Conda environment.
