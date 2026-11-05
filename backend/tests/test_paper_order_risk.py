@@ -43,6 +43,15 @@ def test_new_orders_require_a_provenance_reference(ledger):
     assert db.query(PaperOrder).count() == db.query(ApprovalRecord).count() == 0
 
 
+def test_fixture_provides_completed_prices_between_1530_and_1600(ledger):
+    db, clock = ledger
+    clock[0] = clock[0].replace(hour=7, minute=45)
+    report = risk_assessment(db, clock[0])
+    assert not report["proposal"]["rejected"], report["proposal"]["rejection_reasons"]
+    invoke(db, report["artifact_id"])
+    assert db.query(PaperOrder).count() == 1
+
+
 def test_unapproved_rejected_wrong_run_and_oversized_intents_cannot_create_orders(ledger):
     db, clock = ledger
     rejected = risk_assessment(db, clock[0], weight=0.9)

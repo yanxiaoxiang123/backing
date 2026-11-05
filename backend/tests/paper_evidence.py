@@ -28,7 +28,7 @@ def seed_paper_evidence(db, now, code="sh.600000"):
             store_bars(db, code, [{"date": session["date"], "open": 10, "high": 11,
                                    "low": 9, "close": 10, "volume": 1000000,
                                    "is_st": False, "suspended": False}], provider="fixture",
-                       observed_at=datetime.combine(session["date"], time(8), timezone.utc) - timedelta(seconds=1))
+                       observed_at=datetime.combine(session["date"], time(7, 30), timezone.utc))
     db.commit()
 
 
