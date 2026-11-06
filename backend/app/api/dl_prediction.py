@@ -33,13 +33,18 @@ def models(_: str = Depends(get_current_api_key)):
         reason = None
     except Exception as exc:
         remote = {"available": False}
-        reason = getattr(exc, "detail", "远程 Kronos 服务不可用")
+        reason = getattr(exc, "detail", "远程预测服务不可用")
+    deployed = {row["id"] for row in remote.get("models", [])}
     return {
         "models": [
-            {"id": name, "name": name.replace("kronos", "Kronos"), "min_context": 60,
+            {"id": name, "name": "TimesFM 2.5 200M" if name == "timesfm-2.5" else name.replace("kronos", "Kronos"),
+             "min_context": 60,
              "max_context": 512, "min_horizon": 1, "max_horizon": 30,
-             "available": bool(remote.get("available")), "reason": reason}
-            for name in ("kronos-small", "kronos-base")
+             "output_fields": ["close"] if name == "timesfm-2.5" else
+                 ["open", "high", "low", "close", "volume", "amount"],
+             "available": bool(remote.get("available")) and name in deployed,
+             "reason": reason or ("所选模型尚未在远端部署" if name not in deployed else None)}
+            for name in ("kronos-small", "kronos-base", "timesfm-2.5")
         ] + [{"id": "legacy", "name": "现有预测器（含技术指标降级）", "min_context": 30,
               "max_context": 250, "min_horizon": 5, "max_horizon": 5, "available": True}],
         "remote": remote,

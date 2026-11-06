@@ -1,4 +1,5 @@
-import { act, renderHook } from '@testing-library/react'
+import { StrictMode } from 'react'
+import { act, renderHook, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => {
@@ -121,6 +122,26 @@ describe('useAgentChat', () => {
 
   afterEach(() => {
     vi.unstubAllGlobals()
+    vi.useRealTimers()
+  })
+
+  it('StrictMode 重复挂载后仍从 URL 恢复会话与消息', async () => {
+    window.history.replaceState({}, '', '/workspace?thread_id=t-restored')
+    mocks.getThread.mockResolvedValue({
+      thread: thread('t-restored'),
+      turns: [
+        turn(1, 't-restored', { status: 'completed', final_reply: '已保存的研究结论' }),
+      ],
+    })
+    const { result } = renderHook(() => useAgentChat(), { wrapper: StrictMode })
+    await waitFor(() => {
+      expect(result.current.currentThread?.thread_id).toBe('t-restored')
+      expect(
+        result.current.messages.some(
+          (message) => message.content === '已保存的研究结论',
+        ),
+      ).toBe(true)
+    })
   })
 
   it('newThread 创建并选择新会话，URL 持久化 thread_id', async () => {
@@ -141,7 +162,7 @@ describe('useAgentChat', () => {
     expect(mocks.instances[0].start).toHaveBeenCalledWith(0)
   })
 
-  it('send 提交 turn（带 Idempotency-Key）并生成首条消息，标题取前 36 字符', async () => {
+  it('send 提交 turn（带 Idempotency-Key），标题采用后端 AI 结果', async () => {
     mocks.createThread.mockResolvedValue(thread('t-1', { title: '' }))
     mocks.getThread.mockResolvedValue({
       thread: thread('t-1', { title: '' }),
@@ -155,6 +176,10 @@ describe('useAgentChat', () => {
     await act(async () => {
       await result.current.newThread()
     })
+    mocks.listThreads.mockResolvedValue({
+      threads: [thread('t-1', { title: '浦发银行均线策略回测' })],
+      total: 1,
+    })
     await act(async () => {
       await result.current.send(content)
     })
@@ -164,9 +189,57 @@ describe('useAgentChat', () => {
     expect(args[0]).toBe('t-1')
     expect(args[1]).toBe(content)
     expect(String(args[2]).length).toBeGreaterThan(0) // idempotency key
-    expect(result.current.currentThread?.title).toBe(content.slice(0, 36))
+    expect(result.current.currentThread?.title).toBe('浦发银行均线策略回测')
+    expect(result.current.threads[0]?.title).toBe('浦发银行均线策略回测')
     expect(result.current.messages).toHaveLength(2)
     expect(result.current.messages[0]).toMatchObject({ role: 'user', content })
+  })
+
+  it('后台命名完成后同步最近会话与当前标题，并停止轮询', async () => {
+    vi.useFakeTimers()
+    const pending = thread('t-naming', { title: null, title_pending: true })
+    mocks.listThreads.mockResolvedValue({ threads: [pending], total: 1 })
+    mocks.getThread.mockResolvedValue({ thread: pending, turns: [] })
+    const { result } = renderHook(() => useAgentChat())
+    await act(async () => {
+      await result.current.selectThread('t-naming')
+    })
+    const named = thread('t-naming', {
+      title: '银行股估值比较',
+      title_pending: false,
+    })
+    mocks.listThreads.mockResolvedValue({ threads: [named], total: 1 })
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2000)
+    })
+    expect(result.current.currentThread?.title).toBe('银行股估值比较')
+    expect(result.current.threads[0]?.title).toBe('银行股估值比较')
+    const calls = mocks.listThreads.mock.calls.length
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(6000)
+    })
+    expect(mocks.listThreads).toHaveBeenCalledTimes(calls)
+  })
+
+  it('命名中的旧会话不在最近列表第一页时仍刷新当前标题', async () => {
+    vi.useFakeTimers()
+    mocks.getThread.mockResolvedValue({
+      thread: thread('old', { title: null, title_pending: true }),
+      turns: [],
+    })
+    const { result } = renderHook(() => useAgentChat())
+    await act(async () => {
+      await result.current.selectThread('old')
+    })
+    mocks.getThread.mockResolvedValue({
+      thread: thread('old', { title: '历史回测复盘', title_pending: false }),
+      turns: [],
+    })
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2000)
+    })
+    expect(mocks.getThread).toHaveBeenCalledWith('old', 1)
+    expect(result.current.currentThread?.title).toBe('历史回测复盘')
   })
 
   it('SSE 事件合并进消息并触发 onRunLinked 回调', async () => {

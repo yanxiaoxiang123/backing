@@ -16,6 +16,17 @@ from app.services.dl_prediction.model_loader import DLModelLoader
 logger = logging.getLogger(__name__)
 
 
+def _next_business_dates(last_date: Any, days: int) -> List[str]:
+    """Return the next weekday dates sequentially after ``last_date``."""
+    current_date = pd.Timestamp(last_date)
+    dates: List[str] = []
+    while len(dates) < days:
+        current_date += timedelta(days=1)
+        if current_date.dayofweek < 5:
+            dates.append(current_date.strftime("%Y-%m-%d"))
+    return dates
+
+
 class TechnicalIndicatorPredictor:
     """基于技术指标的预测器 - 当PyTorch模型不可用时的备选方案"""
 
@@ -216,15 +227,9 @@ class DLPredictor:
             current_price = float(df["close"].iloc[-1])
             last_date = df["trade_date"].iloc[-1]
 
-            # 生成预测日期
-            prediction_dates = []
-            current_date = pd.Timestamp(last_date)
-            for i in range(settings.DL_OUTPUT_SIZE):
-                next_date = current_date + timedelta(days=i + 1)
-                # 跳过周末
-                while next_date.dayofweek >= 5:
-                    next_date = next_date + timedelta(days=1)
-                prediction_dates.append(next_date.strftime("%Y-%m-%d"))
+            prediction_dates = _next_business_dates(
+                last_date, settings.DL_OUTPUT_SIZE
+            )
 
             # 返回预测结果
             result = {

@@ -60,14 +60,6 @@ class ConflictError(AppError):
     error_code = "conflict"
 
 
-class ServiceError(AppError):
-    """Backward-compatible alias: external service failure (502)."""
-
-    status_code = status.HTTP_502_BAD_GATEWAY
-    detail = "External service error"
-    error_code = "service_error"
-
-
 class ExternalServiceError(AppError):
     """Base class for failures caused by an external dependency.
 

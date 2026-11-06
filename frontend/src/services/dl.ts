@@ -3,8 +3,7 @@ import api from './api'
 import { normalizeStockCode } from '../utils/stockIdentity'
 import type { JobSubmission } from '../types'
 
-export { dlPredict, dlBacktest } from './api'
-export type DLModelId = 'kronos-small' | 'kronos-base' | 'legacy'
+export type DLModelId = 'kronos-small' | 'kronos-base' | 'timesfm-2.5' | 'legacy'
 export type DLExperimentKind = 'predict' | 'backtest'
 
 export interface DLExperimentRequest {
@@ -36,6 +35,7 @@ export interface DLForecast {
   predicted_prices: number[]
   kline_data: DLBar[]
   predicted_klines?: DLBar[]
+  forecast_target?: 'close' | 'ohlcv_amount'
   model?: DLModelId
   prediction_backend?: string
   input_start?: string
@@ -85,6 +85,7 @@ export interface DLModelCatalog {
     min_horizon: number
     max_horizon: number
     reason?: string | null
+    output_fields?: string[]
   }>
   remote: { available: boolean; busy?: boolean; phase?: string; loaded_model?: string }
 }

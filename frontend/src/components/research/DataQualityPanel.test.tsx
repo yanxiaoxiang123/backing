@@ -13,7 +13,7 @@ vi.mock('../../services/marketData', () => ({
 }))
 vi.mock('../../hooks/useJobPolling', () => ({ useJobPolling: () => ({ waitForJob }) }))
 
-function page(codes = ['sh.600000']) {
+function page(codes = ['sh.600000'], compact = false) {
   return render(
     <QueryClientProvider
       client={
@@ -22,7 +22,7 @@ function page(codes = ['sh.600000']) {
         })
       }
     >
-      <DataQualityPanel codes={codes} />
+      <DataQualityPanel codes={codes} compact={compact} />
     </QueryClientProvider>,
   )
 }
@@ -55,9 +55,20 @@ describe('DataQualityPanel', () => {
     waitForJob.mockResolvedValue({ success: true })
     page()
     await userEvent.click(screen.getByRole('button', { name: '补齐本页原始价格' }))
-    expect(await screen.findByText('补数完成，已核对交易日历覆盖')).toBeInTheDocument()
+    expect(await screen.findByRole('status')).toHaveTextContent(
+      '补数完成，已核对交易日历覆盖',
+    )
     expect(syncRawHistory).toHaveBeenCalledWith(['sh.600000'])
     expect(waitForJob).toHaveBeenCalledWith('history-job')
+  })
+
+  it('opens full coverage and ingestion controls from the compact summary', async () => {
+    page([], true)
+    expect(await screen.findByText(/旧 K 线 2 \/ 5,913/)).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: '详情与补数' }))
+    expect(screen.getByRole('dialog', { name: '历史数据覆盖' })).toBeInTheDocument()
+    expect(screen.getByText('版本化行情记录')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '补齐本页原始价格' })).toBeDisabled()
   })
 
   it('shows failed ingestion and never labels it completed', async () => {

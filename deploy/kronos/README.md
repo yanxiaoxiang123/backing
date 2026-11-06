@@ -1,5 +1,8 @@
 # Remote Kronos inference
 
+TimesFM 2.5 200M is available in the same service as a close-only model.
+See `TIMESFM.md` for its pinned artifacts, deployment and verification.
+
 The DL page submits durable jobs to the application backend. The backend prepares
 versioned raw OHLCV/amount data and sends only that window and verified future
 session dates to the private GPU service. The GPU service never connects to the
@@ -28,7 +31,8 @@ torch package metadata is `2.9.1`; its verified runtime identifies as
 `2.9.1+cu128`, which is checked at service startup. Research packages are not
 included in the runtime lock and the service imports only pinned official Kronos.
 
-Provision `service.py`, `requirements.txt`, `lock_runtime.py`, `bootstrap.sh` and the unit file into
+Provision `service.py`, `timesfm_adapter.py`, `provision_timesfm.py`,
+`requirements.txt`, `lock_runtime.py`, `bootstrap.sh` and the unit file into
 the service directory, then run `bash bootstrap.sh` as root. A fresh host without
 the existing research installation must first download the three official model
 repositories at the revisions above and create their SHA256 manifests. Do not use

@@ -41,14 +41,28 @@
         "config.json": "2366e7ccfec76cbc19cf3c4c1b9c5d901be336ca1e83f2d2292c9bff381b77a2",
         "model.safetensors": "59d85f6af76a2c3b8240ea06cb21db4213b4eeca053f246b23e29cf832fc6bee"
       }
+    },
+    "TimesFM-2.5-200M": {
+      "repo": "google/timesfm-2.5-200m-pytorch",
+      "revision": "1d952420fba87f3c6dee4f240de0f1a0fbc790e3",
+      "source_revision": "2011cfb9a483296b893571df050b5d25a26ef9cc",
+      "license": "Apache-2.0",
+      "files": {
+        "config.json": "cd3315b760d5cc7e278d7afdf41b897031ced888fc6c115bd9b3ac0ea2c47408",
+        "README.md": "4c3f16633a3d8b9324904bf004429aced2ee009b84e64effb59a902520cc7f2e",
+        "model.safetensors": "2f776efe6245e42b24bc4153ffdf61810140210e4bd3b01fb21f7aa779ab6ce8"
+      }
     }
   },
   "service_files_sha256": {
-    "bootstrap.sh": "53c964cb02c0b645784e2486f5eb1a4e2f97654374389d04e9ff0729a186d3d2",
+    "bootstrap.sh": "1090b81e6bc759453396c18894720a259ea917020b5d3a82dc3c817dad2b843e",
     "requirements.lock": "1842e56e9903424992bfcfd9e87301b0956fca3a0afe364231d40872e6dbd3e9",
     "backing-kronos.service": "a27620557a70319bebae9fef8ab54f9f6aebc2bc8c1cc6e34005075ca7b7a3b3",
-    "service.py": "fed71819df41c85ec613450e384b91f7d607687bfe0c6e6651345a3df140f26c",
+    "service.py": "b7d2e9b563ae94e2018cd0327ebafee0632d7fcb15fdd137f3e5920a2b8e6377",
     "lock_runtime.py": "67fd0f0dc34598a232602cf21d08f88712f292b50102b2b60d96178975f51695",
-    "requirements.txt": "e1a0b8f0c5b838671c608a55397e1c6ad36b4700f33eb47b5bf428f0a0609945"
-  }
+    "requirements.txt": "e1a0b8f0c5b838671c608a55397e1c6ad36b4700f33eb47b5bf428f0a0609945",
+    "timesfm_adapter.py": "ba380f12a3a703f99d2a3c100a24a87d280fb7becb06d73c019510b253cd051e",
+    "provision_timesfm.py": "bca3808062aea5eebcf240e53d72cdaf2256c94bd14ab955a52b782b9d78729c"
+  },
+  "timesfm_source_revision": "2011cfb9a483296b893571df050b5d25a26ef9cc"
 }

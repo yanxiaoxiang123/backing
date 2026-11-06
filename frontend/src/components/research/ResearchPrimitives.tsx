@@ -1,3 +1,5 @@
+import { Prose } from '../Prose'
+import { formatNumber, isFiniteNumber, numberTone } from '../../utils/dataFormat'
 import type { ReactNode } from 'react'
 import { Alert, Button, Empty, Progress, Skeleton, Tag } from 'antd'
 import { MoreOutlined, ReloadOutlined } from '@ant-design/icons'
@@ -19,8 +21,14 @@ export function PageHeader({
     <header className="research-page-header page-header">
       <div>
         {eyebrow ? <div className="eyebrow">{eyebrow}</div> : null}
-        <h1 className="page-title">{title}</h1>
-        {subtitle ? <p className="page-subtitle">{subtitle}</p> : null}
+        <Prose as="h1" className="page-title">
+          {title}
+        </Prose>
+        {subtitle ? (
+          <Prose as="p" className="page-subtitle">
+            {subtitle}
+          </Prose>
+        ) : null}
       </div>
       {actions ? <div className="page-actions">{actions}</div> : null}
     </header>
@@ -31,24 +39,42 @@ export function ResearchPanel({
   children,
   className = '',
   as: Component = 'section',
+  title,
+  extra,
 }: {
   children: ReactNode
   className?: string
   as?: 'section' | 'div' | 'aside'
+  title?: ReactNode
+  extra?: ReactNode
 }) {
   return (
-    <Component className={`research-panel ${className}`.trim()}>{children}</Component>
+    <Component className={`research-panel ${className}`.trim()}>
+      {title ? (
+        <>
+          <div className="research-panel-heading">
+            <Prose as="h2">{title}</Prose>
+            {extra}
+          </div>
+          <div className="research-panel-body">{children}</div>
+        </>
+      ) : (
+        children
+      )}
+    </Component>
   )
 }
 
 export function AsyncBoundary({
   loading,
+  loadingRows = 4,
   error,
   onRetry,
   empty,
   children,
 }: {
   loading?: boolean
+  loadingRows?: number
   error?: unknown
   onRetry?: () => void
   empty?: boolean
@@ -57,7 +83,7 @@ export function AsyncBoundary({
   if (loading) {
     return (
       <div className="async-boundary" aria-busy="true" aria-live="polite">
-        <Skeleton active paragraph={{ rows: 4 }} aria-label="正在加载" />
+        <Skeleton active paragraph={{ rows: loadingRows }} aria-label="正在加载" />
       </div>
     )
   }
@@ -91,24 +117,13 @@ export function PriceChange({
   suffix?: string
   digits?: number
 }) {
-  if (value == null || Number.isNaN(value)) return <span className="price-flat">—</span>
-  const className = value > 0 ? 'price-up' : value < 0 ? 'price-down' : 'price-flat'
+  if (!isFiniteNumber(value)) return <span className="price-flat">—</span>
+  const className = numberTone(value, digits)
   return (
     <span className={className}>
-      {value > 0 ? '+' : ''}
-      {value.toFixed(digits)}
+      {className === 'price-up' ? '+' : ''}
+      {formatNumber(value, digits)}
       {suffix}
-    </span>
-  )
-}
-
-export function DataFreshness({ value }: { value?: string | null }) {
-  if (!value) return null
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return null
-  return (
-    <span className="data-freshness" title={date.toLocaleString('zh-CN')}>
-      更新于 {date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}
     </span>
   )
 }
@@ -168,7 +183,7 @@ export function JobProgressPanel({
         <span>{Math.round(progress)}%</span>
       </div>
       <Progress percent={Math.max(0, Math.min(100, progress))} showInfo={false} />
-      {message ? <p>{message}</p> : null}
+      {message ? <Prose as="p">{message}</Prose> : null}
       {detail ? <small>{detail}</small> : null}
       {onCancel ? (
         <Button size="small" onClick={onCancel}>
@@ -239,12 +254,18 @@ export function RowActionMenu({
   items: MenuProps['items']
 }) {
   return (
-    <Dropdown menu={{ items }} trigger={['click']}>
+    <Dropdown
+      menu={{ items, onClick: ({ domEvent }) => domEvent.stopPropagation() }}
+      trigger={['click']}
+    >
       <Button
         type="text"
         icon={<MoreOutlined />}
         aria-label={label}
         onClick={(event) => event.stopPropagation()}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' || event.key === ' ') event.stopPropagation()
+        }}
       />
     </Dropdown>
   )

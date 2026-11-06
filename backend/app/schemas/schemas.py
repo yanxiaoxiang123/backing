@@ -11,10 +11,6 @@ class StockBase(BaseModel):
     market: str
 
 
-class StockCreate(StockBase):
-    pass
-
-
 class StockResponse(StockBase):
     id: int
     list_date: Optional[date] = None
@@ -39,25 +35,6 @@ class DailyKlineResponse(DailyKlineBase):
     id: int | None = None
     adjustment: str = "legacy_unknown"
     versioned: bool = False
-
-    model_config = ConfigDict(from_attributes=True)
-
-
-# Strategy schemas
-class StrategyBase(BaseModel):
-    name: str
-    description: Optional[str] = None
-    strategy_type: str
-    parameters: Optional[dict] = None  # JSON 对象（schema v1）
-
-
-class StrategyCreate(StrategyBase):
-    pass
-
-
-class StrategyResponse(StrategyBase):
-    id: int
-    created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -171,31 +148,3 @@ class JobRecordSchema(BaseModel):
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
-
-
-# Screener schemas
-class ScreenerStockResult(BaseModel):
-    stock_code: str
-    stock_name: str
-    close: float
-    volume: float
-    change_pct: float
-    ma5: float
-    ma10: float
-    ma20: float
-    macd_dif: float
-    macd_dea: float
-    macd_hist: float
-    rsi: float
-    volume_ratio: float
-    composite_score: float
-    ai_signal: Optional[str] = None
-    ai_confidence: Optional[float] = None
-    ai_reason: Optional[str] = None
-
-
-class ScreenerAgentResponse(BaseModel):
-    success: bool
-    total_scanned: int
-    results: List[ScreenerStockResult] = []
-    execution_time_s: float = 0.0

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Alert, Button, message, Spin, Empty, Card, Modal } from 'antd'
-import { PlusOutlined, StarFilled, ReloadOutlined } from '@ant-design/icons'
+import { PlusOutlined, ReloadOutlined } from '@ant-design/icons'
 import {
   getWatchlist,
   addToWatchlist,
@@ -17,11 +17,12 @@ import {
   type InstrumentRow,
 } from '../components/research/InstrumentTable'
 import { useNavigate } from 'react-router-dom'
-import { PageHeader } from '../components/research/ResearchPrimitives'
+import { PageHeader, ResearchPanel } from '../components/research/ResearchPrimitives'
 import { getMarketPollingInterval } from '../hooks/useDashboardData'
 
 function Watchlist() {
   const navigate = useNavigate()
+  const [modal, modalContextHolder] = Modal.useModal()
   const [updating, setUpdating] = useState(false)
   const [selectedStockCode, setSelectedStockCode] = useState<string | null>(null)
   const [selectedStockName, setSelectedStockName] = useState<string>('')
@@ -114,7 +115,7 @@ function Watchlist() {
   }
 
   const confirmRemoveStock = (row: InstrumentRow) => {
-    Modal.confirm({
+    modal.confirm({
       title: '移除自选股？',
       content: `确定要移除 ${row.name || row.code} 吗？`,
       okText: '移除',
@@ -143,14 +144,10 @@ function Watchlist() {
 
   return (
     <div className="fade-in">
+      {modalContextHolder}
       <PageHeader
         eyebrow="WATCHLIST"
-        title={
-          <>
-            <StarFilled style={{ color: 'var(--color-warning)', marginRight: 8 }} />
-            自选股
-          </>
-        }
+        title="自选股"
         subtitle="集中观察关注标的的最新行情和研究入口"
         actions={
           <Button icon={<ReloadOutlined />} onClick={handleUpdate} loading={updating}>
@@ -159,12 +156,16 @@ function Watchlist() {
         }
       />
 
-      <Card className="apple-card" style={{ marginBottom: 'var(--space-lg)' }}>
-        <div
-          style={{ display: 'flex', gap: 'var(--space-md)', alignItems: 'flex-start' }}
-        >
-          <div style={{ flex: 1 }}>
+      <Card
+        title="添加关注标的"
+        className="watchlist-config"
+        style={{ marginBottom: 'var(--space-lg)' }}
+      >
+        <div className="watchlist-add-controls">
+          <div className="watchlist-stock-field">
+            <label htmlFor="watchlist-stock">股票代码</label>
             <StockSearch
+              id="watchlist-stock"
               value={selectedStockCode ?? undefined}
               onChange={(code, option) => {
                 setSelectedStockCode(code)
@@ -198,23 +199,17 @@ function Watchlist() {
         )}
       </Card>
 
-      <div className="apple-card">
-        <div
-          className="apple-card-header"
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-          }}
-        >
-          <span className="apple-card-title">我的自选股 ({watchlist.length})</span>
+      <ResearchPanel
+        className="watchlist-table-panel"
+        title={`我的自选股 (${watchlist.length})`}
+        extra={
           <span className="data-freshness">
             {quotesQuery.data?.stale
               ? `行情延迟${quotesQuery.data.cache_age_ms != null ? ` ${Math.round(quotesQuery.data.cache_age_ms / 1000)} 秒` : ''}`
               : '行情每 10 秒自动刷新'}
           </span>
-        </div>
-
+        }
+      >
         {watchlistQuery.isLoading ? (
           <div style={{ textAlign: 'center', padding: 'var(--space-xl)' }}>
             <Spin size="large" />
@@ -256,7 +251,7 @@ function Watchlist() {
             />
           </>
         )}
-      </div>
+      </ResearchPanel>
     </div>
   )
 }

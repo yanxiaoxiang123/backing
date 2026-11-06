@@ -1,5 +1,5 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { getAnalysisHistory, getDashboardSummary } from '../services/api'
+import { useQuery } from '@tanstack/react-query'
+import { getAnalysisHistory } from '../services/api'
 import {
   getRealtimeBars,
   getRealtimeIndices,
@@ -59,15 +59,6 @@ export function useDashboardTrend(code: string | undefined) {
   })
 }
 
-export function useDashboardBriefing() {
-  return useQuery({
-    queryKey: dashboardKeys.briefing(),
-    queryFn: getDashboardSummary,
-    retry: false,
-    staleTime: 60_000,
-  })
-}
-
 /** The day's AI research note: the newest analysis records. */
 export function useLatestAnalyses(limit = 5) {
   return useQuery({
@@ -76,9 +67,4 @@ export function useLatestAnalyses(limit = 5) {
     retry: false,
     staleTime: 60_000,
   })
-}
-
-export function useRefreshDashboard() {
-  const queryClient = useQueryClient()
-  return () => queryClient.invalidateQueries({ queryKey: dashboardKeys.all })
 }

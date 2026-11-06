@@ -44,7 +44,6 @@ from app.services.backtest_executor import BacktestExecutor
 from app.services.market_research_prices import load_research_bars
 from app.services.corporate_actions import adjusted_history
 from app.services.baostock_service import baostock_service
-from app.services.dashboard_service import DashboardService
 from app.services.indicator_service import indicator_service
 from app.services.job_store import job_store
 from app.services.tasks import get_task_executor, register_runner, task_metrics
@@ -354,17 +353,6 @@ def get_stock_kline(
         raise ValidationError(detail=str(exc)) from exc
     return [{**row, "stock_code": code, "adjustment": provenance["adjustment"],
              "versioned": provenance["versioned"]} for row in frame.to_dict(orient="records")]
-
-
-@router.get("/dashboard")
-@limiter.limit("30/minute")
-def get_dashboard_summary(
-    request: Request,
-    db: Session = Depends(get_db),
-    _: str = Depends(get_current_api_key),
-):
-    """Get dashboard summary using real market and index data."""
-    return DashboardService(db).get_summary()
 
 
 @router.post("/stocks/sync", response_model=SyncResponse)

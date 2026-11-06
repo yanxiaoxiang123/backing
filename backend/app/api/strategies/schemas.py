@@ -44,21 +44,6 @@ class SignalRequest(ResearchPriceRequest):
     parameters: dict[str, Any] | None = {}
 
 
-class SignalDataPoint(BaseModel):
-    """Single signal data point."""
-
-    date: date
-    close: float
-    signal: int
-    # Optional auxiliary indicators
-    ma_short: float | None = None
-    ma_long: float | None = None
-    volume: float | None = None
-    pred_close_5d: float | None = None
-    pred_return_5d: float | None = None
-    confidence: float | None = None
-
-
 class SignalResponse(BaseModel):
     """Response model for signal generation."""
 
@@ -70,22 +55,6 @@ class SignalResponse(BaseModel):
     data: list[dict[str, Any]]
     stats: dict[str, Any] | None = None
     data_provenance: dict[str, Any] | None = None
-
-
-class SignalStats(BaseModel):
-    """Historical signal performance statistics for the stock/strategy pair."""
-
-    total_buy_signals: int = 0
-    total_sell_signals: int = 0
-    total_trades: int = 0
-    win_rate: float = 0.0
-    avg_holding_days: float = 0.0
-    avg_return_per_trade: float = 0.0
-    profit_ratio: float = 0.0
-    max_win: float = 0.0
-    max_loss: float = 0.0
-    consecutive_wins: int = 0
-    consecutive_losses: int = 0
 
 
 class BacktestRequest(ResearchPriceRequest):

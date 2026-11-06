@@ -50,13 +50,6 @@ export function StrategyList({
         </>
       }
       loading={loading}
-      styles={{
-        body: {
-          padding: 'var(--space-sm)',
-          maxHeight: 'calc(100vh - 240px)',
-          overflowY: 'auto',
-        },
-      }}
     >
       {error ? (
         <Alert
@@ -90,17 +83,7 @@ export function StrategyList({
             className="strategy-group"
             style={{ marginBottom: 'var(--space-sm)' }}
           >
-            <div
-              className="strategy-group-title"
-              style={{
-                fontSize: 'var(--font-size-xs)',
-                fontWeight: 600,
-                letterSpacing: '0.06em',
-                textTransform: 'uppercase',
-                color: 'var(--color-text-secondary)',
-                padding: 'var(--space-xs) var(--space-sm)',
-              }}
-            >
+            <div className="strategy-group-title">
               {group.label} · {group.items.length}
             </div>
             {group.items.map((strategy) => {
@@ -119,41 +102,9 @@ export function StrategyList({
                   onClick={() => onSelect(strategy.name)}
                   aria-pressed={isSelected}
                   className="strategy-item"
-                  style={{
-                    display: 'block',
-                    width: '100%',
-                    textAlign: 'left',
-                    font: 'inherit',
-                    padding: 'var(--space-md)',
-                    marginBottom: 'var(--space-sm)',
-                    borderRadius: 'var(--radius-md)',
-                    cursor: 'pointer',
-                    border: `2px solid ${isSelected ? meta.color : 'transparent'}`,
-                    background: isSelected
-                      ? `${meta.color}10`
-                      : 'var(--color-bg-secondary)',
-                    transition: 'all var(--transition-fast)',
-                  }}
                 >
-                  <div
-                    style={{
-                      fontWeight: 600,
-                      fontSize: 'var(--font-size-sm)',
-                      color: isSelected ? meta.color : 'var(--color-text-primary)',
-                      marginBottom: 'var(--space-xs)',
-                    }}
-                  >
-                    {meta.name}
-                  </div>
-                  <div
-                    style={{
-                      fontSize: 'var(--font-size-xs)',
-                      color: 'var(--color-text-secondary)',
-                      lineHeight: 1.4,
-                    }}
-                  >
-                    {meta.description}
-                  </div>
+                  <div className="strategy-item-name">{meta.name}</div>
+                  <div className="strategy-item-description">{meta.description}</div>
                 </button>
               )
             })}

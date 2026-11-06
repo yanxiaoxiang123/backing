@@ -127,3 +127,37 @@ it('shows a model failure without inventing a successful result', async () => {
   await waitFor(() => expect(hook.result.current.error).toContain('显存不足'))
   expect(hook.result.current.result).toBeNull()
 })
+
+it('keeps real completion timestamps and reads history without submitting again', async () => {
+  vi.mocked(getJobStatus).mockResolvedValue({
+    ...complete,
+    updated_at: '2026-11-05T04:34:53.821802',
+  } as never)
+  const hook = renderHook(() => useDLExperiment())
+  act(() => hook.result.current.start('predict', request))
+  await waitFor(() => expect(hook.result.current.history).toHaveLength(1))
+  expect(hook.result.current.result?.completedAt).toBe('2026-11-05T04:34:53.821802Z')
+  const entry = hook.result.current.history[0]
+  act(() => hook.result.current.openHistory(entry))
+  await waitFor(() => expect(hook.result.current.running).toBe(false))
+  expect(submitDLExperiment).toHaveBeenCalledTimes(1)
+  expect(hook.result.current.history).toHaveLength(1)
+  expect(hook.result.current.results.predict?.request).toEqual(request)
+})
+
+it('retains the previous forecast when a backtest finishes', async () => {
+  const hook = renderHook(() => useDLExperiment())
+  act(() => hook.result.current.start('predict', request))
+  await waitFor(() => expect(hook.result.current.running).toBe(false))
+  act(() =>
+    hook.result.current.start('backtest', {
+      ...request,
+      start_date: '2025-11-05',
+      end_date: '2026-11-05',
+      initial_capital: 200000,
+    }),
+  )
+  await waitFor(() => expect(hook.result.current.result?.kind).toBe('backtest'))
+  expect(hook.result.current.results.predict?.response).toEqual(complete.result)
+  expect(hook.result.current.results.backtest?.request.initial_capital).toBe(200000)
+})

@@ -45,10 +45,13 @@ def _iso(value: Any) -> Optional[str]:
     return value.isoformat() if value else None
 
 
-def _thread_response(thread: dict[str, Any]) -> dict[str, Any]:
+def _thread_response(
+    thread: dict[str, Any], *, title_pending: bool = False
+) -> dict[str, Any]:
     return {
         "thread_id": thread["thread_id"],
         "title": thread.get("title"),
+        "title_pending": title_pending,
         "status": thread["status"],
         "last_run_id": thread.get("last_run_id"),
         "archived": bool(thread.get("archived", False)),
@@ -89,6 +92,7 @@ def create_chat(
 
 @router.get("/agent-chats")
 def list_chats(
+    request: Request,
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),
@@ -97,7 +101,10 @@ def list_chats(
     stores = create_chat_stores(db)
     threads = stores.threads.list_threads(limit=limit, offset=offset)
     return {
-        "threads": [_thread_response(t) for t in threads],
+        "threads": [
+            _thread_response(t, title_pending=_service(request).ensure_thread_title(t))
+            for t in threads
+        ],
         "total": stores.threads.count_threads(),
     }
 
@@ -114,6 +121,7 @@ def chat_status(
 @router.get("/agent-chats/{thread_id}")
 def get_chat(
     thread_id: str,
+    request: Request,
     limit: int = Query(default=100, ge=1, le=500),
     offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),
@@ -125,7 +133,9 @@ def get_chat(
     turns = stores.turns.list_turns(thread_id, limit=limit, offset=offset)
     total = db.query(AgentChatTurn.id).filter(AgentChatTurn.thread_id == thread_id).count()
     return {
-        "thread": _thread_response(thread),
+        "thread": _thread_response(
+            thread, title_pending=_service(request).ensure_thread_title(thread)
+        ),
         "turns": [_turn_response(t) for t in turns],
         "total_turns": total,
         "has_more": offset + len(turns) < total,

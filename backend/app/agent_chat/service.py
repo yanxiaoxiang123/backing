@@ -22,6 +22,7 @@ from sqlalchemy.orm import Session
 
 from app.agent_chat.seam import RUN_LINKED, TURN_DONE, ChatEvent, HarnessChatSeam
 from app.agent_chat.stores import ChatStores, create_chat_stores
+from app.agent_chat.titles import clean_title, fallback_title, needs_title
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +54,7 @@ class HarnessChatService:
         session_factory: SessionFactory,
         seam: HarnessChatSeam,
         max_workers: int = 4,
+        title_generator: Callable[[str], str] | None = None,
     ) -> None:
         self._session_factory = session_factory
         self._seam = seam
@@ -66,6 +68,9 @@ class HarnessChatService:
         # 当前正在执行 turn 的 thread_id 集合
         self._running_threads: set[str] = set()
         self._lock = threading.Lock()
+        self._title_generator = title_generator
+        self._title_executor: ThreadPoolExecutor | None = None
+        self._pending_titles: set[str] = set()
 
     def _stores(self) -> tuple[Session, ChatStores]:
         session = self._session_factory()
@@ -79,11 +84,20 @@ class HarnessChatService:
         self._executor = ThreadPoolExecutor(
             max_workers=self._max_workers, thread_name_prefix="harness-chat-worker"
         )
+        if self._title_generator is not None:
+            self._title_executor = ThreadPoolExecutor(
+                max_workers=1, thread_name_prefix="chat-title-worker"
+            )
         self._recover_interrupted()
         logger.info("HarnessChatService started with %d workers", self._max_workers)
 
     def shutdown(self) -> None:
         self._running = False
+        if self._title_executor is not None:
+            self._title_executor.shutdown(wait=True, cancel_futures=True)
+            self._title_executor = None
+        with self._lock:
+            self._pending_titles.clear()
         self._seam.shutdown()
         with self._lock:
             self._pending_by_thread.clear()
@@ -118,6 +132,73 @@ class HarnessChatService:
         finally:
             session.close()
 
+    def ensure_thread_title(self, thread: dict[str, Any]) -> bool:
+        """Queue at most one title per chat, without calling a model in requests.
+
+        List/detail reads also use this to backfill existing unnamed chats.
+        Empty chats and already named/archived chats never incur model calls.
+        """
+        if not needs_title(thread.get("title")) or thread.get("archived"):
+            return False
+        thread_id = thread["thread_id"]
+        with self._lock:
+            if thread_id in self._pending_titles:
+                return True
+            if (
+                not self._running
+                or self._title_executor is None
+                or len(self._pending_titles) >= 200
+            ):
+                return False
+            session, stores = self._stores()
+            try:
+                latest = stores.threads.get_thread(thread_id)
+                if latest is None or latest.get("archived"):
+                    return False
+                # A list request may hold a snapshot from before the worker
+                # finished. Re-read before scheduling another provider call.
+                thread["title"] = latest.get("title")
+                if not needs_title(thread["title"]):
+                    return False
+                first_turn = stores.turns.first_turn(thread_id)
+            finally:
+                session.close()
+            if first_turn is None or not first_turn["user_input"].strip():
+                return False
+            self._pending_titles.add(thread_id)
+            self._title_executor.submit(
+                self._generate_title,
+                thread_id,
+                thread.get("title"),
+                first_turn["user_input"],
+            )
+            return True
+
+    def _generate_title(
+        self, thread_id: str, expected_title: str | None, user_input: str
+    ) -> None:
+        try:
+            title = ""
+            try:
+                if self._title_generator is not None:
+                    title = clean_title(self._title_generator(user_input))
+            except Exception:
+                # Provider exceptions can contain request/credential details.
+                logger.warning("AI title generation failed for %s; using summary", thread_id)
+            title = title or fallback_title(user_input)
+            session, stores = self._stores()
+            try:
+                stores.threads.set_generated_title(
+                    thread_id, title, expected_title=expected_title
+                )
+            finally:
+                session.close()
+        except Exception:
+            logger.exception("Could not save conversation title for %s", thread_id)
+        finally:
+            with self._lock:
+                self._pending_titles.discard(thread_id)
+
     # ------------------------------------------------------------------ turn
     def submit_turn(
         self,
@@ -142,6 +223,9 @@ class HarnessChatService:
             )
             stores.threads.update_thread(thread_id, status="running")
             self._enqueue_turn(thread_id, turn["turn_id"])
+            thread = stores.threads.get_thread(thread_id)
+            if thread is not None:
+                self.ensure_thread_title(thread)
             return turn
         finally:
             session.close()

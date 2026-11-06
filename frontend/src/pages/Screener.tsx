@@ -1,6 +1,7 @@
+import { Prose } from '../components/Prose'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Button, Card, Select, message } from 'antd'
+import { Button, Select, message } from 'antd'
 import {
   PlayCircleOutlined,
   CheckCircleOutlined,
@@ -23,6 +24,7 @@ import {
   JobProgressPanel,
   PageHeader,
   ResearchResultCard,
+  ResearchPanel,
 } from '../components/research/ResearchPrimitives'
 
 interface StockResult {
@@ -52,11 +54,11 @@ interface ScreenerResult {
 }
 
 const STAGE_LABELS: Record<string, string> = {
-  scanning: '📊 正在扫描全市场股票...',
-  scoring: '🏆 正在综合评分排序...',
-  ai_analysis: '🤖 AI 深度分析中',
-  completed: '✅ 选股完成',
-  initializing: '⏳ 正在初始化...',
+  scanning: '正在扫描全市场股票',
+  scoring: '正在综合评分排序',
+  ai_analysis: 'AI 深度分析中',
+  completed: '选股完成',
+  initializing: '正在初始化',
 }
 
 function Screener() {
@@ -277,6 +279,14 @@ function Screener() {
     />
   )
 
+  const reset = () => {
+    setResults([])
+    setCompleted(false)
+    setTotalScanned(0)
+    setSelectedHistoryId(undefined)
+    setRunning(false)
+  }
+
   return (
     <div className="fade-in">
       <PageHeader
@@ -303,75 +313,94 @@ function Screener() {
         }
       />
 
-      {/* 初始状态 */}
-      {!running && !completed && (
-        <Card className="screener-start-card">
-          <Button
-            type="primary"
-            size="large"
-            icon={<PlayCircleOutlined />}
-            onClick={handleRun}
-            className="screener-start-card__button"
-          >
-            开始 AI 选股
-          </Button>
-          <div className="screener-start-card__hint">
-            自动扫描全市场股票，综合评分排序后 AI 深度分析 TOP 5
-          </div>
-        </Card>
-      )}
-
-      {/* 进度显示 */}
-      {running && (
-        <JobProgressPanel
-          title={STAGE_LABELS[stage] || '正在处理...'}
-          progress={progress}
-          message={messageText}
-          detail={total > 0 ? `已处理 ${current} / ${total} 只股票` : undefined}
-          onCancel={handleCancel}
-        />
-      )}
-
-      {/* 结果展示 */}
-      {completed && !running && (
-        <div>
-          <Card className="screener-summary-card">
-            <div className="screener-summary-card__heading">
-              <CheckCircleOutlined />
-              <span>{results.length > 0 ? 'AI 精选 TOP 5' : '全市场扫描完成'}</span>
+      <div className="screener-layout">
+        <ResearchPanel className="screener-config-panel" title="筛选配置">
+          <dl className="screener-scope">
+            <div>
+              <dt>研究范围</dt>
+              <dd>全市场 A 股</dd>
             </div>
-            <div className="screener-summary-card__description">
-              共扫描 {totalScanned} 只有效股票
-              {results.length > 0
-                ? `，展示 ${results.length} 只深度分析结果`
-                : '，本轮没有股票同时满足筛选条件'}
+            <div>
+              <dt>技术筛选</dt>
+              <dd>均线 · MACD · 成交量</dd>
             </div>
-          </Card>
-
-          {results.length > 0 ? (
-            results.map((stock) => renderResultCard(stock))
+            <div>
+              <dt>结果排序</dt>
+              <dd>综合评分</dd>
+            </div>
+            <div>
+              <dt>AI 复核</dt>
+              <dd>评分前 5 只标的</dd>
+            </div>
+          </dl>
+          {completed && !running ? (
+            <Button
+              type="primary"
+              block
+              icon={<ReloadOutlined aria-hidden />}
+              onClick={reset}
+            >
+              重新选股
+            </Button>
           ) : (
-            <Card>
-              <EmptyState description="当前市场没有股票同时满足均线多头、MACD 红柱和放量条件" />
-            </Card>
+            <Button
+              type="primary"
+              block
+              icon={<PlayCircleOutlined aria-hidden />}
+              loading={running}
+              onClick={handleRun}
+              disabled={running}
+            >
+              {running ? '正在筛选' : '开始 AI 选股'}
+            </Button>
           )}
-
-          <Button
-            type="default"
-            icon={<ReloadOutlined />}
-            onClick={() => {
-              setResults([])
-              setCompleted(false)
-              setTotalScanned(0)
-              setSelectedHistoryId(undefined)
-              setRunning(false)
-            }}
-            className="screener-restart-button"
-          >
-            重新选股
-          </Button>
-        </div>
-      )}
+          <Prose as="p" className="screener-config-copy">
+            自动扫描全市场股票，综合评分排序后 AI 深度分析 TOP 5。筛选结果仅供研究，
+            可继续进入个股研究或 Agent 工作台核对依据。
+          </Prose>
+        </ResearchPanel>
+        <ResearchPanel
+          className="screener-results-panel"
+          title="筛选结果"
+          extra={
+            <span>{running ? '运行中' : completed ? '运行完成' : '等待运行'}</span>
+          }
+        >
+          {running ? (
+            <JobProgressPanel
+              title={STAGE_LABELS[stage] || '正在处理'}
+              progress={progress}
+              message={messageText}
+              detail={total > 0 ? `已处理 ${current} / ${total} 只股票` : undefined}
+              onCancel={handleCancel}
+            />
+          ) : completed ? (
+            <>
+              <div className="screener-summary-card">
+                <div className="screener-summary-card__heading">
+                  <CheckCircleOutlined />
+                  <span>{results.length > 0 ? 'AI 精选 TOP 5' : '全市场扫描完成'}</span>
+                </div>
+                <div className="screener-summary-card__description">
+                  共扫描 {totalScanned} 只有效股票
+                  {results.length > 0
+                    ? `，展示 ${results.length} 只深度分析结果`
+                    : '，本轮没有股票同时满足筛选条件'}
+                </div>
+              </div>
+              {results.length > 0 ? (
+                results.map(renderResultCard)
+              ) : (
+                <EmptyState description="当前市场没有股票同时满足均线多头、MACD 红柱和放量条件" />
+              )}
+            </>
+          ) : (
+            <div className="screener-results-empty">
+              <EmptyState description="开始筛选后，在这里查看运行进度与研究结果" />
+            </div>
+          )}
+        </ResearchPanel>
+      </div>
     </div>
   )
 }

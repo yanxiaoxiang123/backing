@@ -6,6 +6,7 @@ import zhCN from 'antd/locale/zh_CN'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import App from './App'
 import './index.css'
+import { ui } from './styles/uiTheme'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -20,20 +21,30 @@ const queryClient = new QueryClient({
 
 const antdTheme = {
   token: {
-    colorPrimary: '#1f201d',
+    colorPrimary: ui.action,
     colorInfo: '#1b6e66',
     colorLink: '#1b6e66',
     colorSuccess: '#2e7d32',
     colorError: '#b42318',
     colorWarning: '#92400e',
-    colorBgBase: '#ffffff',
-    colorBgContainer: '#ffffff',
-    colorBgLayout: '#ffffff',
-    colorBgElevated: '#ffffff',
-    colorTextBase: '#1f201d',
-    colorTextSecondary: '#636361',
-    colorBorder: '#eaeaea',
-    colorBorderSecondary: '#f3f3f3',
+    colorBgBase: ui.panel,
+    colorBgContainer: ui.panel,
+    colorBgLayout: ui.main,
+    colorBgElevated: ui.panel,
+    colorTextBase: ui.ink,
+    colorTextSecondary: ui.muted,
+    colorTextDisabled: ui.muted,
+    colorTextPlaceholder: ui.muted,
+    colorBorder: ui.line,
+    colorBorderSecondary: ui.line,
+    boxShadow: 'none',
+    boxShadowSecondary: 'none',
+    motionDurationFast: ui.fast,
+    motionDurationMid: ui.normal,
+    motionDurationSlow: ui.overlay,
+    motionEaseInOut: ui.ease,
+    motionEaseOut: ui.ease,
+    motionEaseOutBack: ui.ease,
     borderRadius: 10,
     borderRadiusLG: 22,
     fontSize: 13,
@@ -57,22 +68,26 @@ const antdTheme = {
     Table: {
       headerBg: 'transparent',
       headerSplitColor: 'transparent',
-      headerColor: '#636361',
-      rowHoverBg: '#f9f9f9',
-      borderColor: '#eaeaea',
+      headerColor: ui.muted,
+      rowHoverBg: ui.main,
+      borderColor: ui.line,
       fontSize: 13,
     },
     Tabs: {
-      itemSelectedColor: '#1f201d',
-      itemColor: '#636361',
+      itemSelectedColor: ui.ink,
+      itemColor: ui.muted,
       inkBarColor: '#1b6e66',
     },
     Tag: {
-      defaultBg: '#f3f3f3',
+      defaultBg: ui.main,
       defaultColor: '#3d3d3a',
       borderRadiusSM: 999,
     },
-    Tooltip: { colorBgSpotlight: '#1f201d', borderRadius: 6 },
+    Tooltip: {
+      colorBgSpotlight: ui.panel,
+      colorTextLightSolid: ui.ink,
+      borderRadius: 6,
+    },
   },
 }
 

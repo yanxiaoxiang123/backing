@@ -7,8 +7,6 @@ export interface StockIdentity {
   raw: string
 }
 
-export type StockAliasSet = ReadonlySet<string>
-
 const MARKET_CODE_RULES: Array<[StockMarket, RegExp]> = [
   ['sh', /^(?:600|601|603|605|688|689)\d{3}$/],
   ['sz', /^(?:000|001|002|003|300|301)\d{3}$/],

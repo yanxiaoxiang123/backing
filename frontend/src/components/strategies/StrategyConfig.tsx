@@ -1,6 +1,7 @@
-import { Card, InputNumber, DatePicker, Button, Empty, Slider, Select } from 'antd'
+import { ParameterSlider } from '../ParameterSlider'
+import { Card, InputNumber, DatePicker, Button, Empty, Select } from 'antd'
 import {
-  LoadingOutlined,
+  LineChartOutlined,
   PlayCircleOutlined,
   ThunderboltOutlined,
   BarChartOutlined,
@@ -43,10 +44,12 @@ function renderParameterInputs(
   onChange: (params: Record<string, number | string>) => void,
 ) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
+    <div className="strategy-parameter-fields">
       {Object.entries(strategy.parameters).map(([key, config]) => (
         <div key={key}>
           <label
+            htmlFor={`strategy-param-${key}`}
+            title={key}
             style={{
               display: 'block',
               fontSize: 'var(--font-size-sm)',
@@ -54,18 +57,14 @@ function renderParameterInputs(
               marginBottom: 'var(--space-xs)',
             }}
           >
-            {key}
-            {config.description && (
-              <span style={{ marginLeft: 8, fontWeight: 400 }}>
-                ({config.description})
-              </span>
-            )}
+            {config.description || key}
           </label>
           {config.type === 'slider' && (
             <div
               style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-md)' }}
             >
-              <Slider
+              <ParameterSlider
+                ariaLabelForHandle={config.description || key}
                 min={config.min}
                 max={config.max}
                 step={config.step}
@@ -74,6 +73,7 @@ function renderParameterInputs(
                 style={{ flex: 1 }}
               />
               <InputNumber
+                id={`strategy-param-${key}`}
                 min={config.min}
                 max={config.max}
                 step={config.step}
@@ -87,6 +87,7 @@ function renderParameterInputs(
           )}
           {config.type === 'input' && (
             <InputNumber
+              id={`strategy-param-${key}`}
               min={config.min}
               max={config.max}
               step={config.step}
@@ -99,6 +100,7 @@ function renderParameterInputs(
           )}
           {config.type === 'select' && config.options && (
             <Select
+              id={`strategy-param-${key}`}
               value={parameters[key] ?? config.default}
               onChange={(value) => onChange({ ...parameters, [key]: value })}
               style={{ width: '100%' }}
@@ -142,9 +144,9 @@ export function StrategyConfig({
   const selectedStrategyInfo = strategies.find((s) => s.name === selectedStrategy)
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-lg)' }}>
+    <div className="strategy-config-panel">
       {/* Strategy Parameters */}
-      <Card title="策略参数" style={{ opacity: selectedStrategy ? 1 : 0.6 }}>
+      <Card title="策略参数">
         {selectedStrategyInfo ? (
           renderParameterInputs(selectedStrategyInfo, parameters, onParameterChange)
         ) : (
@@ -159,6 +161,7 @@ export function StrategyConfig({
         >
           <div>
             <label
+              htmlFor="strategy-stock"
               style={{
                 display: 'block',
                 fontSize: 'var(--font-size-sm)',
@@ -168,11 +171,16 @@ export function StrategyConfig({
             >
               股票代码
             </label>
-            <StockSearch value={stockCode ?? undefined} onChange={onStockCodeChange} />
+            <StockSearch
+              id="strategy-stock"
+              value={stockCode ?? undefined}
+              onChange={onStockCodeChange}
+            />
           </div>
 
           <div>
             <label
+              htmlFor="strategy-dates"
               style={{
                 display: 'block',
                 fontSize: 'var(--font-size-sm)',
@@ -183,6 +191,7 @@ export function StrategyConfig({
               回测区间
             </label>
             <RangePicker
+              id={{ start: 'strategy-dates', end: 'strategy-end-date' }}
               disabledDate={(current) => current.isAfter(dayjs(), 'day')}
               value={[dayjs(dateRange[0]), dayjs(dateRange[1])]}
               onChange={(dates) => {
@@ -199,6 +208,7 @@ export function StrategyConfig({
 
           <div>
             <label
+              htmlFor="strategy-capital"
               style={{
                 display: 'block',
                 fontSize: 'var(--font-size-sm)',
@@ -209,6 +219,7 @@ export function StrategyConfig({
               初始资金
             </label>
             <InputNumber
+              id="strategy-capital"
               value={initialCapital}
               onChange={(value) => onCapitalChange(value ?? 100000)}
               min={10000}
@@ -219,61 +230,68 @@ export function StrategyConfig({
             />
           </div>
 
-          <div>
-            <label htmlFor="research-price-source">历史行情口径</label>
-            <Select
-              id="research-price-source"
-              value={priceSource}
-              onChange={onPriceSourceChange}
-              style={{ width: '100%' }}
-              options={[
-                { value: 'raw', label: '原始价格 · 按交易日历核验' },
-                { value: 'legacy', label: '旧行情 · 复权口径未知' },
-              ]}
-            />
-          </div>
-          <div>
-            <label htmlFor="research-corporate-actions">收益计算</label>
-            <Select
-              id="research-corporate-actions"
-              value={priceSource === 'legacy' ? 'price_only' : corporateActionMode}
-              disabled={priceSource === 'legacy'}
-              onChange={onCorporateActionModeChange}
-              style={{ width: '100%' }}
-              options={[
-                { value: 'verified', label: '含分红送转 · 核对登记及到账日期' },
-                { value: 'price_only', label: '仅价格收益 · 不计分红送转' },
-              ]}
-            />
-          </div>
-          {priceSource === 'raw' && corporateActionMode === 'verified' ? (
-            <div>
-              <label htmlFor="research-dividend-tax">分红税率假设（%）</label>
-              <InputNumber
-                id="research-dividend-tax"
-                value={dividendTaxRate * 100}
-                min={0}
-                max={100}
-                onChange={(value) => onDividendTaxRateChange((value ?? 0) / 100)}
-                style={{ width: '100%' }}
-              />
-              <small>固定研究假设；0 表示税前收益。</small>
+          <details className="strategy-execution-options">
+            <summary>
+              数据与执行假设
+              <small>
+                {priceSource === 'raw' ? '原始价格' : '旧行情'} ·{' '}
+                {priceSource === 'raw' && corporateActionMode === 'verified'
+                  ? '计入分红送转'
+                  : '仅价格收益'}
+              </small>
+            </summary>
+            <div className="strategy-execution-options-body">
+              <div>
+                <label htmlFor="research-price-source">历史行情口径</label>
+                <Select
+                  id="research-price-source"
+                  value={priceSource}
+                  onChange={onPriceSourceChange}
+                  style={{ width: '100%' }}
+                  options={[
+                    { value: 'raw', label: '原始价格 · 按交易日历核验' },
+                    { value: 'legacy', label: '旧行情 · 复权口径未知' },
+                  ]}
+                />
+              </div>
+              <div>
+                <label htmlFor="research-corporate-actions">收益计算</label>
+                <Select
+                  id="research-corporate-actions"
+                  value={priceSource === 'legacy' ? 'price_only' : corporateActionMode}
+                  disabled={priceSource === 'legacy'}
+                  onChange={onCorporateActionModeChange}
+                  style={{ width: '100%' }}
+                  options={[
+                    { value: 'verified', label: '含分红送转 · 核对登记及到账日期' },
+                    { value: 'price_only', label: '仅价格收益 · 不计分红送转' },
+                  ]}
+                />
+              </div>
+              {priceSource === 'raw' && corporateActionMode === 'verified' ? (
+                <div>
+                  <label htmlFor="research-dividend-tax">分红税率假设（%）</label>
+                  <InputNumber
+                    id="research-dividend-tax"
+                    value={dividendTaxRate * 100}
+                    min={0}
+                    max={100}
+                    onChange={(value) => onDividendTaxRateChange((value ?? 0) / 100)}
+                    style={{ width: '100%' }}
+                  />
+                  <small>固定研究假设；0 表示税前收益。</small>
+                </div>
+              ) : null}
             </div>
-          ) : null}
+          </details>
           <Button disabled={!stockCode} loading={loadingData} onClick={onSyncData}>
             补齐研究数据
           </Button>
 
-          <div
-            style={{
-              display: 'flex',
-              gap: 'var(--space-sm)',
-              marginTop: 'var(--space-md)',
-            }}
-          >
+          <div className="strategy-config-actions">
             <Button
               type="primary"
-              icon={<LoadingOutlined spin={loading.signals} />}
+              icon={<LineChartOutlined aria-hidden />}
               onClick={onGenerateSignals}
               loading={loading.signals}
               disabled={!selectedStrategy || !stockCode}
@@ -283,7 +301,7 @@ export function StrategyConfig({
             </Button>
             <Button
               type="primary"
-              icon={<PlayCircleOutlined />}
+              icon={<PlayCircleOutlined aria-hidden />}
               onClick={onRunBacktest}
               loading={loading.backtest}
               disabled={!selectedStrategy || !stockCode}
@@ -292,7 +310,7 @@ export function StrategyConfig({
               执行回测
             </Button>
             <Button
-              icon={<ThunderboltOutlined />}
+              icon={<ThunderboltOutlined aria-hidden />}
               onClick={onOptimize}
               loading={loading.optimize}
               disabled={!selectedStrategy || !stockCode}
@@ -302,9 +320,8 @@ export function StrategyConfig({
           </div>
           <div style={{ marginTop: 'var(--space-sm)' }}>
             <Button
-              type="primary"
-              danger
-              icon={<BarChartOutlined />}
+              type="default"
+              icon={<BarChartOutlined aria-hidden />}
               onClick={onCompare}
               loading={loading.compare}
               disabled={!stockCode}

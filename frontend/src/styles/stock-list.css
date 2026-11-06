@@ -1,0 +1,838 @@
+/* The supplied stock-management sheet: 250px navigation, 32px canvas gutters.
+   Header + coverage + list + footnote fill the viewport. The list's measured
+   remainder determines the API limit; no table/body overflow is hidden. */
+.shell--stocks {
+  --stock-gap: clamp(12px, 2.4dvh, 28px);
+  --stock-font: clamp(13px, 1.6dvh, 16px);
+  --stock-table-font: clamp(13px, 1.8dvh, 18px);
+  --stock-row-height: clamp(30px, 3.5dvh, 38px);
+  --stock-table-head: clamp(30px, 3.6dvh, 38px);
+  height: 100dvh;
+  min-height: 0;
+  background: var(--ui-panel);
+}
+
+.shell--stocks .shell-main {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.shell--stocks .shell-canvas {
+  flex: 1;
+  min-height: 0;
+  padding: 24px 32px;
+}
+
+.shell--stocks .shell-canvas > .fade-in {
+  height: 100%;
+  min-height: 0;
+}
+
+.stock-list-page {
+  display: grid;
+  grid-template-rows: clamp(80px, 10dvh, 104px) auto minmax(0, 1fr) 20px;
+  gap: var(--stock-gap);
+  height: 100%;
+  min-height: 0;
+  color: #242424;
+  font-size: var(--stock-font);
+}
+
+.shell--stocks .stock-list-page > .page-header {
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  align-items: center;
+  gap: 16px;
+}
+
+.shell--stocks .page-header .eyebrow {
+  margin: 0 0 5px;
+  color: #666;
+  font-size: 13px;
+  line-height: 18px;
+  letter-spacing: 0.1em;
+}
+
+.shell--stocks .page-title {
+  margin: 0;
+  font-size: clamp(28px, 3.6dvh, 36px);
+  line-height: 1.2;
+}
+
+.shell--stocks .page-subtitle {
+  margin-top: 5px;
+  font-size: var(--stock-font);
+  line-height: 1.4;
+}
+
+.shell--stocks .page-actions {
+  flex: none;
+  padding-top: 0;
+}
+
+.stock-list-controls__actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.stock-data-label {
+  margin-right: 16px;
+  color: #707070;
+  font-size: var(--stock-font);
+}
+
+.shell--stocks .ant-btn,
+.shell--stocks .ant-input,
+.shell--stocks .ant-select {
+  font-size: var(--stock-font);
+}
+
+.shell--stocks .ant-btn {
+  height: clamp(32px, 4dvh, 42px);
+  padding-inline: 18px;
+  border-radius: 7px;
+  white-space: nowrap;
+}
+
+.shell--stocks .ant-input-affix-wrapper,
+.shell--stocks .ant-select,
+.shell--stocks .ant-select-selector {
+  height: clamp(32px, 3.7dvh, 38px);
+  border-radius: 7px;
+}
+
+.shell--stocks .data-quality-panel {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 12px;
+  min-height: clamp(126px, 16.5dvh, 180px);
+  margin: 0;
+  padding: 14px 20px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  background: var(--ui-main) !important;
+}
+
+.shell--stocks .data-quality-panel__heading {
+  flex-wrap: nowrap;
+  align-items: start;
+  gap: 12px;
+}
+
+.shell--stocks .data-quality-panel__heading strong {
+  font-size: clamp(16px, 2dvh, 20px);
+  font-weight: 650;
+  line-height: 1.3;
+}
+
+.shell--stocks .data-quality-panel__heading p {
+  margin: 4px 0 0;
+  color: #707070;
+  font-size: clamp(12px, 1.5dvh, 15px);
+  line-height: 1.4;
+}
+
+.shell--stocks .data-quality-panel .ant-space {
+  flex: none;
+  flex-wrap: nowrap;
+  gap: 14px !important;
+}
+
+.shell--stocks .data-quality-panel .ant-btn {
+  height: clamp(30px, 3.6dvh, 38px);
+}
+
+.shell--stocks .data-quality-panel__facts {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1.05fr 0.95fr;
+  flex-wrap: nowrap;
+  gap: 0;
+  margin: 0;
+}
+
+.shell--stocks .data-quality-panel__facts > div {
+  min-width: 0;
+  padding: 0 clamp(12px, 2vw, 36px);
+}
+
+.shell--stocks .data-quality-panel__facts dt {
+  color: #707070;
+  font-size: clamp(12px, 1.5dvh, 15px);
+}
+
+.shell--stocks .data-quality-panel__facts dd {
+  margin-top: 4px;
+  color: #242424;
+  font-size: clamp(18px, 2.6dvh, 27px);
+  font-weight: 600;
+  line-height: 1.3;
+  white-space: nowrap;
+}
+
+.shell--stocks .data-quality-panel__notice {
+  margin: 0;
+  overflow: hidden;
+  color: #707070;
+  font-size: 12px;
+  line-height: 18px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.shell--stocks .stock-list-table-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  background: var(--ui-panel);
+  overflow: visible;
+}
+
+.stock-list-heading {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: clamp(40px, 5.2dvh, 54px);
+  padding: 3px 20px;
+}
+
+.stock-list-heading h2 {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 0;
+  font-size: clamp(18px, 2.2dvh, 22px);
+  font-weight: 650;
+  line-height: 1.4;
+}
+
+.stock-list-count {
+  padding: 2px 10px;
+  border-radius: 6px;
+  background: var(--ui-sidebar);
+  font-size: clamp(12px, 1.6dvh, 16px);
+  font-weight: 400;
+  white-space: nowrap;
+}
+
+.shell--stocks .stock-sort-direction {
+  height: 30px;
+  padding: 0;
+  font-size: var(--stock-font);
+}
+
+.stock-list-filters {
+  display: grid;
+  flex: none;
+  grid-template-columns:
+    minmax(180px, 2.3fr) minmax(120px, 1fr) minmax(120px, 1fr)
+    minmax(140px, 1.3fr);
+  align-items: center;
+  gap: 16px;
+  min-height: clamp(46px, 5.6dvh, 58px);
+  padding: 0 20px 10px;
+}
+
+.shell--stocks .stock-list-search,
+.shell--stocks .stock-list-market,
+.shell--stocks .stock-list-sort {
+  width: 100%;
+  min-width: 0;
+}
+
+.stock-search-shortcut {
+  color: #888;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.shell--stocks .stock-list-search input::placeholder,
+.shell--stocks .stock-list-market .ant-select-selection-placeholder {
+  color: #777;
+}
+
+.shell--stocks .stock-list-search .ant-input-prefix {
+  margin-right: 8px;
+  color: #707070;
+  font-size: 18px;
+}
+
+.stock-visible-count {
+  justify-self: end;
+  color: #707070;
+  font-size: var(--stock-font);
+  white-space: nowrap;
+}
+
+.stock-list-table-area {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+}
+
+.stock-row-measure,
+.stock-head-measure {
+  position: absolute;
+  top: 0;
+  width: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.stock-row-measure {
+  height: var(--stock-row-height);
+}
+
+.stock-head-measure {
+  height: var(--stock-table-head);
+}
+
+.shell--stocks .stock-list-table .ant-table {
+  background: var(--ui-panel);
+  font-size: var(--stock-font);
+}
+
+.shell--stocks .stock-list-table .ant-table-thead > tr > th {
+  height: var(--stock-table-head);
+  padding: 0 18px;
+  border-color: #e8e8e8;
+  background: var(--ui-main) !important;
+  color: #666 !important;
+  font-size: clamp(12px, 1.5dvh, 15px) !important;
+  font-weight: 600 !important;
+}
+
+.shell--stocks .stock-list-table .ant-table-thead > tr > th::before {
+  display: none;
+}
+
+.shell--stocks .stock-list-table .ant-table-thead > tr > th {
+  border-radius: 0 !important;
+}
+
+.shell--stocks .stock-list-table .ant-table-tbody > tr.ant-table-row > td {
+  height: var(--stock-row-height);
+  padding: 0 18px;
+  border-color: #ededed;
+  color: #242424;
+  font-size: var(--stock-table-font);
+  line-height: 1.25;
+}
+
+.shell--stocks .stock-list-table .ant-table-tbody > tr:nth-child(even) > td {
+  background: var(--ui-main);
+}
+
+.shell--stocks .stock-list-table .ant-table-tbody > tr.ant-table-row-selected > td,
+.shell--stocks .stock-list-table .ant-table-tbody > tr:hover > td {
+  background: var(--ui-sidebar);
+}
+
+.shell--stocks .stock-list-table .ant-table-selection-column {
+  padding-inline: 10px !important;
+}
+
+.stock-code-cell {
+  min-width: 0;
+}
+
+.stock-code-cell > strong {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums lining-nums;
+}
+
+.stock-mobile-name,
+.stock-mobile-details {
+  display: none;
+}
+
+.stock-market-label {
+  display: inline-block;
+  min-width: 48px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: var(--ui-sidebar);
+  color: #555;
+  font-size: 13px;
+  line-height: 18px;
+  text-align: center;
+}
+
+.stock-row-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.shell--stocks .stock-row-actions .ant-btn {
+  height: 28px;
+  padding: 0 4px;
+  font-size: var(--stock-font);
+}
+
+.stock-row-actions .anticon {
+  font-size: 14px;
+}
+
+.stock-list-pagination {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 24px;
+  min-height: clamp(46px, 5.8dvh, 60px);
+  padding: 6px 18px;
+  border-top: 1px solid #e8e8e8;
+}
+
+.stock-total {
+  flex: 1;
+  color: #707070;
+  font-size: var(--stock-font);
+  white-space: nowrap;
+}
+
+.stock-page-size {
+  width: 138px;
+  flex: none;
+}
+
+.shell--stocks .ant-pagination {
+  display: flex;
+  flex: none;
+  align-items: center;
+  margin: 0;
+}
+
+.shell--stocks .ant-pagination-item,
+.shell--stocks .ant-pagination-prev,
+.shell--stocks .ant-pagination-next {
+  min-width: 32px;
+  height: 32px;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  background: var(--ui-panel);
+  line-height: 30px;
+}
+
+.shell--stocks .ant-pagination-item-active {
+  border-color: #222;
+  background: #222;
+}
+
+.shell--stocks .ant-pagination-item-active a {
+  color: #fff;
+}
+
+.stock-list-footer {
+  align-self: end;
+  margin: 0;
+  color: #707070;
+  font-size: clamp(11px, 1.5dvh, 15px);
+  line-height: 20px;
+}
+
+.shell--stocks .stock-list-table-area .async-boundary {
+  padding: 12px 20px;
+}
+
+.shell--stocks .stock-list-table-area .ant-skeleton-paragraph {
+  margin-top: 10px;
+}
+
+.shell--stocks .stock-list-table-area .ant-skeleton-paragraph > li {
+  margin-top: 10px;
+}
+
+.shell--stocks .stock-list-table-area .ant-alert {
+  margin: 16px 20px;
+}
+
+.shell--stocks .stock-list-table .ant-table-placeholder td {
+  padding: 10px;
+}
+
+.shell--stocks .stock-list-table .ant-empty {
+  margin: 12px;
+  color: #707070;
+}
+
+@media (max-width: 1370px) {
+  .shell--stocks .shell-canvas {
+    padding: 16px 20px;
+  }
+
+  .stock-list-filters {
+    gap: 12px;
+    grid-template-columns: minmax(160px, 2fr) minmax(110px, 1fr) minmax(110px, 1fr) auto;
+  }
+
+  .stock-data-label {
+    display: none;
+  }
+
+  .stock-list-controls__actions {
+    gap: 10px;
+  }
+
+  .stock-list-pagination {
+    gap: 16px;
+  }
+}
+
+@media (max-width: 1120px) {
+  .shell--stocks .data-quality-panel__heading {
+    flex-wrap: wrap;
+  }
+
+  .shell--stocks .data-quality-panel__heading p {
+    font-size: 12px;
+  }
+
+  .shell--stocks .data-quality-panel__facts dd {
+    font-size: 19px;
+  }
+
+  .stock-list-filters {
+    gap: 10px;
+    grid-template-columns: minmax(120px, 1.5fr) minmax(110px, 1fr) minmax(100px, 1fr);
+  }
+
+  .stock-visible-count {
+    display: none;
+  }
+
+  .shell--stocks .ant-btn {
+    padding-inline: 12px;
+  }
+
+  .shell--stocks .stock-list-table .ant-table-tbody > tr.ant-table-row > td,
+  .shell--stocks .stock-list-table .ant-table-thead > tr > th {
+    padding-inline: 10px;
+    font-size: 13px !important;
+  }
+
+  .stock-row-actions {
+    gap: 4px;
+  }
+
+  .stock-list-pagination {
+    gap: 10px;
+    padding-inline: 12px;
+  }
+
+  .stock-page-size {
+    width: 138px;
+  }
+}
+
+@media (max-width: 1023px) {
+  .shell--stocks .shell-main {
+    height: 100dvh;
+  }
+
+  .shell--stocks .shell-mobilebar {
+    flex: none;
+  }
+}
+
+/* Keep the existing sidebar utilities visible on short desktop displays. */
+@media (min-width: 1024px) and (max-height: 960px) {
+  .shell--stocks .shell-brand {
+    margin-bottom: 12px;
+  }
+
+  .shell--stocks .shell-search {
+    margin-bottom: 14px;
+  }
+
+  .shell--stocks .shell-nav-group {
+    gap: 0;
+    margin-top: 10px;
+  }
+
+  .shell--stocks .shell-nav-label {
+    margin-bottom: 4px;
+    font-size: 12px;
+  }
+
+  .shell--stocks .shell-nav-item {
+    min-height: 30px;
+  }
+
+  .shell--stocks .shell-sidebar-bottom {
+    padding-top: 8px;
+  }
+
+  .shell--stocks .shell-status {
+    padding: 6px 10px;
+    margin-bottom: 6px;
+  }
+
+  .shell--stocks .shell-status-row {
+    min-height: 20px;
+    font-size: 12px;
+  }
+
+  .shell--stocks .shell-user {
+    padding-top: 6px;
+  }
+}
+
+@media (max-width: 767px) {
+  .shell--stocks {
+    --stock-row-height: 62px;
+    --stock-table-head: 30px;
+    --stock-gap: 10px;
+  }
+
+  .shell--stocks .shell-canvas {
+    padding: 10px 16px;
+  }
+
+  .stock-list-page {
+    grid-template-rows: 100px 54px minmax(0, 1fr) 20px;
+  }
+
+  .shell--stocks .stock-list-page > .page-header {
+    flex-direction: column;
+    align-items: start;
+    justify-content: space-between;
+    gap: 4px;
+  }
+
+  .shell--stocks .page-header .eyebrow {
+    margin-bottom: 0;
+    font-size: 11px;
+    line-height: 14px;
+  }
+
+  .shell--stocks .page-title {
+    font-size: 25px;
+    line-height: 30px;
+  }
+
+  .shell--stocks .page-subtitle {
+    margin-top: 0;
+    font-size: 12px;
+    line-height: 17px;
+  }
+
+  .shell--stocks .page-actions {
+    width: 100%;
+  }
+
+  .shell--stocks .stock-list-controls__actions > .ant-btn {
+    flex: 1;
+    height: 32px;
+    font-size: 12px;
+  }
+
+  .stock-quality-summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    min-width: 0;
+    padding: 6px 12px !important;
+    background: var(--ui-main) !important;
+  }
+
+  .stock-quality-summary > div {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  .stock-quality-summary strong {
+    font-size: 14px;
+  }
+
+  .stock-quality-summary span {
+    overflow: hidden;
+    color: #707070;
+    font-size: 11px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .stock-quality-summary .ant-btn {
+    flex: none;
+    height: 28px;
+    padding-inline: 8px;
+    font-size: 11px;
+  }
+
+  .stock-list-heading {
+    min-height: 40px;
+    padding-inline: 12px;
+  }
+
+  .stock-list-heading h2 {
+    gap: 8px;
+    font-size: 17px;
+  }
+
+  .stock-list-count {
+    padding-inline: 7px;
+  }
+
+  .shell--stocks .stock-sort-direction {
+    font-size: 12px;
+  }
+
+  .stock-list-filters {
+    grid-template-columns: 1fr 1fr;
+    gap: 6px 8px;
+    min-height: 78px;
+    padding: 0 12px 8px;
+  }
+
+  .shell--stocks .stock-list-search {
+    grid-column: 1 / -1;
+  }
+
+  .stock-search-shortcut {
+    display: none;
+  }
+
+  .shell--stocks .stock-list-table .ant-table-tbody > tr.ant-table-row > td {
+    height: var(--stock-row-height);
+    padding-inline: 8px;
+  }
+
+  .stock-code-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    line-height: 1.2;
+  }
+
+  .stock-mobile-name {
+    display: block;
+    overflow: hidden;
+    font-size: 13px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .stock-mobile-details {
+    display: block;
+    color: #707070;
+    font-size: 11px;
+    white-space: nowrap;
+  }
+
+  .shell--stocks .stock-row-actions .ant-btn {
+    padding: 0;
+    font-size: 12px;
+  }
+
+  .stock-list-pagination {
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 4px 8px;
+    min-height: 76px;
+    padding: 6px 10px;
+  }
+
+  .stock-total {
+    flex: 1;
+    font-size: 12px;
+  }
+
+  .stock-page-size {
+    width: 138px;
+  }
+
+  .shell--stocks .stock-list-pagination .ant-pagination {
+    flex-basis: 100%;
+    justify-content: end;
+  }
+
+  .shell--stocks .ant-pagination-simple-pager {
+    margin-right: 8px;
+  }
+
+  .stock-list-footer {
+    font-size: 11px;
+    line-height: 16px;
+  }
+}
+
+.stock-quality-details .data-quality-panel__heading {
+  gap: 10px;
+}
+
+.stock-quality-details .data-quality-panel__facts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.stock-quality-details .data-quality-panel__facts dd {
+  font-size: 17px;
+}
+
+@media (min-width: 768px) and (max-height: 640px) {
+  .shell--stocks {
+    display: block;
+    --stock-gap: 8px;
+  }
+
+  .shell--stocks .shell-main {
+    height: 100dvh;
+  }
+
+  .shell--stocks .shell-sidebar {
+    display: none;
+  }
+
+  .shell--stocks .shell-mobilebar {
+    display: flex;
+    flex: none;
+  }
+
+  .shell--stocks .shell-canvas {
+    padding: 8px 20px;
+  }
+
+  .stock-list-page {
+    grid-template-rows: 62px auto minmax(0, 1fr) 18px;
+  }
+
+  .shell--stocks .page-title {
+    font-size: 26px;
+    line-height: 31px;
+  }
+
+  .shell--stocks .page-header .eyebrow {
+    margin: 0;
+    font-size: 11px;
+    line-height: 14px;
+  }
+
+  .shell--stocks .page-subtitle {
+    margin: 0;
+    font-size: 12px;
+    line-height: 17px;
+  }
+
+  .shell--stocks .data-quality-panel {
+    min-height: 108px;
+    gap: 6px;
+    padding-block: 8px;
+  }
+}

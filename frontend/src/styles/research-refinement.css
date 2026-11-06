@@ -1,0 +1,220 @@
+.query-status,
+.research-chart-actions,
+.history-detail-navigation,
+.history-detail-navigation > div,
+.history-section-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.query-status {
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  min-height: 28px;
+}
+.research-chart-actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.research-data-context {
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  line-height: 1.7;
+  margin: 4px 0 12px;
+}
+.financial-value {
+  font-variant-numeric: tabular-nums lining-nums;
+  white-space: nowrap;
+}
+.parameter-slider .ant-slider-mark-text {
+  white-space: nowrap;
+}
+.data-nowrap,
+.history-detail-content .ant-descriptions-item-content a {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums lining-nums;
+}
+.history-workspace .metric-card__value {
+  font-weight: 600;
+}
+.history-loading {
+  padding: 24px;
+}
+.history-pagination {
+  padding: 16px 20px;
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  row-gap: 8px;
+}
+.history-workspace .ant-table-cell {
+  font-variant-numeric: tabular-nums lining-nums;
+  white-space: nowrap;
+}
+.history-row-selected > td {
+  background: var(--color-bg-secondary) !important;
+}
+.history-mobile-list {
+  list-style: none;
+  margin: 0;
+  padding: 0 16px;
+}
+.history-mobile-list li {
+  padding: 16px 0;
+  border-bottom: 1px solid var(--color-border);
+}
+.history-mobile-list li:last-child {
+  border-bottom: 0;
+}
+.history-mobile-top,
+.history-mobile-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.history-mobile-top {
+  font-size: 16px;
+  font-weight: 600;
+}
+.history-mobile-meta {
+  margin: 6px 0 4px;
+  font-size: 13px;
+}
+.history-mobile-dates {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.7;
+}
+.history-detail-drawer .ant-drawer-body {
+  background: var(--ui-main);
+  padding: 20px 24px;
+}
+.history-detail-navigation {
+  justify-content: space-between;
+  margin-bottom: 20px;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+.history-detail-content {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 24px;
+}
+.history-detail-content h3 {
+  margin: 0 0 12px;
+  font-size: 15px;
+  font-weight: 600;
+}
+.history-detail-content h3 small {
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  font-weight: 400;
+  margin-left: 8px;
+}
+.history-detail-content .backtest-detail-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1px;
+  margin: 0;
+}
+.history-detail-content .metric-card {
+  padding: 12px;
+  background: var(--color-canvas-lifted);
+  min-width: 0;
+}
+.history-detail-content .metric-card__value {
+  font-size: 24px;
+}
+.history-detail-content .ant-descriptions-item-content {
+  overflow-wrap: anywhere;
+}
+.history-equity-panel {
+  padding: 16px;
+  background: var(--color-canvas-lifted);
+  border-radius: 10px;
+  min-width: 0;
+}
+.history-section-heading {
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+.history-section-heading h3 {
+  margin: 0;
+}
+.analysis-decision {
+  display: grid;
+  gap: 16px;
+}
+.analysis-workspace .ant-btn {
+  text-shadow: none;
+  box-shadow: none;
+}
+.analysis-workspace .ant-tabs-tab-btn {
+  text-shadow: none !important;
+}
+.analysis-decision-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.analysis-decision-heading h2 {
+  font-size: 22px;
+  margin: 0;
+}
+.analysis-decision-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  color: var(--color-text-secondary);
+  font-size: 12px;
+}
+.analysis-decision-reason {
+  background: var(--color-bg-secondary);
+  padding: 16px 20px;
+  border-radius: 8px;
+  line-height: 1.85;
+  overflow-wrap: anywhere;
+}
+.analysis-decision-reason p {
+  margin: 0;
+  white-space: pre-wrap;
+}
+.strategy-saved-context {
+  margin-bottom: 20px;
+}
+@media (max-width: 767px) {
+  .history-detail-drawer .ant-drawer-body {
+    padding: 16px;
+  }
+  .history-detail-content .backtest-detail-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .history-detail-navigation {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .history-equity-panel {
+    padding: 12px 4px;
+  }
+  .history-equity-panel .history-section-heading,
+  .history-equity-panel .research-data-context {
+    margin-left: 8px;
+    margin-right: 8px;
+  }
+  .history-workspace .backtest-history-summary .metric-card {
+    padding: 14px 10px;
+  }
+  .history-workspace .backtest-history-summary .metric-card__detail {
+    font-size: 11px;
+  }
+  .history-workspace .backtest-history-summary .metric-card__value {
+    font-size: 20px;
+  }
+  .history-pagination {
+    justify-content: center;
+  }
+}

@@ -37,3 +37,11 @@ deepseek-harness/
 
 # design review working files (direction sheet, screenshots, inspection harness)
 .taste-skill/
+
+# Browser regression output (generated locally)
+frontend/test-results/
+frontend/playwright-report/
+
+# Local design-preview server state and session token
+.superpowers/brainstorm/.last-*
+.superpowers/brainstorm/*/state/

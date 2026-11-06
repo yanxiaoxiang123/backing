@@ -10,5 +10,9 @@
 @import './styles/components.css';
 @import './styles/pages.css';
 @import './styles/shell.css';
-@import './styles/dashboard.css';
 @import './styles/login.css';
+@import './styles/research-theme.css';
+@import './styles/dashboard.css';
+@import './styles/stock-list.css';
+@import './styles/surfaces.css';
+@import './styles/research-refinement.css';

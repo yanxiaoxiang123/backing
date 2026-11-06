@@ -1,3 +1,4 @@
+import { Prose } from '../components/Prose'
 import { useEffect, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
@@ -262,12 +263,12 @@ export default function PortfolioResearch() {
   return (
     <div className="portfolio-research">
       <PageHeader
+        eyebrow="PORTFOLIO LAB"
         title="组合研究"
         subtitle="在同一笔资金下检验目标配置，核对成本、现金与每笔成交。"
       />
       <div className="portfolio-research-grid">
-        <ResearchPanel className="portfolio-config">
-          <h2>目标配置</h2>
+        <ResearchPanel className="portfolio-config" title="目标配置">
           <Form
             form={form}
             layout="vertical"
@@ -434,10 +435,10 @@ export default function PortfolioResearch() {
                 },
               ]}
             />
-            <p className="portfolio-note">
+            <Prose as="p" className="portfolio-note">
               当期首个交易日收盘后确定数量，下一交易日开盘执行。未成交部分当日失效，买入每手
               100 股。
-            </p>
+            </Prose>
             {(error || researchHistory.error) && (
               <Alert type="error" message={error || researchHistory.error} showIcon />
             )}
@@ -448,9 +449,9 @@ export default function PortfolioResearch() {
         </ResearchPanel>
         <ResearchPanel className="portfolio-results">
           <div className="portfolio-section-heading">
-            <h2 ref={resultHeading} tabIndex={-1}>
+            <Prose as="h2" ref={resultHeading} tabIndex={-1}>
               {experiment?.name ?? '回测结果'}
-            </h2>
+            </Prose>
             {experiment && (
               <Space wrap>
                 <Button
@@ -486,16 +487,16 @@ export default function PortfolioResearch() {
           </div>
           {result && experiment ? (
             <>
-              <p className="portfolio-note">
+              <Prose as="p" className="portfolio-note">
                 {experiment.request.start_date} 至 {experiment.request.end_date} ·
                 初始资金 {result.initial_capital.toLocaleString('zh-CN')} 元
-              </p>
-              <p className="portfolio-note">
+              </Prose>
+              <Prose as="p" className="portfolio-note">
                 保存的目标配置：
                 {Object.entries(experiment.request.weights)
                   .map(([code, weight]) => `${code} ${(weight * 100).toFixed(2)}%`)
                   .join(' · ')}
-              </p>
+              </Prose>
               {experiment.request.corporate_action_mode === 'price_only' && (
                 <Alert
                   type="warning"
@@ -536,11 +537,11 @@ export default function PortfolioResearch() {
                 </div>
               </dl>
               <EquityChart result={result} />
-              <p className="portfolio-note">
+              <Prose as="p" className="portfolio-note">
                 期末权益 {result.final_capital.toLocaleString('zh-CN')} 元 · 可用现金{' '}
                 {last?.cash.toLocaleString('zh-CN')} 元 · 应收分红{' '}
                 {last?.receivable.toLocaleString('zh-CN')} 元
-              </p>
+              </Prose>
               <Collapse
                 ghost
                 items={[
@@ -647,18 +648,18 @@ export default function PortfolioResearch() {
                     label: '数据与执行边界',
                     children: (
                       <>
-                        <p>
+                        <Prose as="p">
                           固定股票集合由你指定，不代表历史时点的选股结果。成本税率采用固定研究假设；日线一字板保守拒绝成交。
-                        </p>
-                        <p>
+                        </Prose>
+                        <Prose as="p">
                           基准使用相同初始资金、成本与分红处理，下一交易日开盘买入持有，不等同于指数发布收益。
-                        </p>
-                        <p>
+                        </Prose>
+                        <Prose as="p">
                           行情缺失且没有停牌证据时拒绝运行；当前保存的数据为事后观察版本。除权日不调整前日已经确定的委托数量。
-                        </p>
-                        <p className="portfolio-checksum">
+                        </Prose>
+                        <Prose as="p" className="portfolio-checksum">
                           快照校验码 {experiment.snapshot_sha256}
-                        </p>
+                        </Prose>
                       </>
                     ),
                   },
@@ -674,13 +675,15 @@ export default function PortfolioResearch() {
           )}
         </ResearchPanel>
       </div>
-      <ResearchPanel className="portfolio-history">
-        <div className="portfolio-section-heading">
-          <h2>已保存实验</h2>
+      <ResearchPanel
+        className="portfolio-history"
+        title="已保存实验"
+        extra={
           <Button size="small" onClick={() => void history.refetch()}>
             刷新
           </Button>
-        </div>
+        }
+      >
         {history.isError && (
           <Alert type="error" message="实验列表加载失败，请刷新重试" />
         )}

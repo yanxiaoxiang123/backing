@@ -21,8 +21,8 @@
   height: 100vh;
   padding: 24px 16px 16px;
   overflow-y: auto;
-  background: var(--color-canvas);
-  border-right: 1px solid var(--color-border);
+  background: var(--ui-sidebar);
+  border-right: 0;
 }
 
 .shell-brand {
@@ -110,9 +110,49 @@
 /* ---------- Navigation ---------- */
 
 .shell-nav {
+  position: relative;
+  isolation: isolate;
   display: flex;
   flex-direction: column;
   gap: 2px;
+}
+
+.shell-nav-highlight {
+  position: absolute;
+  inset: 0 auto auto 0;
+  z-index: 0;
+  border-radius: var(--radius-sm);
+  background: var(--color-active);
+  transform-origin: top left;
+  pointer-events: none;
+  opacity: 0;
+}
+
+.shell-nav[data-highlight-ready='true'] .shell-nav-highlight {
+  opacity: 1;
+}
+
+.shell-nav .shell-nav-item {
+  position: relative;
+  z-index: 1;
+  font-weight: 500;
+  transition: color var(--transition-fast);
+}
+
+.shell-nav[data-highlight-ready='true'] .shell-nav-item {
+  background: transparent;
+}
+
+.shell-nav-content {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.shell-nav-icon {
+  display: inline-flex;
+  flex: none;
 }
 
 .shell-nav-group {
@@ -122,11 +162,13 @@
   margin-top: 20px;
 }
 
-.shell-nav-group:first-child {
+.shell-nav-group:first-of-type {
   margin-top: 0;
 }
 
 .shell-nav-label {
+  position: relative;
+  z-index: 1;
   padding: 0 8px;
   margin-bottom: 6px;
   color: var(--color-text-tertiary);
@@ -230,7 +272,7 @@
   color: var(--color-ink);
   font-size: 13px;
   font-weight: 500;
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: tabular-nums lining-nums;
 }
 
 .shell-status-row strong.is-bad {
@@ -304,11 +346,12 @@
 
 .shell-main {
   min-width: 0;
+  background: var(--ui-main);
 }
 
 .shell-canvas {
   width: 100%;
-  max-width: var(--content-max-width);
+  max-width: none;
   margin: 0 auto;
   padding: 32px 32px 64px;
 }
@@ -376,7 +419,7 @@
   flex-direction: column;
   padding: 16px;
   overflow-y: auto;
-  background: var(--color-canvas);
+  background: var(--ui-sidebar);
 }
 
 .shell-sheet.open {
@@ -450,5 +493,11 @@
 @media (max-width: 640px) {
   .shell-canvas {
     padding: 20px 16px 48px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shell-nav .shell-nav-item {
+    transition: none;
   }
 }

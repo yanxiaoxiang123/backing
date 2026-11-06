@@ -124,6 +124,7 @@ export function InstrumentTable({
       columns={columns}
       dataSource={rows}
       rowKey="id"
+      scroll={{ x: 620 }}
       loading={loading}
       pagination={pagination}
       locale={{ emptyText: '暂无标的' }}

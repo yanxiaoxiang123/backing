@@ -25,5 +25,6 @@ if ! test -x "$target/.venv/bin/python"; then
     fi
 fi
 /opt/miniconda3/bin/uv pip install --python "$target/.venv/bin/python" -r "$target/requirements.txt"
+"$target/.venv/bin/python" "$target/provision_timesfm.py"
 "$target/.venv/bin/python" "$target/lock_runtime.py"
 chown -R yanxx:yanxx "$target"

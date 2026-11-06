@@ -68,7 +68,7 @@ describe('StockList', () => {
 
     renderPage()
     expect(await screen.findByText('浦发银行')).toBeInTheDocument()
-    await waitFor(() => expect(screen.getByText('共 42 条')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText('共 42 只股票')).toBeInTheDocument())
     expect(
       screen.getByRole('link', { name: /查看 浦发银行 sh\.600000 K线/ }),
     ).toBeInTheDocument()

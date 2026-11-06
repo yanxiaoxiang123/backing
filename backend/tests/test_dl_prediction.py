@@ -3,6 +3,17 @@ import pytest
 from app.api.dl_prediction import _convert_to_baostock_code
 from app.services.baostock_service import BaostockService
 from app.services.dl_prediction.backtest import DLBacktester
+from app.services.dl_prediction.predictor import _next_business_dates
+
+
+def test_next_business_dates_are_unique_and_skip_weekends():
+    assert _next_business_dates("2026-10-30", 5) == [
+        "2026-11-02",
+        "2026-11-03",
+        "2026-11-04",
+        "2026-11-05",
+        "2026-11-06",
+    ]
 
 
 @pytest.mark.parametrize(

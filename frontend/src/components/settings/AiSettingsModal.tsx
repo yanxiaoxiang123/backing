@@ -1,3 +1,4 @@
+import { Prose } from '../Prose'
 import { useEffect, useState } from 'react'
 import { Alert, Form, Input, Modal, Spin, Tag } from 'antd'
 import api from '../../services/api'
@@ -117,10 +118,10 @@ export default function AiSettingsModal({ open, onClose }: AiSettingsModalProps)
               disabled={saving || configured === null}
             />
           </Form.Item>
-          <p style={{ color: 'var(--text-secondary)', marginBottom: 0 }}>
+          <Prose as="p" style={{ color: 'var(--text-secondary)', marginBottom: 0 }}>
             密钥保存在服务器，仅显示配置状态。保存后对本服务后续 AI 请求生效。 独立任务
             worker 或其他服务实例需重启；环境变量注入密钥的部署需同步更新部署配置。
-          </p>
+          </Prose>
         </Form>
       )}
     </Modal>

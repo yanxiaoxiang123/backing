@@ -1,12 +1,18 @@
+import { Prose } from '../components/Prose'
 import { useMemo, useState } from 'react'
 import { Button, Select } from 'antd'
-import { ArrowRightOutlined, ReloadOutlined } from '@ant-design/icons'
+import {
+  ArrowRightOutlined,
+  CheckCircleOutlined,
+  ReloadOutlined,
+} from '@ant-design/icons'
 import { Link, useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import dayjs from 'dayjs'
 import type { EChartsOption, TooltipComponentFormatterCallbackParams } from 'echarts'
 
 import { LazyECharts } from '../components/charts/LazyECharts'
+import { PageHeader } from '../components/research/ResearchPrimitives'
 import {
   useDashboardIndices,
   useDashboardQuotes,
@@ -31,6 +37,20 @@ const MODE_LABELS: Record<string, string> = {
   full: '深度',
   strategy: '策略',
 }
+
+const TREND_RANGES = [
+  { months: 1, label: '1月' },
+  { months: 3, label: '3月' },
+  { months: 6, label: '6月' },
+  { months: 12, label: '1年' },
+]
+
+const OVERVIEW_VIEWS = [
+  { id: 'chart', label: '走势' },
+  { id: 'watchlist', label: '自选股' },
+  { id: 'alerts', label: '任务告警' },
+  { id: 'history', label: '最近分析' },
+] as const
 
 function signalOf(signal?: string) {
   return SIGNAL_MAP[signal ?? ''] ?? SIGNAL_MAP.hold
@@ -147,10 +167,10 @@ function StockTable({
   )
 }
 
-function TableSkeleton() {
+function TableSkeleton({ rows = 4 }: { rows?: number }) {
   return (
     <div aria-hidden="true">
-      {[0, 1, 2, 3].map((row) => (
+      {Array.from({ length: rows }, (_, row) => (
         <div key={row} className="dash-skeleton dash-skeleton--row" />
       ))}
     </div>
@@ -158,14 +178,7 @@ function TableSkeleton() {
 }
 
 function HeroSkeleton() {
-  return (
-    <div aria-hidden="true">
-      <div className="dash-skeleton dash-skeleton--title" />
-      <div className="dash-skeleton dash-skeleton--line" />
-      <div className="dash-skeleton dash-skeleton--line" />
-      <div className="dash-skeleton dash-skeleton--line short" />
-    </div>
-  )
+  return <div className="dash-skeleton dash-skeleton--title" aria-hidden="true" />
 }
 
 function EmptyChart() {
@@ -186,6 +199,9 @@ function Dashboard() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [selectedCode, setSelectedCode] = useState('')
+  const [trendMonths, setTrendMonths] = useState(6)
+  const [overviewView, setOverviewView] =
+    useState<(typeof OVERVIEW_VIEWS)[number]['id']>('chart')
 
   const watchlistQuery = useDashboardWatchlist()
   const indicesQuery = useDashboardIndices()
@@ -257,26 +273,44 @@ function Dashboard() {
     ? dayjs(latest.created_at || latest.analysis_date).isSame(dayjs(), 'day')
     : false
   const modeLabel = latest?.mode ? (MODE_LABELS[latest.mode] ?? latest.mode) : null
+  const reasonLines = latest?.final_reason?.match(/[^。！？\n]+[。！？]?/g) ?? []
+  const researchHeadline = reasonLines[0] || latest?.final_reason
+  const researchDetail = reasonLines.slice(1).join('')
 
   const up = stocks.filter((stock) => stock.change_percent > 0).length
   const down = stocks.filter((stock) => stock.change_percent < 0).length
   const flat = stocks.length - up - down
   const visibleStocks = stocks.slice(0, 4)
-  const trendBars = trendQuery.data?.data ?? []
+  const trendBars = useMemo(() => {
+    const bars = [...(trendQuery.data?.data ?? [])].sort((a, b) =>
+      a.date.localeCompare(b.date),
+    )
+    if (!bars.length) return bars
+    // Anchor the window to the last available trading day, including stale feeds.
+    const start = dayjs(bars[bars.length - 1].date).subtract(trendMonths, 'month')
+    return bars.filter((bar) => !dayjs(bar.date).isBefore(start, 'day'))
+  }, [trendQuery.data, trendMonths])
   const latestClose = trendBars.length ? trendBars[trendBars.length - 1].close : null
+  const previousClose =
+    trendBars.length > 1 ? trendBars[trendBars.length - 2].close : null
+  const latestChange =
+    latestClose != null && previousClose != null && previousClose > 0
+      ? ((latestClose - previousClose) / previousClose) * 100
+      : null
 
   const trendOption = useMemo<EChartsOption>(() => {
-    const bars = trendQuery.data?.data ?? []
+    const bars = trendBars
     const labelStep = Math.max(0, Math.ceil(bars.length / 5) - 1)
     return {
       animation: false,
-      grid: { left: 6, right: 6, top: 14, bottom: 22, containLabel: true },
+      grid: { left: 0, right: 6, top: 8, bottom: 2, containLabel: true },
       tooltip: {
         trigger: 'axis',
-        backgroundColor: '#1f201d',
-        borderWidth: 0,
+        backgroundColor: '#ffffff',
+        borderWidth: 1,
+        borderColor: '#e8e8e8',
         padding: [6, 8],
-        textStyle: { color: '#ffffff', fontSize: 12 },
+        textStyle: { color: '#242424', fontSize: 13 },
         formatter: (params: TooltipComponentFormatterCallbackParams) => {
           const list = Array.isArray(params) ? params : [params]
           const first = list[0] as { axisValue?: string; value?: number }
@@ -286,7 +320,7 @@ function Dashboard() {
       xAxis: {
         type: 'category',
         boundaryGap: false,
-        data: bars.map((bar) => bar.date.slice(5)),
+        data: bars.map((bar) => bar.date),
         axisLine: { show: false },
         axisTick: { show: false },
         axisLabel: {
@@ -294,6 +328,7 @@ function Dashboard() {
           fontSize: 11,
           interval: labelStep,
           hideOverlap: true,
+          formatter: (value: string) => dayjs(value).format('MM/DD'),
         },
       },
       yAxis: {
@@ -311,12 +346,20 @@ function Dashboard() {
           data: bars.map((bar) => bar.close),
           smooth: false,
           symbol: 'none',
-          lineStyle: { color: '#1b6e66', width: 2 },
-          areaStyle: { color: 'rgba(27,110,102,.10)' },
+          lineStyle: { color: '#1677ff', width: 2 },
+          areaStyle: { color: '#1677ff', opacity: 0.06 },
+        },
+      ],
+      media: [
+        {
+          query: { maxHeight: 120 },
+          option: {
+            yAxis: { splitNumber: 2, axisLabel: { hideOverlap: true } },
+          },
         },
       ],
     }
-  }, [trendQuery.data])
+  }, [trendBars])
 
   const isRefreshing =
     indicesQuery.isFetching ||
@@ -339,122 +382,31 @@ function Dashboard() {
 
   return (
     <div className="dash">
-      <section className="dash-hero" aria-labelledby="dash-title">
-        <div className="dash-hero-main">
-          <h1 id="dash-title" className="dash-title">
-            {heroTitle}
-          </h1>
-          <div className="dash-meta">
-            <span>AI 研究</span>
-            {latestTime ? (
-              <>
-                <span className="dash-meta-sep" />
-                <span>{latestTime}</span>
-              </>
-            ) : null}
-            <span className="dash-meta-sep" />
-            <button
-              type="button"
-              className="dash-refresh"
-              onClick={handleRefresh}
-              disabled={isRefreshing}
-            >
-              <ReloadOutlined spin={isRefreshing} />
-              {isRefreshing ? '刷新中' : '刷新'}
-            </button>
-          </div>
-
-          {analysesQuery.isError ? (
-            <InlineError
-              message={getApiErrorMessage(analysesQuery.error)}
-              onRetry={() => void analysesQuery.refetch()}
-            />
-          ) : analysesQuery.isLoading ? (
-            <HeroSkeleton />
-          ) : latest ? (
-            latest.final_reason ? (
-              <p className="dash-note">{latest.final_reason}</p>
-            ) : (
-              <p className="dash-note dash-note--muted">
-                AI 没有给出文字理由，请打开完整分析查看依据。
-              </p>
-            )
-          ) : (
-            <p className="dash-note dash-note--muted">
-              选一只自选股，让 AI 跑一次分析，这里会出现今天的结论、信号和置信度。
-            </p>
-          )}
-
-          <div className="dash-hero-actions">
-            <Button type="primary" onClick={() => navigate('/agent')}>
-              {latest ? '打开分析报告' : '发起分析'}
-            </Button>
-            {latest ? (
-              <button
-                type="button"
-                className="dash-text-action"
-                onClick={() => navigate(`/stocks/${latest.stock_code}`)}
-              >
-                查看 {latest.stock_name || latest.stock_code}
-                <ArrowRightOutlined />
-              </button>
-            ) : null}
-          </div>
-        </div>
-
-        <aside className="dash-hero-side" aria-label="本次结论">
-          <div className="dash-hero-side-label">本次结论</div>
-          {analysesQuery.isLoading ? (
-            <>
-              <div className="dash-skeleton dash-skeleton--side" />
-              <div className="dash-skeleton dash-skeleton--side" />
-              <div className="dash-skeleton dash-skeleton--side" />
-            </>
-          ) : latest ? (
-            <>
-              <span className={`dash-signal dash-signal--${signal.tone}`}>
-                {signal.label}
-              </span>
-              <div className="dash-hero-confidence">
-                <div className="dash-confidence">
-                  {confidence}
-                  <span>%</span>
-                </div>
-                <div className="dash-confidence-label">置信度</div>
-              </div>
-              <Link to={`/stocks/${latest.stock_code}`} className="dash-side-stock">
-                {latest.stock_name || latest.stock_code}
-                <span>{latest.stock_code}</span>
-              </Link>
-              <div className="dash-side-time">
-                {latestTime}
-                {modeLabel ? ` · ${modeLabel}` : ''}
-              </div>
-            </>
-          ) : (
-            <>
-              <span className="dash-signal dash-signal--hold">未分析</span>
-              <div className="dash-hero-confidence">
-                <div className="dash-confidence dash-confidence--empty">—</div>
-                <div className="dash-confidence-label">置信度</div>
-              </div>
-              <div className="dash-side-time">今天还没有新的分析</div>
-            </>
-          )}
-        </aside>
-      </section>
-
+      <PageHeader
+        eyebrow="RESEARCH OVERVIEW"
+        title="仪表盘"
+        subtitle="跟踪市场、自选标的与研究进展"
+        actions={
+          <Button
+            icon={<ReloadOutlined aria-hidden="true" spin={isRefreshing} />}
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+          >
+            {isRefreshing ? '刷新中' : '刷新数据'}
+          </Button>
+        }
+      />
       <section className="dash-panel dash-market" aria-labelledby="dash-market-title">
         <div className="dash-panel-head">
-          <h2 id="dash-market-title" className="dash-panel-title">
-            市场
-          </h2>
+          <Prose as="h2" id="dash-market-title" className="dash-panel-title">
+            市场概览
+          </Prose>
           <span className="dash-panel-meta">
             {indicesQuery.isError
               ? '行情不可用'
               : indicesQuery.isFetching
                 ? '更新中'
-                : '实时行情'}
+                : '较昨收'}
           </span>
         </div>
 
@@ -490,7 +442,6 @@ function Dashboard() {
                     {sign}
                     {index.change.toFixed(2)} ({sign}
                     {index.change_percent.toFixed(2)}%)
-                    <span>较昨收</span>
                   </div>
                 </div>
               )
@@ -499,7 +450,7 @@ function Dashboard() {
         )}
 
         <div className="dash-breadth">
-          <span>自选股 {stocks.length}</span>
+          <span>自选股表现</span>
           <div
             className="dash-breadth-bar"
             role="img"
@@ -523,18 +474,132 @@ function Dashboard() {
         </div>
       </section>
 
-      <div className="dash-row">
+      <section className="dash-panel dash-hero" aria-labelledby="dash-title">
+        <div className="dash-panel-head">
+          <Prose as="h2" id="dash-title" className="dash-title">
+            {heroTitle}
+          </Prose>
+          <div className="dash-meta">
+            {latest ? (
+              <span>
+                {latest.stock_name || latest.stock_code} · {latest.stock_code}
+              </span>
+            ) : (
+              <span>AI 研究</span>
+            )}
+            {latestTime ? (
+              <>
+                <span className="dash-meta-sep" />
+                <span>{latestTime}</span>
+              </>
+            ) : null}
+          </div>
+        </div>
+        <div className="dash-hero-content">
+          <div className="dash-hero-main">
+            {analysesQuery.isError ? (
+              <InlineError
+                message={getApiErrorMessage(analysesQuery.error)}
+                onRetry={() => void analysesQuery.refetch()}
+              />
+            ) : analysesQuery.isLoading ? (
+              <HeroSkeleton />
+            ) : latest ? (
+              latest.final_reason ? (
+                <Prose as="p" className="dash-note" title={latest.final_reason}>
+                  {researchHeadline}
+                </Prose>
+              ) : (
+                <Prose as="p" className="dash-note dash-note--muted">
+                  AI 没有给出文字理由，请打开完整分析查看依据。
+                </Prose>
+              )
+            ) : (
+              <Prose as="p" className="dash-note dash-note--muted">
+                选一只自选股，让 AI 跑一次分析，这里会出现今天的结论、信号和置信度。
+              </Prose>
+            )}
+            <Prose as="p" className="dash-research-caption">
+              {latest
+                ? researchDetail ||
+                  `${modeLabel || 'AI'}研究 · 结合行情时效与完整报告中的证据判断。`
+                : '从自选标的开始，跟踪信号与研究依据。'}
+            </Prose>
+            <div className="dash-hero-actions">
+              <Button type="primary" onClick={() => navigate('/agent')}>
+                {latest ? '打开分析报告' : '发起分析'}
+              </Button>
+              {latest ? (
+                <button
+                  type="button"
+                  className="dash-text-action"
+                  onClick={() => navigate(`/stocks/${latest.stock_code}`)}
+                >
+                  查看标的
+                  <ArrowRightOutlined />
+                </button>
+              ) : null}
+            </div>
+          </div>
+
+          <aside className="dash-hero-side" aria-label="本次结论">
+            <div className="dash-hero-side-label">本次结论</div>
+            {analysesQuery.isLoading ? (
+              <>
+                <div className="dash-skeleton dash-skeleton--side" />
+              </>
+            ) : latest ? (
+              <>
+                <span className={`dash-signal dash-signal--${signal.tone}`}>
+                  {signal.label}
+                </span>
+                <div className="dash-hero-confidence">
+                  <div className="dash-confidence">
+                    {confidence}
+                    <span>%</span>
+                  </div>
+                  <div className="dash-confidence-label">置信度</div>
+                </div>
+                <div className="dash-side-time">模型结论，仅供研究参考</div>
+              </>
+            ) : (
+              <>
+                <span className="dash-signal dash-signal--hold">未分析</span>
+                <div className="dash-hero-confidence">
+                  <div className="dash-confidence dash-confidence--empty">—</div>
+                  <div className="dash-confidence-label">置信度</div>
+                </div>
+                <div className="dash-side-time">今天还没有新的分析</div>
+              </>
+            )}
+          </aside>
+        </div>
+      </section>
+
+      <nav className="dash-view-switch" aria-label="仪表盘内容">
+        {OVERVIEW_VIEWS.map((view) => (
+          <button
+            key={view.id}
+            type="button"
+            aria-pressed={overviewView === view.id}
+            onClick={() => setOverviewView(view.id)}
+          >
+            {view.label}
+          </button>
+        ))}
+      </nav>
+      <div className="dash-grid" data-view={overviewView}>
         <section
           className="dash-panel dash-watchlist"
           aria-labelledby="dash-watchlist-title"
         >
           <div className="dash-panel-head">
-            <h2 id="dash-watchlist-title" className="dash-panel-title">
+            <Prose as="h2" id="dash-watchlist-title" className="dash-panel-title">
               自选股 <span className="dash-panel-count">{stocks.length}</span>
               <span className="dash-panel-meta">按涨跌幅</span>
-            </h2>
+            </Prose>
             <Link to="/watchlist" className="dash-panel-link">
-              管理 →
+              管理自选 →
             </Link>
           </div>
           {watchlistQuery.isError ? (
@@ -557,19 +622,23 @@ function Dashboard() {
               onOpen={(code) => navigate(`/stocks/${code}`)}
             />
           ) : (
-            <p className="dash-empty">
+            <Prose as="p" className="dash-empty">
               自选股为空。<Link to="/watchlist">去添加自选股</Link>
-            </p>
+            </Prose>
           )}
         </section>
 
         <section className="dash-panel dash-alerts" aria-labelledby="dash-alerts-title">
           <div className="dash-panel-head">
-            <h2 id="dash-alerts-title" className="dash-panel-title">
+            <Prose as="h2" id="dash-alerts-title" className="dash-panel-title">
               任务与告警
-            </h2>
+            </Prose>
+            <span className="dash-unread-count">
+              {system.alertsError ? '—' : system.unreadAlerts} 未读
+            </span>
           </div>
           <div className="dash-status-line">
+            <CheckCircleOutlined />
             <span>本次运行</span>
             <strong>{system.metricsError ? '—' : system.completed}</strong>
             <span>完成</span>
@@ -580,14 +649,11 @@ function Dashboard() {
                 <span>失败</span>
               </>
             ) : null}
-            <span>·</span>
-            <strong>{system.alertsError ? '—' : system.unreadAlerts}</strong>
-            <span>未读</span>
           </div>
           {system.alertsError ? (
             <InlineError message="告警加载失败" onRetry={system.refetch} />
           ) : system.isLoading ? (
-            <TableSkeleton />
+            <TableSkeleton rows={2} />
           ) : system.alerts.length ? (
             <div className="dash-alert-list">
               {system.alerts.slice(0, 3).map((alert) => (
@@ -603,7 +669,9 @@ function Dashboard() {
                     }`}
                   />
                   <span className="dash-alert-body">
-                    <span className="dash-alert-message">{alert.message}</span>
+                    <span className="dash-alert-message" title={alert.message}>
+                      {alert.message}
+                    </span>
                     <span className="dash-alert-time">
                       {alertTime(alert.created_at)}
                     </span>
@@ -612,20 +680,23 @@ function Dashboard() {
               ))}
             </div>
           ) : (
-            <p className="dash-empty">暂无告警。</p>
+            <Prose as="p" className="dash-empty">
+              暂无告警。
+            </Prose>
           )}
-          <Link to="/workspace" className="dash-panel-link dash-panel-link--foot">
-            打开工作台 →
-          </Link>
+          <div className="dash-alert-actions">
+            <Button onClick={() => navigate('/workspace')}>打开工作台 →</Button>
+            <Link to="/workspace" className="dash-panel-link">
+              查看全部告警
+            </Link>
+          </div>
         </section>
-      </div>
 
-      <div className="dash-row">
         <section className="dash-panel dash-chart" aria-labelledby="dash-chart-title">
           <div className="dash-panel-head">
-            <h2 id="dash-chart-title" className="dash-panel-title">
-              走势
-            </h2>
+            <Prose as="h2" id="dash-chart-title" className="dash-panel-title">
+              自选股走势
+            </Prose>
             <div className="dash-chart-controls">
               <Select
                 aria-label="选择走势股票"
@@ -635,11 +706,43 @@ function Dashboard() {
                 onChange={setSelectedCode}
                 allowClear
                 options={watchlistItems.map((item) => ({
-                  value: item.stock_code,
+                  value: normalizeStockCode(item.stock_code) ?? item.stock_code,
                   label: `${item.stock_name || item.stock_code} (${item.stock_code})`,
                 }))}
               />
             </div>
+            <div className="dash-range-switch" role="group" aria-label="走势时间范围">
+              {TREND_RANGES.map((range) => (
+                <button
+                  type="button"
+                  key={range.months}
+                  aria-pressed={trendMonths === range.months}
+                  onClick={() => setTrendMonths(range.months)}
+                >
+                  {range.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="dash-chart-quote">
+            <strong>
+              {!trendQuery.isError && latestClose != null
+                ? latestClose.toFixed(2)
+                : '—'}
+            </strong>
+            {!trendQuery.isError && latestChange != null ? (
+              <span
+                className={
+                  latestChange > 0 ? 'is-up' : latestChange < 0 ? 'is-down' : 'is-flat'
+                }
+              >
+                {latestChange > 0 ? '+' : ''}
+                {latestChange.toFixed(2)}%<small>较前收</small>
+              </span>
+            ) : null}
+            <span className="dash-chart-source">
+              日线{trendQuery.data?.stale ? ' · 缓存行情' : ''}
+            </span>
           </div>
           {trendQuery.isError ? (
             <InlineError
@@ -652,7 +755,9 @@ function Dashboard() {
             <div className="dash-chart-card">
               <LazyECharts
                 option={trendOption}
-                style={{ height: 'var(--dash-chart-h, 200px)' }}
+                revealKey={`${activeCode}:${trendMonths}`}
+                style={{ height: '100%', minHeight: 0 }}
+                summary={`${activeCode || '自选股'}近${trendMonths}个月收盘价走势，${trendBars.length}个交易日`}
                 notMerge
                 lazyUpdate
               />
@@ -661,18 +766,14 @@ function Dashboard() {
             <EmptyChart />
           )}
           <div className="dash-chart-foot">
-            <span>日线</span>
             <span>
-              {latestClose != null ? (
-                <>
-                  <strong className="dash-chart-latest">
-                    最新 {latestClose.toFixed(2)}
-                  </strong>
-                  {' · '}
-                </>
-              ) : null}
-              近 30 个交易日
+              {trendQuery.isError
+                ? '行情暂不可用'
+                : trendBars.length
+                  ? `${trendBars[0].date} — ${trendBars[trendBars.length - 1].date}`
+                  : '等待行情数据'}
             </span>
+            <span>{!trendQuery.isError ? `${trendBars.length} 个交易日` : ''}</span>
           </div>
         </section>
 
@@ -681,20 +782,22 @@ function Dashboard() {
           aria-labelledby="dash-history-title"
         >
           <div className="dash-panel-head">
-            <h2 id="dash-history-title" className="dash-panel-title">
+            <Prose as="h2" id="dash-history-title" className="dash-panel-title">
               最近分析
-            </h2>
+            </Prose>
             <Link to="/agent" className="dash-panel-link">
               全部 →
             </Link>
           </div>
           {analysesQuery.isLoading ? (
-            <TableSkeleton />
+            <TableSkeleton rows={2} />
           ) : analysesQuery.isError ? (
-            <p className="dash-empty">分析记录暂不可用。</p>
+            <Prose as="p" className="dash-empty">
+              分析记录暂不可用。
+            </Prose>
           ) : analyses.length ? (
             <div className="dash-history-list">
-              {analyses.map((record) => {
+              {analyses.slice(0, 2).map((record) => {
                 const recordSignal = signalOf(record.final_signal)
                 return (
                   <button
@@ -721,12 +824,18 @@ function Dashboard() {
               })}
             </div>
           ) : (
-            <p className="dash-empty">
+            <Prose as="p" className="dash-empty">
               还没有分析记录。<Link to="/agent">发起第一次分析</Link>
-            </p>
+            </Prose>
           )}
+          <Prose as="p" className="dash-history-note">
+            研究结论可能受数据完整性影响
+          </Prose>
         </section>
       </div>
+      <footer className="dash-footer">
+        行情与模型结果仅供研究，请结合数据时效与证据判断。
+      </footer>
     </div>
   )
 }

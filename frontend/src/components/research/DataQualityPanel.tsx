@@ -1,12 +1,19 @@
+import { Prose } from '../Prose'
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Alert, Button, Space } from 'antd'
+import { Alert, Button, Modal, Space } from 'antd'
 
 import { getDataQuality, syncRawHistory } from '../../services/marketData'
 import { getApiErrorMessage } from '../../services/api'
 import { useJobPolling } from '../../hooks/useJobPolling'
 
-export function DataQualityPanel({ codes }: { codes: string[] }) {
+export function DataQualityPanel({
+  codes,
+  compact = false,
+}: {
+  codes: string[]
+  compact?: boolean
+}) {
   const queryClient = useQueryClient()
   const quality = useQuery({
     queryKey: ['market-data-quality'],
@@ -16,6 +23,7 @@ export function DataQualityPanel({ codes }: { codes: string[] }) {
   const [running, setRunning] = useState(false)
   const [notice, setNotice] = useState('')
   const [failure, setFailure] = useState('')
+  const [detailsOpen, setDetailsOpen] = useState(false)
   const { waitForJob } = useJobPolling({ timeoutMs: 3600000 })
   const sync = async () => {
     setRunning(true)
@@ -35,12 +43,12 @@ export function DataQualityPanel({ codes }: { codes: string[] }) {
     }
   }
   const data = quality.data
-  return (
-    <section className="research-panel data-quality-panel" aria-label="历史数据质量">
+  const content = (
+    <>
       <div className="data-quality-panel__heading">
         <div>
           <strong>历史数据覆盖</strong>
-          <p>按交易日历核对原始行情与停牌，补齐分红送转及复权因子。</p>
+          <Prose as="p">按交易日历核对原始行情与停牌，补齐分红送转及复权因子。</Prose>
         </div>
         <Space wrap>
           <Button onClick={() => void quality.refetch()} loading={quality.isFetching}>
@@ -55,7 +63,11 @@ export function DataQualityPanel({ codes }: { codes: string[] }) {
           </Button>
         </Space>
       </div>
-      {quality.isLoading ? <p role="status">正在读取数据覆盖</p> : null}
+      {quality.isLoading ? (
+        <Prose as="p" role="status">
+          正在读取数据覆盖
+        </Prose>
+      ) : null}
       {quality.isError ? (
         <Alert type="error" message="数据质量读取失败，请刷新重试" />
       ) : null}
@@ -82,8 +94,55 @@ export function DataQualityPanel({ codes }: { codes: string[] }) {
           </div>
         </dl>
       ) : null}
-      {notice ? <p role="status">{notice}</p> : null}
+      {notice ? (
+        <Prose
+          as="p"
+          className="data-quality-panel__notice"
+          role="status"
+          title={notice}
+        >
+          {notice}
+        </Prose>
+      ) : null}
       {failure ? <Alert type="error" message={failure} /> : null}
+    </>
+  )
+  if (compact)
+    return (
+      <>
+        <section
+          className="research-panel stock-quality-summary"
+          aria-label="历史数据质量"
+        >
+          <div>
+            <strong>历史数据覆盖</strong>
+            <span title={failure || notice || undefined}>
+              {failure
+                ? '补数失败，可打开详情重试'
+                : notice ||
+                  (data
+                    ? `旧 K 线 ${data.covered_stocks.toLocaleString()} / ${data.total_stocks.toLocaleString()} · 原始价格 ${data.raw_covered_stocks.toLocaleString()} 只`
+                    : quality.isError
+                      ? '数据质量读取失败'
+                      : '正在读取数据覆盖')}
+            </span>
+          </div>
+          <Button onClick={() => setDetailsOpen(true)}>详情与补数</Button>
+        </section>
+        <Modal
+          title="历史数据覆盖"
+          open={detailsOpen}
+          footer={null}
+          onCancel={() => setDetailsOpen(false)}
+          centered
+        >
+          <div className="data-quality-panel stock-quality-details">{content}</div>
+        </Modal>
+      </>
+    )
+  return (
+    <section className="research-panel data-quality-panel" aria-label="历史数据质量">
+      {content}
     </section>
   )
 }

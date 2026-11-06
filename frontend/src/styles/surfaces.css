@@ -1,0 +1,136 @@
+/* Structural layers. Business colors, chart series and focus rings stay semantic. */
+.shell,
+.shell--dashboard,
+.shell--stocks {
+  background: var(--ui-main);
+}
+
+.shell-sidebar,
+.shell-sheet {
+  background: var(--ui-sidebar);
+}
+
+.shell-search,
+.shell-status {
+  background: var(--ui-main);
+}
+
+.shell-sidebar-bottom,
+.shell--research .shell-user {
+  border: 0;
+}
+
+.research-panel,
+.metric-card,
+.stat-card,
+.mc-card,
+.research-result-card,
+.data-quality-panel,
+.portfolio-config,
+.portfolio-results {
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.ant-modal-content,
+.ant-popover-inner,
+.ant-select-dropdown,
+.ant-dropdown-menu,
+.ant-picker-panel-container,
+.ant-drawer-content,
+.ant-tooltip-inner {
+  background: var(--ui-panel) !important;
+  box-shadow: none !important;
+  color: var(--ui-ink);
+  font-variant-numeric: tabular-nums lining-nums;
+}
+
+.ant-drawer-header,
+.ant-modal-header {
+  background: var(--ui-main);
+}
+
+.ant-select-item-option-active:not(.ant-select-item-option-disabled),
+.ant-select-item-option-selected:not(.ant-select-item-option-disabled),
+.ant-dropdown-menu-item:hover {
+  background: var(--ui-main) !important;
+}
+
+.ant-tooltip-arrow::before {
+  background: var(--ui-panel) !important;
+}
+
+:where(.research-panel-body, .ant-card-body, .shell-canvas, .page-header) > * {
+  min-width: 0;
+}
+
+:where(.ant-input, .ant-input-number-input, .ant-select, .ant-picker, .ant-statistic) {
+  font-variant-numeric: tabular-nums lining-nums;
+}
+
+/* rc-slider already steps synchronously. Never interpolate its position after release. */
+.parameter-slider {
+  min-width: 0;
+  flex: 1;
+}
+
+.analysis-export-button {
+  transition: transform var(--transition-fast);
+}
+
+.analysis-export-button:active {
+  transform: scale(0.98);
+}
+
+.ant-slider .ant-slider-track,
+.ant-slider .ant-slider-handle,
+.ant-slider .ant-slider-handle::after {
+  transition: none !important;
+}
+
+/* AntD's generated motion classes cover portals as well as in-page controls. */
+:where(
+  .ant-modal,
+  .ant-modal-mask,
+  .ant-drawer-content-wrapper,
+  .ant-drawer-mask,
+  .ant-select-dropdown,
+  .ant-dropdown,
+  .ant-picker-dropdown,
+  .ant-collapse-content
+) {
+  animation-duration: var(--ui-overlay) !important;
+  transition-duration: var(--ui-overlay) !important;
+  transition-property: opacity, transform !important;
+  animation-timing-function: var(--ui-ease) !important;
+  transition-timing-function: var(--ui-ease) !important;
+}
+
+.ant-collapse-content {
+  transition-property: height, opacity !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Loading spinners remain active; all decorative entry/movement stops. */
+  :where(*):not(
+    .ant-spin-dot,
+    .ant-spin-dot-item,
+    .anticon-loading,
+    .anticon-loading *,
+    .login-spinner
+  ) {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+  .fade-in,
+  .chat-reveal-glyph,
+  .chat-copy-check {
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+  .analysis-export-button:active {
+    transform: none;
+  }
+}

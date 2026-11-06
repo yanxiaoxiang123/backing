@@ -7,7 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 
 from app.domain.stock_codes import normalize_stock_code
 
-ModelId = Literal["kronos-small", "kronos-base", "legacy"]
+ModelId = Literal["kronos-small", "kronos-base", "timesfm-2.5", "legacy"]
 
 
 class ExperimentRequest(BaseModel):
@@ -31,7 +31,7 @@ class ExperimentRequest(BaseModel):
             if self.prediction_days != 5 or self.kline_days > 250:
                 raise ValueError("现有预测器仅支持 5 日预测及 30–250 根历史")
         elif self.kline_days < 60:
-            raise ValueError("Kronos 需要至少 60 根历史 K 线")
+            raise ValueError("远程预测模型需要至少 60 根历史 K 线")
         if not self.stock_code.startswith(("sh.", "sz.")):
             raise ValueError("当前数据日历仅支持沪深股票")
         return self

@@ -1,6 +1,7 @@
 <!doctype html>
 <html lang="zh-CN">
   <head>
+    <link rel="stylesheet" href="/ui-tokens.css" />
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>隐私说明｜Backing</title>
@@ -21,34 +22,54 @@
           >
             <rect x="3" y="9" width="3" height="8" rx="1" fill="currentColor"></rect>
             <rect x="8.5" y="5" width="3" height="12" rx="1" fill="currentColor"></rect>
-            <rect x="14" y="2" width="3" height="15" rx="1" fill="var(--lp-accent)"></rect>
+            <rect
+              x="14"
+              y="2"
+              width="3"
+              height="15"
+              rx="1"
+              fill="var(--lp-accent)"
+            ></rect>
           </svg>
           <span>Backing</span>
         </a>
       </div>
     </header>
     <main class="container legal-main">
-      <h1>隐私说明</h1>
-      <p>本页说明 Backing 的公开介绍页和登录后系统分别处理哪些数据。</p>
+      <h1>隐私<span class="prose-tail">说明</span></h1>
+      <p>
+        本页说明 Backing 的公开介绍页和登录后系统分别处理哪些<span class="prose-tail"
+          >数据。</span
+        >
+      </p>
 
-      <h2>公开介绍页</h2>
-      <p>介绍页不加载统计脚本，不设置 Cookie，不收集访客个人信息。</p>
+      <h2>公开介<span class="prose-tail">绍页</span></h2>
+      <p>
+        介绍页不加载统计脚本，不设置 Cookie，不收集访客个人<span class="prose-tail"
+          >信息。</span
+        >
+      </p>
 
-      <h2>登录后的系统</h2>
+      <h2>登录后的<span class="prose-tail">系统</span></h2>
       <ul>
         <li>使用 API Key 换取 8 小时的 HttpOnly 会话 Cookie。</li>
-        <li>状态变更请求使用 CSRF Cookie 做双提交校验。</li>
+        <li>
+          状态变更请求使用 CSRF Cookie 做双提交<span class="prose-tail">校验。</span>
+        </li>
         <li>API Key 不写入 localStorage，也不进入浏览器 bundle。</li>
         <li>数据存储在部署者配置的 SQLite 或 MySQL 中。</li>
       </ul>
 
-      <h2>第三方服务</h2>
+      <h2>第三方<span class="prose-tail">服务</span></h2>
       <p>
-        系统可能调用 baostock、mootdx 和 DeepSeek 获取行情、K 线或分析结果；具体请求由部署者配置。
+        系统可能调用 baostock、mootdx 和 DeepSeek 获取行情、K
+        线或分析结果；具体请求由部署者<span class="prose-tail">配置。 </span>
       </p>
 
       <h2>联系</h2>
-      <p>如对数据处理有疑问，请联系部署该系统的管理员。</p>
+      <p>
+        如对数据处理有疑问，请联系部署该系统的管<span class="prose-tail">理员。</span>
+      </p>
 
       <a class="legal-back" href="/welcome/">← 返回 Backing 介绍页</a>
     </main>

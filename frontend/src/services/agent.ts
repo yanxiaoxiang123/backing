@@ -3,7 +3,5 @@ export {
   submitAnalyzeStock,
   getAnalysisHistory,
   getAnalysisDetail,
-  analyzeStock,
-  analyzeMarket,
   getApiErrorMessage,
 } from './api'

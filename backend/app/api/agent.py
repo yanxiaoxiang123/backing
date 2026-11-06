@@ -2,8 +2,7 @@
 """Agent 分析 API"""
 
 import logging
-import time
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Any, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -21,7 +20,7 @@ from app.exceptions import (
 )
 from app.models.analysis import AnalysisRecord
 from app.models.models import DailyKline, Stock
-from app.services.baostock_service import MAJOR_INDICES, baostock_service
+from app.services.baostock_service import baostock_service
 from app.services.job_store import job_store
 from app.services.tasks import (
     TaskCancelledError,
@@ -92,33 +91,6 @@ class AnalyzeSubmitResponse(BaseModel):
     job_id: str
     status: str
     message: str
-
-
-# 大盘分析 Request/Response Models
-class MarketAnalyzeRequest(BaseModel):
-    """大盘分析请求"""
-
-    index_codes: List[str] = []  # 空数组表示分析所有主要指数
-    mode: str = "quick"
-
-
-class IndexInfo(BaseModel):
-    """指数信息"""
-
-    code: str
-    name: str
-
-
-class MarketAnalyzeResponse(BaseModel):
-    """大盘分析响应"""
-
-    success: bool
-    indices: List[dict]  # 各指数分析结果
-    overall_signal: str  # 综合信号
-    overall_confidence: float  # 综合置信度
-    overall_reason: str  # 综合分析理由
-    duration_s: float
-    error: Optional[str] = None
 
 
 def _ensure_stock_kline_data(db: Session, stock_code: str) -> None:
@@ -366,209 +338,3 @@ def get_analysis_detail(
         "error": record.error,
         "created_at": str(record.created_at),
     }
-
-
-@router.get("/agent/indices", response_model=List[IndexInfo])
-def get_index_list(_: str = Depends(get_current_api_key)):
-    """获取大盘指数列表"""
-    return MAJOR_INDICES
-
-
-@router.post("/agent/market/analyze", response_model=MarketAnalyzeResponse)
-def analyze_market(
-    request: MarketAnalyzeRequest,
-    _: str = Depends(get_current_api_key),
-):
-    """执行大盘分析"""
-    start_time = time.time()
-
-    try:
-        # 确定要分析的指数列表
-        if request.index_codes:
-            indices_to_analyze = [
-                idx for idx in MAJOR_INDICES if idx["code"] in request.index_codes
-            ]
-        else:
-            indices_to_analyze = MAJOR_INDICES
-
-        if not indices_to_analyze:
-            return MarketAnalyzeResponse(
-                success=False,
-                indices=[],
-                overall_signal="hold",
-                overall_confidence=0.0,
-                overall_reason="未选择有效指数",
-                duration_s=time.time() - start_time,
-                error="No valid indices selected",
-            )
-
-        # 初始化编排器
-        orchestrator = AgentOrchestrator(mode=request.mode)
-
-        # 检查 LLM 是否可用
-        if not orchestrator.is_available:
-            raise ProviderUnavailableError(
-                detail="LLM service not available. Please check API key configuration.",
-                provider="deepseek",
-            )
-
-        # 获取最近30天的数据日期范围
-        end_date = datetime.now().strftime("%Y-%m-%d")
-        start_date = (datetime.now() - timedelta(days=60)).strftime("%Y-%m-%d")
-
-        # 分析每个指数
-        index_results = []
-        for idx in indices_to_analyze:
-            try:
-                # 获取指数数据（用于构建提示词）
-                df = baostock_service.get_index_daily_kline(
-                    idx["code"], start_date, end_date
-                )
-
-                # 构建分析提示词
-                prompt = _build_market_prompt(idx["name"], idx["code"], df)
-
-                # 执行分析
-                result = orchestrator.run(
-                    stock_code=idx["code"], stock_name=idx["name"], query=prompt
-                )
-
-                index_results.append(
-                    {
-                        "code": idx["code"],
-                        "name": idx["name"],
-                        "success": result.success,
-                        "signal": result.final_signal,
-                        "confidence": result.final_confidence,
-                        "reason": result.final_reason,
-                        "error": result.error,
-                    }
-                )
-            except Exception as exc:
-                logger.exception("Failed to analyze index %s", idx["code"])
-                index_results.append(
-                    {
-                        "code": idx["code"],
-                        "name": idx["name"],
-                        "success": False,
-                        "signal": "hold",
-                        "confidence": 0.0,
-                        "reason": "",
-                        "error": str(exc),
-                    }
-                )
-
-        # 计算综合信号
-        buy_count = sum(1 for r in index_results if r["signal"] == "buy")
-        sell_count = sum(1 for r in index_results if r["signal"] == "sell")
-        _hold_count = sum(1 for r in index_results if r["signal"] == "hold")
-
-        # 综合信号逻辑
-        if buy_count > sell_count and buy_count >= len(index_results) * 0.6:
-            overall_signal = "buy"
-            overall_confidence = buy_count / len(index_results)
-        elif sell_count > buy_count and sell_count >= len(index_results) * 0.6:
-            overall_signal = "sell"
-            overall_confidence = sell_count / len(index_results)
-        else:
-            overall_signal = "hold"
-            overall_confidence = max(buy_count, sell_count) / len(index_results)
-
-        # 生成综合理由
-        overall_reason = _build_overall_reason(index_results, overall_signal)
-
-        return MarketAnalyzeResponse(
-            success=True,
-            indices=index_results,
-            overall_signal=overall_signal,
-            overall_confidence=overall_confidence,
-            overall_reason=overall_reason,
-            duration_s=time.time() - start_time,
-        )
-
-    except Exception:
-        logger.exception("Market analysis failed")
-        return MarketAnalyzeResponse(
-            success=False,
-            indices=[],
-            overall_signal="hold",
-            overall_confidence=0.0,
-            overall_reason="",
-            duration_s=time.time() - start_time,
-            error="Market analysis failed",
-        )
-
-
-def _build_market_prompt(index_name: str, index_code: str, df) -> str:
-    """构建大盘分析提示词"""
-    if df is None or df.empty:
-        return f"请分析 {index_name}（{index_code}）的大盘走势。"
-
-    # 获取最新数据
-    latest = df.iloc[-1] if len(df) > 0 else None
-    prev = df.iloc[-2] if len(df) > 1 else latest
-
-    # 计算涨跌幅
-    change_pct = 0.0
-    if latest is not None and prev is not None and prev["close"] > 0:
-        change_pct = (latest["close"] - prev["close"]) / prev["close"] * 100
-
-    # 获取近期趋势
-    recent_5 = df.tail(5)["close"].values
-    trend = (
-        "上涨"
-        if recent_5[-1] > recent_5[0]
-        else "下跌"
-        if recent_5[-1] < recent_5[0]
-        else "震荡"
-    )
-
-    # 获取成交量变化
-    vol_change = 0.0
-    if len(df) > 5 and df.tail(5)["volume"].iloc[:-1].mean() > 0:
-        vol_change = (
-            (df.tail(5)["volume"].iloc[-1] - df.tail(5)["volume"].iloc[:-1].mean())
-            / df.tail(5)["volume"].iloc[:-1].mean()
-            * 100
-        )
-
-    prompt = f"""你是一位专业的A股大盘分析师。请分析 {index_name}（{index_code}）的近期走势。
-
-近期关键数据：
-- 最新收盘价：{latest["close"] if latest is not None else "N/A"}
-- 涨跌幅：{change_pct:.2f}%
-- 近期趋势：{trend}
-- 成交量变化：{vol_change:.1f}%
-
-请提供以下分析：
-1. 整体趋势判断（上涨/下跌/震荡）
-2. 关键支撑位和阻力位
-3. 均线系统分析
-4. 技术指标信号（MACD, RSI等）
-5. 后市展望
-
-请以 JSON 格式返回：
-{{
-    "signal": "buy/sell/hold",
-    "confidence": 0.0-1.0,
-    "reason": "分析理由"
-}}
-"""
-    return prompt
-
-
-def _build_overall_reason(results: List[dict], overall_signal: str) -> str:
-    """构建综合分析理由"""
-    if not results:
-        return "暂无足够数据进行综合分析"
-
-    signal_summary = []
-    for r in results:
-        signal_summary.append(f"{r['name']}: {r['signal']}")
-
-    if overall_signal == "buy":
-        return f"多数指数呈上涨趋势。建议适度参与市场，关注成交量配合情况。具体来看：{', '.join(signal_summary)}"
-    elif overall_signal == "sell":
-        return f"多数指数呈下跌趋势，建议控制仓位观望。具体来看：{', '.join(signal_summary)}"
-    else:
-        return f"市场走势分化，建议保持中性仓位，关注结构性机会。具体来看：{', '.join(signal_summary)}"

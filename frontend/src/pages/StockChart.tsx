@@ -1,3 +1,4 @@
+import { Prose } from '../components/Prose'
 import { useMemo, useState } from 'react'
 import { Alert, Button, Empty, Spin, Tag } from 'antd'
 import {
@@ -8,6 +9,9 @@ import {
   StarOutlined,
 } from '@ant-design/icons'
 import { LazyECharts } from '../components/charts/LazyECharts'
+import { ChartResetButton } from '../components/charts/ChartResetButton'
+import { QueryStatus } from '../components/research/QueryStatus'
+import { formatNumber, formatPercent, numberTone } from '../utils/dataFormat'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { getStockOverview, addToWatchlist, removeFromWatchlist } from '../services/api'
@@ -21,32 +25,81 @@ type PeriodType = 'daily' | 'weekly' | 'monthly'
 function chartOption(data: KlineIndicator[]) {
   const dates = data.map((item) => item.date)
   return {
+    backgroundColor: 'transparent',
     animation: false,
-    tooltip: { trigger: 'axis', axisPointer: { type: 'cross' } },
-    legend: { data: ['K线', '成交量'], top: 8 },
+    axisPointer: { link: [{ xAxisIndex: 'all' }] },
+    tooltip: {
+      trigger: 'axis',
+      confine: true,
+      axisPointer: { type: 'cross' },
+      backgroundColor: 'transparent',
+      borderColor: '#e8e8e8',
+      textStyle: { color: '#242424' },
+    },
+    legend: {
+      data: ['K线', '成交量'],
+      top: 8,
+      textStyle: { color: '#777777', fontSize: 13 },
+    },
     grid: [
-      { left: 44, right: 20, top: 42, height: '62%' },
-      { left: 44, right: 20, top: '76%', height: '14%' },
+      { left: 48, right: 20, top: 42, height: '58%' },
+      { left: 48, right: 20, top: '73%', height: '12%' },
     ],
     xAxis: [
-      { type: 'category', data: dates, boundaryGap: true, axisLabel: { fontSize: 10 } },
+      {
+        type: 'category',
+        data: dates,
+        boundaryGap: true,
+        axisLabel: { fontSize: 12, color: '#777777', hideOverlap: true },
+      },
       { type: 'category', data: dates, gridIndex: 1, axisLabel: { show: false } },
     ],
     yAxis: [
-      { scale: true, axisLabel: { fontSize: 10 } },
+      {
+        scale: true,
+        axisLabel: {
+          fontSize: 12,
+          color: '#777777',
+          formatter: (value: number) => formatNumber(value),
+        },
+        splitLine: { lineStyle: { color: '#eeeeee' } },
+      },
       { gridIndex: 1, axisLabel: { show: false }, splitLine: { show: false } },
     ],
-    dataZoom: [{ type: 'inside', xAxisIndex: [0, 1] }],
+    dataZoom: [
+      { type: 'inside', xAxisIndex: [0, 1] },
+      {
+        type: 'slider',
+        moveHandleSize: 0,
+        xAxisIndex: [0, 1],
+        height: 24,
+        bottom: 0,
+        left: 48,
+        right: 20,
+        showDetail: false,
+        borderColor: '#eeeeee',
+        backgroundColor: '#f7f7f7',
+        fillerColor: 'rgba(150, 150, 150, 0.12)',
+        dataBackground: {
+          lineStyle: { color: '#bbbbbb' },
+          areaStyle: { color: '#eeeeee' },
+        },
+        selectedDataBackground: {
+          lineStyle: { color: '#aaaaaa' },
+          areaStyle: { color: '#dddddd' },
+        },
+      },
+    ],
     series: [
       {
         name: 'K线',
         type: 'candlestick',
         data: data.map((item) => [item.open, item.close, item.low, item.high]),
         itemStyle: {
-          color: '#eb001b',
-          color0: '#52c41a',
-          borderColor: '#eb001b',
-          borderColor0: '#52c41a',
+          color: '#c4242a',
+          color0: '#1e7a4d',
+          borderColor: '#c4242a',
+          borderColor0: '#1e7a4d',
         },
       },
       {
@@ -56,7 +109,10 @@ function chartOption(data: KlineIndicator[]) {
         yAxisIndex: 1,
         data: data.map((item) => ({
           value: item.volume,
-          itemStyle: { color: item.close >= item.open ? '#eb001b' : '#52c41a' },
+          itemStyle: {
+            color: item.close >= item.open ? '#c4242a' : '#1e7a4d',
+            opacity: 0.5,
+          },
         })),
       },
     ],
@@ -69,6 +125,7 @@ function StockChart() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [period, setPeriod] = useState<PeriodType>('daily')
+  const [resetKey, setResetKey] = useState(0)
   const [updatingWatchlist, setUpdatingWatchlist] = useState(false)
   const overviewQuery = useQuery({
     queryKey: stockKeys.overview(code || ''),
@@ -96,7 +153,7 @@ function StockChart() {
       change_percent: changePercent,
     }
   }, [code, kline.data, overview?.quote, overview?.stock.code, overview?.stock.name])
-  const positive = (quote?.change_percent ?? 0) >= 0
+  const changeTone = numberTone(quote?.change_percent)
 
   const option = useMemo(() => chartOption(kline.data), [kline.data])
   const toggleWatchlist = async () => {
@@ -123,7 +180,9 @@ function StockChart() {
           </Button>
           <div>
             <div className="eyebrow">STOCK RESEARCH</div>
-            <h1 className="page-title">{overview?.stock.name || code}</h1>
+            <Prose as="h1" className="page-title">
+              {overview?.stock.name || code}
+            </Prose>
             <span className="stock-code-label">{code}</span>
           </div>
         </div>
@@ -156,25 +215,27 @@ function StockChart() {
 
       <section className="stock-metrics-grid">
         <div className="stock-price-card">
-          <span className="eyebrow">LATEST PRICE</span>
-          <strong>{quote ? quote.current_price.toFixed(2) : '—'}</strong>
-          <span className={positive ? 'price-up' : 'price-down'}>
+          <span className="stock-quote-label">最新价格</span>
+          <strong>{formatNumber(quote?.current_price)}</strong>
+          <span className={changeTone}>
             {quote
-              ? `${positive ? '+' : ''}${quote.change.toFixed(2)} (${positive ? '+' : ''}${quote.change_percent.toFixed(2)}%)`
+              ? `${numberTone(quote.change) === 'price-up' ? '+' : ''}${formatNumber(quote.change)} (${formatPercent(quote.change_percent, 2, true)})`
               : '等待行情'}
           </span>
         </div>
         <div className="stock-metric">
           <span>日内高点</span>
-          <strong>{quote?.high?.toFixed(2) || '—'}</strong>
+          <strong>{formatNumber(quote?.high)}</strong>
         </div>
         <div className="stock-metric">
           <span>日内低点</span>
-          <strong>{quote?.low?.toFixed(2) || '—'}</strong>
+          <strong>{formatNumber(quote?.low)}</strong>
         </div>
         <div className="stock-metric">
           <span>成交量</span>
-          <strong>{quote ? `${(quote.volume / 10000).toFixed(0)}万` : '—'}</strong>
+          <strong>
+            {quote ? `${formatNumber(quote.volume / 10000, 0)}万股` : '—'}
+          </strong>
         </div>
       </section>
 
@@ -183,26 +244,35 @@ function StockChart() {
           <div className="section-heading">
             <div>
               <div className="eyebrow">PRICE ACTION</div>
-              <h2>K 线与成交量</h2>
+              <Prose as="h2">K 线与成交量</Prose>
             </div>
-            <div className="period-switcher" role="group" aria-label="K线周期">
-              {(['daily', 'weekly', 'monthly'] as PeriodType[]).map((value) => (
-                <button
-                  key={value}
-                  className={period === value ? 'active' : ''}
-                  onClick={() => setPeriod(value)}
-                >
-                  {value === 'daily' ? '日K' : value === 'weekly' ? '周K' : '月K'}
-                </button>
-              ))}
+            <div className="research-chart-actions">
+              <QueryStatus
+                fetching={kline.loading && kline.data.length > 0}
+                label="行情更新中"
+              />
+              <ChartResetButton onReset={() => setResetKey((value) => value + 1)} />
+              <div className="period-switcher" role="group" aria-label="K线周期">
+                {(['daily', 'weekly', 'monthly'] as PeriodType[]).map((value) => (
+                  <button
+                    key={value}
+                    className={period === value ? 'active' : ''}
+                    aria-pressed={period === value}
+                    onClick={() => setPeriod(value)}
+                  >
+                    {value === 'daily' ? '日K' : value === 'weekly' ? '周K' : '月K'}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
           {kline.error ? <Alert type="error" showIcon message={kline.error} /> : null}
-          <Spin spinning={kline.loading}>
+          <Spin spinning={kline.loading && !kline.data.length}>
             {kline.data.length ? (
               <LazyECharts
+                resetKey={resetKey}
                 option={option}
-                style={{ height: 'min(62vh, 680px)' }}
+                style={{ height: 440 }}
                 notMerge
                 lazyUpdate
               />
@@ -229,12 +299,20 @@ function StockChart() {
         <aside className="stock-research-side">
           <div className="research-panel">
             <div className="eyebrow">SIGNAL SNAPSHOT</div>
-            <h2>
+            <Prose as="h2">
               <BulbOutlined /> 技术摘要
-            </h2>
+            </Prose>
             <div className="signal-placeholder">
-              <Tag color={positive ? 'red' : 'green'}>{positive ? '偏强' : '偏弱'}</Tag>
-              <p>基于最新行情和技术数据生成研究提示。</p>
+              <Tag className={changeTone}>
+                {!quote
+                  ? '等待行情'
+                  : changeTone === 'price-up'
+                    ? '当日上涨'
+                    : changeTone === 'price-down'
+                      ? '当日下跌'
+                      : '当日持平'}
+              </Tag>
+              <Prose as="p">基于最新行情和技术数据生成研究提示。</Prose>
             </div>
             <Button
               block
@@ -246,10 +324,10 @@ function StockChart() {
           </div>
           <div className="research-panel">
             <div className="eyebrow">NEXT ACTION</div>
-            <h2>验证一个假设</h2>
-            <p className="side-copy">
+            <Prose as="h2">验证一个假设</Prose>
+            <Prose as="p" className="side-copy">
               将当前标的带入策略研究，比较不同参数下的收益和风险。
-            </p>
+            </Prose>
             <Button
               block
               onClick={() => navigate(`/strategies?stock=${encodeURIComponent(code)}`)}

@@ -1,0 +1,662 @@
+.dl-prediction-page {
+  color: #242424;
+  font-size: 15px;
+  font-variant-numeric: tabular-nums lining-nums;
+  overflow-wrap: anywhere;
+}
+
+.dl-page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  min-height: 90px;
+  margin-bottom: 24px;
+  padding: 0 4px;
+}
+
+.dl-eyebrow {
+  margin: 0;
+  color: #666666;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 20px;
+  letter-spacing: 0.12em;
+}
+
+.dl-page-header h1 {
+  margin: 0 0 2px;
+  font-size: 32px;
+  font-weight: 700;
+  line-height: 46px;
+}
+
+.dl-subtitle {
+  margin: 0;
+  color: var(--ui-muted);
+  font-size: 15px;
+  line-height: 24px;
+}
+
+.dl-header-actions {
+  display: flex;
+  flex: none;
+  gap: 14px;
+  padding-top: 19px;
+}
+
+.dl-prediction-page .ant-btn {
+  border-radius: 7px !important;
+  letter-spacing: normal !important;
+  white-space: nowrap;
+  box-shadow: none;
+}
+
+.dl-prediction-page .ant-btn-default {
+  border-color: #d3d3d3 !important;
+}
+
+.dl-prediction-page .ant-btn-primary:not(:disabled) {
+  background: #222222 !important;
+  border-color: #222222 !important;
+  color: #ffffff;
+}
+
+.dl-header-actions .ant-btn {
+  height: 38px;
+  padding-inline: 18px;
+  font-size: 14px;
+}
+
+.dl-instrument-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px 20px;
+  min-height: 56px;
+  padding: 10px 20px;
+  margin-bottom: 20px;
+  border: 1px solid transparent;
+  border-radius: 13px;
+  background: var(--ui-main);
+}
+
+.dl-instrument-name {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 18px;
+  min-width: 0;
+}
+
+.dl-instrument-name strong {
+  font-size: 22px;
+  font-weight: 650;
+}
+
+.dl-instrument-code {
+  padding-left: 20px;
+  border-left: 1px solid #d5d5d5;
+  color: var(--ui-muted);
+  font-size: 16px;
+}
+
+.dl-market-label {
+  padding: 1px 8px;
+  border: 1px solid #dedede;
+  border-radius: 5px;
+  background: var(--ui-sidebar);
+  color: var(--ui-muted);
+  font-size: 13px;
+}
+
+.dl-data-cutoff {
+  color: var(--ui-muted);
+  font-size: 14px;
+}
+
+.dl-alerts {
+  display: grid;
+  gap: 12px;
+}
+
+.dl-alerts:not(:empty) {
+  margin-bottom: 18px;
+}
+
+.dl-prediction-page .dl-lab-layout {
+  display: grid;
+  grid-template-columns: 340px minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.dl-prediction-page .dl-lab-layout > :first-child {
+  grid-row: auto;
+}
+
+.dl-config-panel,
+.dl-chart-panel,
+.dl-results-panel {
+  min-width: 0;
+  border: 1px solid transparent;
+  border-radius: 14px;
+  background: var(--ui-panel);
+  overflow: hidden;
+}
+
+.dl-config-panel {
+  background: var(--ui-main);
+  border-color: #f3f3f3;
+}
+
+.dl-panel-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  min-height: 54px;
+  padding: 10px 22px;
+  border-bottom: 1px solid #e8e8e8;
+  background: var(--ui-main);
+}
+
+.dl-panel-heading h2,
+.dl-backtest-config h2 {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0;
+  color: #242424;
+  font-size: 20px;
+  font-weight: 650;
+  line-height: 28px;
+}
+
+.dl-panel-heading .anticon,
+.dl-backtest-config h2 .anticon {
+  font-size: 20px;
+  color: #666666;
+}
+
+.dl-config-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 18px 20px 10px;
+}
+
+.dl-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.dl-field label,
+.dl-field-label {
+  color: #444444;
+  font-size: 15px;
+  line-height: 22px;
+}
+
+.dl-field > .ant-select,
+.dl-field > .ant-picker,
+.dl-number-unit > .ant-input-number {
+  width: 100%;
+}
+
+.dl-prediction-page .ant-select-selector,
+.dl-prediction-page .ant-input-number,
+.dl-prediction-page .ant-picker {
+  border-radius: 7px !important;
+  border-color: #d7d7d7 !important;
+  background: var(--ui-panel);
+  font-variant-numeric: tabular-nums lining-nums;
+}
+
+.dl-prediction-page .ant-select-selector {
+  padding-inline: 13px !important;
+}
+
+.dl-prediction-page .ant-input-number-input {
+  height: 38px;
+  padding-inline: 13px 34px;
+}
+
+.dl-prediction-page .ant-input-number-disabled,
+.dl-prediction-page .ant-picker-disabled,
+.dl-prediction-page .ant-select-disabled .ant-select-selector {
+  background: #f0f0f0 !important;
+}
+
+.dl-paired-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 34px;
+}
+
+.dl-number-unit {
+  position: relative;
+  min-width: 0;
+}
+
+.dl-number-unit > span {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #666666;
+  pointer-events: none;
+}
+
+.dl-periods {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.dl-periods .ant-btn {
+  height: 36px;
+  padding-inline: 8px;
+  font-weight: 600;
+}
+
+.dl-horizon-slider {
+  color: var(--ui-muted);
+  font-size: 11px;
+  line-height: 16px;
+}
+
+.dl-field:has(> .dl-horizon-slider) {
+  position: relative;
+}
+
+.dl-horizon-slider > summary {
+  position: absolute;
+  top: 3px;
+  right: 0;
+}
+
+.dl-horizon-slider summary,
+.dl-details summary {
+  cursor: pointer;
+}
+
+.dl-horizon-slider .ant-slider {
+  margin: 16px 9px 24px;
+}
+
+.dl-backtest-config {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 8px;
+  padding-top: 16px;
+  border-top: 1px solid #dedede;
+}
+
+.dl-backtest-config .ant-picker {
+  padding: 6px 10px;
+}
+
+.dl-backtest-config .ant-picker-input > input {
+  font-size: 13px;
+}
+
+.dl-backtest-config .ant-picker-range-separator {
+  padding-inline: 4px;
+}
+
+.dl-config-note {
+  margin: -8px 0 0;
+  color: var(--ui-muted);
+  font-size: 12px;
+  line-height: 20px;
+  text-wrap: pretty;
+}
+
+.dl-analysis-column {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+
+.dl-panel-heading .ant-segmented {
+  background: #ebebeb;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.dl-panel-heading .ant-segmented-item-label {
+  min-height: 30px;
+  padding-inline: 20px;
+  line-height: 30px;
+}
+
+.dl-panel-heading .ant-segmented-item {
+  color: #666666;
+}
+
+.dl-panel-heading .ant-segmented-item-selected {
+  box-shadow: 0 0 0 1px #d7d7d7;
+  color: #242424;
+}
+
+.dl-chart-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 0 10px;
+  padding: 12px 0 18px;
+  border-bottom: 1px solid #e8e8e8;
+}
+
+.dl-chart-metrics > div {
+  min-width: 0;
+  padding: 0 24px;
+  border-right: 1px solid #dddddd;
+}
+
+.dl-chart-metrics > div:last-child {
+  border-right: 0;
+}
+
+.dl-chart-metrics dt {
+  margin-bottom: 2px;
+  color: var(--ui-muted);
+  font-size: 13px;
+  line-height: 20px;
+}
+
+.dl-chart-metrics dd {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 650;
+  line-height: 32px;
+  white-space: nowrap;
+}
+
+.dl-chart-metrics dd span {
+  font-size: 16px;
+  font-weight: 400;
+}
+
+.dl-price-chart,
+.dl-chart-state {
+  height: 398px;
+  width: 100%;
+}
+
+.dl-chart-state {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 20px;
+  color: var(--ui-muted);
+}
+
+.dl-results-panel > .dl-panel-heading {
+  min-height: 49px;
+}
+
+.dl-run-status {
+  color: var(--ui-muted);
+  font-size: 14px;
+}
+
+.dl-results-body {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 10px 16px 12px;
+}
+
+.dl-result-grid,
+.dl-results-empty {
+  width: 100%;
+}
+
+.dl-prediction-page .ant-descriptions-view {
+  border-color: #e5e5e5;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.dl-result-grid .ant-descriptions-item-label,
+.dl-backtest-metrics .ant-descriptions-item-label {
+  width: 15%;
+  padding: 6px 16px !important;
+  background: var(--ui-main) !important;
+  color: var(--ui-muted);
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.dl-result-grid .ant-descriptions-item-content,
+.dl-backtest-metrics .ant-descriptions-item-content {
+  padding: 6px 16px !important;
+  background: var(--ui-panel);
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+
+.dl-result-grid .ant-descriptions-item-content {
+  width: 35%;
+}
+
+.dl-research-note,
+.dl-execution-time,
+.dl-history-note {
+  margin: 0;
+  color: var(--ui-muted);
+  font-size: 12px;
+  line-height: 20px;
+}
+
+.dl-execution-time {
+  margin-left: auto;
+}
+
+.dl-results-empty {
+  padding: 6px 4px;
+  color: var(--ui-muted);
+  font-size: 13px;
+  line-height: 24px;
+}
+
+.dl-results-empty strong {
+  color: #444444;
+}
+
+.dl-details {
+  border-top: 1px solid #e8e8e8;
+  background: var(--ui-panel);
+}
+
+.dl-details > summary {
+  padding: 9px 22px;
+  color: var(--ui-muted);
+  font-size: 13px;
+}
+
+.dl-details-body {
+  min-width: 0;
+  padding: 0 16px 16px;
+}
+
+.dl-details-body h3 {
+  margin: 12px 0;
+  font-size: 15px;
+}
+
+.dl-details-body p {
+  color: var(--ui-muted);
+  font-size: 12px;
+  margin-block: 8px;
+}
+
+.dl-backtest-metrics {
+  margin: 0 16px 14px;
+}
+
+.dl-history-list {
+  display: grid;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.dl-history-list button {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: var(--ui-panel);
+  color: var(--ui-muted);
+  text-align: left;
+  cursor: pointer;
+}
+
+.dl-history-list button:hover {
+  background: var(--ui-main);
+}
+
+.dl-history-list strong {
+  color: #242424;
+}
+
+.dl-history-list strong span {
+  margin-left: 12px;
+  font-weight: 400;
+}
+
+@media (min-width: 1024px) and (max-width: 1370px) {
+  .dl-prediction-page .dl-lab-layout {
+    grid-template-columns: 290px minmax(0, 1fr);
+  }
+
+  .dl-paired-fields {
+    gap: 18px;
+  }
+
+  .dl-chart-metrics > div {
+    padding-inline: 16px;
+  }
+
+  .dl-panel-heading {
+    padding-inline: 18px;
+  }
+}
+
+@media (max-width: 1023px) {
+  .dl-prediction-page .dl-lab-layout {
+    grid-template-columns: 270px minmax(0, 1fr);
+    gap: 14px;
+  }
+
+  .dl-page-header {
+    padding: 0;
+  }
+
+  .dl-header-actions {
+    gap: 8px;
+  }
+
+  .dl-header-actions .ant-btn {
+    padding-inline: 12px;
+  }
+
+  .dl-config-body {
+    padding-inline: 16px;
+  }
+
+  .dl-paired-fields {
+    gap: 16px;
+  }
+
+  .dl-panel-heading {
+    padding-inline: 16px;
+  }
+
+  .dl-panel-heading .ant-segmented-item-label {
+    padding-inline: 12px;
+  }
+
+  .dl-chart-metrics > div {
+    padding-inline: 10px;
+  }
+
+  .dl-chart-metrics dd {
+    font-size: 22px;
+  }
+
+  .dl-chart-metrics dd span {
+    font-size: 12px;
+  }
+
+  .dl-result-grid .ant-descriptions-item-label,
+  .dl-result-grid .ant-descriptions-item-content {
+    padding: 6px 10px !important;
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 740px) {
+  .dl-prediction-page .dl-lab-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .dl-page-header {
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 18px;
+  }
+
+  .dl-page-header h1 {
+    font-size: 24px;
+    line-height: 36px;
+  }
+
+  .dl-header-actions {
+    padding-top: 0;
+  }
+
+  .dl-instrument-strip {
+    padding-inline: 16px;
+    gap: 8px;
+  }
+
+  .dl-instrument-name {
+    gap: 12px;
+  }
+
+  .dl-instrument-code {
+    padding-left: 12px;
+  }
+
+  .dl-instrument-name strong {
+    font-size: 20px;
+  }
+
+  .dl-data-cutoff {
+    font-size: 12px;
+  }
+
+  .dl-price-chart,
+  .dl-chart-state {
+    height: 340px;
+  }
+
+  .dl-result-grid .ant-descriptions-item-content {
+    width: auto;
+  }
+
+  .dl-details-body {
+    padding-inline: 10px;
+  }
+}

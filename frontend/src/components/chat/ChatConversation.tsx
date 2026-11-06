@@ -1,11 +1,11 @@
-import { memo, useEffect, useMemo, useRef, useState } from 'react'
-import ReactMarkdown from 'react-markdown'
-import remarkGfm from 'remark-gfm'
+import { memo, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Button, Empty, Tag } from 'antd'
 import { DownOutlined } from '@ant-design/icons'
 import '../../styles/chat.css'
 import type { ChatMessage, ToolRow } from '../../types/chat'
 import type { ChatStreamState } from '../../services/agentChats'
+import { StreamingMarkdown } from './StreamingMarkdown'
+import { CopyReplyButton } from './CopyReplyButton'
 
 interface ChatConversationProps {
   messages: ChatMessage[]
@@ -14,16 +14,18 @@ interface ChatConversationProps {
   error: string | null
   onLoadOlder?: () => void
   hasOlder?: boolean
+  emptyState?: ReactNode
 }
 
 function ToolRows({ tools }: { tools: ToolRow[] }) {
-  const [collapsed, setCollapsed] = useState(false)
+  const [collapsed, setCollapsed] = useState(true)
   if (tools.length === 0) return null
   return (
     <div className="chat-tools">
       <button
         type="button"
         className="chat-tools-toggle"
+        aria-expanded={!collapsed}
         onClick={() => setCollapsed((v) => !v)}
       >
         {collapsed ? '展开' : '折叠'}工具调用（{tools.length}）
@@ -52,6 +54,7 @@ function ReasoningBlock({ text }: { text: string }) {
       <button
         type="button"
         className="chat-reasoning-toggle"
+        aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
       >
         {open ? '隐藏思考过程' : '思考过程'}
@@ -72,11 +75,16 @@ const ChatMessageRow = memo(function ChatMessageRow({ msg }: { msg: ChatMessage 
   return (
     <div className="chat-msg chat-msg-assistant">
       <div className="chat-bubble">
+        <div className="chat-message-author">研究助手</div>
         {msg.reasoning ? <ReasoningBlock text={msg.reasoning} /> : null}
         {msg.tools.length > 0 ? <ToolRows tools={msg.tools} /> : null}
         <div className="chat-markdown">
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
+          <StreamingMarkdown
+            content={msg.content}
+            streaming={msg.status === 'queued' || msg.status === 'running'}
+          />
         </div>
+        <CopyReplyButton content={msg.content} />
         {msg.status === 'failed' || msg.status === 'interrupted' ? (
           <div className="chat-msg-error">{msg.error || `状态：${msg.status}`}</div>
         ) : null}
@@ -92,6 +100,7 @@ export function ChatConversation({
   error,
   onLoadOlder,
   hasOlder = false,
+  emptyState,
 }: ChatConversationProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const [pinned, setPinned] = useState(true)
@@ -121,10 +130,12 @@ export function ChatConversation({
     <div className="chat-conversation" data-stream-state={streamState}>
       <div className="chat-scroll" ref={scrollRef} onScroll={handleScroll}>
         {messages.length === 0 && !running ? (
-          <Empty
-            description="可以先问候，也可以查询行情，或明确描述股票与策略后发起回测"
-            className="chat-conversation-empty"
-          />
+          (emptyState ?? (
+            <Empty
+              description="可以先问候，也可以查询行情，或明确描述股票与策略后发起回测"
+              className="chat-conversation-empty"
+            />
+          ))
         ) : (
           <>
             {hasOlder && onLoadOlder ? (

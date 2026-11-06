@@ -9,11 +9,45 @@ import {
 import { useJobPolling } from './useJobPolling'
 
 const STORAGE_KEY = 'backing_dl_experiment'
+const HISTORY_KEY = 'backing_dl_history'
 interface SavedExperiment {
   kind: DLExperimentKind
   request: DLExperimentRequest
   key: string
   jobId?: string
+}
+
+export interface DLExperimentHistory extends SavedExperiment {
+  jobId: string
+  completedAt?: string
+}
+
+export interface DLExperimentResult {
+  kind: DLExperimentKind
+  request: DLExperimentRequest
+  response: DLJobResult
+  jobId?: string
+  completedAt?: string
+}
+
+function restoreHistory(): DLExperimentHistory[] {
+  try {
+    const items: unknown = JSON.parse(sessionStorage.getItem(HISTORY_KEY) || '[]')
+    return Array.isArray(items)
+      ? items
+          .filter(
+            (item): item is DLExperimentHistory =>
+              item &&
+              ['predict', 'backtest'].includes(item.kind) &&
+              typeof item.jobId === 'string' &&
+              typeof item.key === 'string' &&
+              item.request,
+          )
+          .slice(0, 20)
+      : []
+  } catch {
+    return []
+  }
 }
 
 function restore(): SavedExperiment | null {
@@ -33,11 +67,11 @@ function restore(): SavedExperiment | null {
 export function useDLExperiment() {
   const [saved, setSaved] = useState<SavedExperiment | null>(restore)
   const [running, setRunning] = useState(Boolean(saved))
-  const [result, setResult] = useState<{
-    kind: DLExperimentKind
-    request: DLExperimentRequest
-    response: DLJobResult
-  } | null>(null)
+  const [result, setResult] = useState<DLExperimentResult | null>(null)
+  const [results, setResults] = useState<
+    Partial<Record<DLExperimentKind, DLExperimentResult>>
+  >({})
+  const [history, setHistory] = useState(restoreHistory)
   const [error, setError] = useState<string | null>(null)
   const mounted = useRef(true)
   const active = useRef<SavedExperiment | null>(saved)
@@ -72,7 +106,17 @@ export function useDLExperiment() {
         }
         if (cancelling.current) await cancelJob(record.jobId!)
         if (!current()) return
-        const response = await waitForJob(record.jobId!)
+        let completedAt: string | undefined
+        const response = await waitForJob(record.jobId!, {
+          onStatus: (job) => {
+            if (job.status === 'completed' && job.updated_at) {
+              // The job store serializes UTC datetimes without an offset.
+              completedAt = /(?:Z|[+-]\d{2}:\d{2})$/i.test(job.updated_at)
+                ? job.updated_at
+                : `${job.updated_at}Z`
+            }
+          },
+        })
         if (current() && active.current?.key === record.key) {
           if (cancelling.current) {
             setError('任务已取消')
@@ -80,7 +124,28 @@ export function useDLExperiment() {
           }
           if (!response?.success || !response.data)
             throw new Error('实验未返回有效结果')
-          setResult({ kind: record.kind, request: record.request, response })
+          const next = {
+            kind: record.kind,
+            request: record.request,
+            response,
+            jobId: record.jobId,
+            completedAt,
+          }
+          setResult(next)
+          setResults((previous) => ({ ...previous, [record.kind]: next }))
+          setHistory((previous) => {
+            const entry = { ...record, jobId: record.jobId!, completedAt }
+            const entries = [
+              entry,
+              ...previous.filter((item) => item.jobId !== entry.jobId),
+            ].slice(0, 20)
+            try {
+              sessionStorage.setItem(HISTORY_KEY, JSON.stringify(entries))
+            } catch {
+              // History is optional; a full session store must not hide a result.
+            }
+            return entries
+          })
         }
       } catch (cause) {
         if (current() && active.current?.key === record.key) {
@@ -127,5 +192,26 @@ export function useDLExperiment() {
     }
   }, [])
 
-  return { start, cancel, running, saved, result, error, lastStatus }
+  const openHistory = useCallback(
+    (entry: DLExperimentHistory) => {
+      if (running) return
+      cancelling.current = false
+      sessionStorage.setItem(STORAGE_KEY, JSON.stringify(entry))
+      void observe(entry)
+    },
+    [observe, running],
+  )
+
+  return {
+    start,
+    cancel,
+    running,
+    saved,
+    result,
+    results,
+    history,
+    openHistory,
+    error,
+    lastStatus,
+  }
 }

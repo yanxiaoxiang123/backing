@@ -21,9 +21,9 @@ from app.api.auth import router as auth_router
 from app.api.dl_prediction import router as dl_prediction_router
 from app.api.data_quality import router as data_quality_router
 from app.api.portfolio_research import router as portfolio_research_router
+from app.api.public_market import router as public_market_router
 from app.api.realtime import router as realtime_router
 from app.api.routes import router
-from app.api.screener import router as screener_router
 from app.api.screener_agent import router as screener_agent_router
 from app.api.strategies import router as strategies_router
 from app.api.watchlist import router as watchlist_router
@@ -141,10 +141,17 @@ async def lifespan(app: FastAPI):
     from app.agent_chat.runtime import NativeAgentChatRuntime
     from app.agent_chat.seam import FakeHarnessChatSeam
     from app.agent_chat.service import HarnessChatService
+    from app.agent_chat.titles import DeepSeekTitleGenerator
 
+    title_generator = None
     if settings.AGENT_CHAT_BACKEND.lower() == "fake":
         seam = FakeHarnessChatSeam(session_factory=SessionLocal)
     elif settings.AGENT_CHAT_BACKEND.lower() == "native":
+        title_generator = DeepSeekTitleGenerator(
+            api_key_provider=lambda: settings.DEEPSEEK_API_KEY,
+            base_url=settings.DEEPSEEK_BASE_URL,
+            model_name=settings.DEEPSEEK_MODEL,
+        )
         seam = NativeAgentChatRuntime(
             session_factory=SessionLocal,
             api_key_provider=lambda: settings.DEEPSEEK_API_KEY,
@@ -161,6 +168,7 @@ async def lifespan(app: FastAPI):
         session_factory=SessionLocal,
         seam=seam,
         max_workers=settings.AGENT_CHAT_MAX_WORKERS,
+        title_generator=title_generator,
     )
     chat_service.startup()
     app.state.harness_chat_service = chat_service
@@ -238,6 +246,7 @@ app.include_router(auth_router)
 app.include_router(ai_settings_router)
 app.include_router(data_quality_router)
 app.include_router(realtime_router, prefix="/api/v1", tags=["realtime"])
+app.include_router(public_market_router)
 app.include_router(strategies_router)
 app.include_router(portfolio_research_router)
 app.include_router(agent_router, prefix="/api/v1", tags=["agent"])
@@ -248,7 +257,6 @@ app.include_router(tools_router, prefix="/api/v1", tags=["tools"])
 app.include_router(dl_prediction_router, prefix="/api/v1/dl", tags=["dl"])
 app.include_router(watchlist_router)
 app.include_router(screener_agent_router, prefix="/api/v1", tags=["screener_agent"])
-app.include_router(screener_router, prefix="/api/v1", tags=["screener"])
 
 
 @app.get("/")

@@ -1,3 +1,4 @@
+import { Prose } from './Prose'
 import { Component, type ErrorInfo, type ReactNode } from 'react'
 import { logger } from '../utils/logger'
 
@@ -49,10 +50,10 @@ class ErrorBoundary extends Component<Props, State> {
         <div className="error-boundary">
           <div className="error-boundary-content">
             <div className="error-boundary-icon">⚠</div>
-            <h2>页面渲染异常</h2>
-            <p className="error-boundary-message">
+            <Prose as="h2">页面渲染异常</Prose>
+            <Prose as="p" className="error-boundary-message">
               {this.state.error?.message || '发生了意外错误'}
-            </p>
+            </Prose>
             <div className="error-boundary-actions">
               <button className="error-boundary-btn" onClick={this.handleRetry}>
                 重试

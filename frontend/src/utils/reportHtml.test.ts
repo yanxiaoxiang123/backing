@@ -44,4 +44,18 @@ describe('buildAgentReportHtml', () => {
     expect(html).not.toContain('href="javascript:')
     expect(html).toContain('headline &lt;unsafe&gt;')
   })
+  it('keeps exported buy/sell colors consistent and does not turn missing values into zero', () => {
+    const html = buildAgentReportHtml({
+      ...report,
+      final_confidence: NaN,
+      duration_s: NaN,
+    })
+    expect(html).toContain('color:#c4242a')
+    expect(html).toContain('置信度: —')
+    expect(html).not.toContain('NaN')
+    expect(html).not.toContain('Infinity')
+    expect(buildAgentReportHtml({ ...report, final_signal: 'sell' })).toContain(
+      'color:#1e7a4d',
+    )
+  })
 })

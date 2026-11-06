@@ -2,7 +2,6 @@ import {
   Routes,
   Route,
   Navigate,
-  NavLink,
   Link,
   useLocation,
   useNavigate,
@@ -24,11 +23,12 @@ import {
   RobotOutlined,
   SettingOutlined,
 } from '@ant-design/icons'
-import { Modal, message } from 'antd'
+import { ConfigProvider, Modal, message } from 'antd'
 
 import ErrorBoundary from './components/ErrorBoundary'
 import StockSearch from './components/StockSearch'
 import AiSettingsModal from './components/settings/AiSettingsModal'
+import { ShellNavigation } from './components/ShellNavigation'
 import { ResearchCopilot } from './components/research/ResearchCopilot'
 import { useSystemStatus } from './hooks/useSystemStatus'
 const AgentWorkspace = lazy(() => import('./pages/AgentWorkspace'))
@@ -51,6 +51,7 @@ import {
   type AuthState,
 } from './services/api'
 import { safeNextPath } from './utils/nextPath'
+import { researchTheme } from './styles/researchTheme'
 
 interface NavItem {
   key: string
@@ -303,27 +304,7 @@ function App() {
     </Link>
   )
 
-  const nav = (
-    <nav className="shell-nav" aria-label="主导航">
-      {navGroups.map((group) => (
-        <div className="shell-nav-group" key={group.label}>
-          <div className="shell-nav-label">{group.label}</div>
-          {group.items.map((item) => (
-            <NavLink
-              key={item.key}
-              to={item.key}
-              end={item.key === '/'}
-              className={({ isActive }) => `shell-nav-item${isActive ? ' active' : ''}`}
-              onClick={closeMobileMenu}
-            >
-              {item.icon}
-              <span>{item.label}</span>
-            </NavLink>
-          ))}
-        </div>
-      ))}
-    </nav>
-  )
+  const nav = <ShellNavigation groups={navGroups} onNavigate={closeMobileMenu} />
 
   const statusBlock = (
     <div className="shell-status">
@@ -380,9 +361,26 @@ function App() {
     </div>
   )
 
+  const isResearchPage =
+    navGroups
+      .slice(0, 2)
+      .some((group) => group.items.some((item) => item.key === location.pathname)) ||
+    location.pathname.startsWith('/stocks/') ||
+    location.pathname === '/backtest'
+
   return (
-    <>
-      <div className="shell">
+    <ConfigProvider
+      theme={isResearchPage ? researchTheme : undefined}
+      select={{
+        classNames: { popup: { root: isResearchPage ? 'research-theme-overlay' : '' } },
+      }}
+      modal={{
+        classNames: { content: isResearchPage ? 'research-theme-overlay' : '' },
+      }}
+    >
+      <div
+        className={`shell${isResearchPage ? ' shell--research' : ''}${location.pathname === '/' ? ' shell--dashboard' : ''}${location.pathname === '/stocks' ? ' shell--stocks' : ''}${location.pathname === '/dl-prediction' ? ' shell--dl' : ''}`}
+      >
         <aside className="shell-sidebar" aria-label="侧栏">
           {brand}
           <button
@@ -435,7 +433,9 @@ function App() {
             </button>
           </div>
 
-          <main className="shell-canvas">
+          <main
+            className={`shell-canvas${location.pathname === '/workspace' ? ' shell-canvas--workspace' : ''}`}
+          >
             <ErrorBoundary name="App">
               <Suspense
                 fallback={
@@ -588,7 +588,7 @@ function App() {
           entity_id: stockCodeForTitle,
         }}
       />
-    </>
+    </ConfigProvider>
   )
 }
 

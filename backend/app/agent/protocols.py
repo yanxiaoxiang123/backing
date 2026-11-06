@@ -15,15 +15,6 @@ class StageStatus(Enum):
     FAILED = "failed"
 
 
-class DecisionSignal(Enum):
-    """交易信号"""
-
-    BUY = "buy"
-    SELL = "sell"
-    HOLD = "hold"
-    UNKNOWN = "unknown"
-
-
 @dataclass
 class AgentOpinion:
     """Agent 意见"""

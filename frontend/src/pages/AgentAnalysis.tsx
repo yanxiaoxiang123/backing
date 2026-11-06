@@ -14,6 +14,7 @@ import {
   Row,
   Col,
   Modal,
+  Skeleton,
 } from 'antd'
 import {
   PlayCircleOutlined,
@@ -54,6 +55,9 @@ import { StageCard } from '../components/analysis/StageCard'
 import { NewsSection } from '../components/analysis/NewsSection'
 import { buildAgentReportHtml } from '../utils/reportHtml'
 import { PageHeader } from '../components/research/ResearchPrimitives'
+import { QueryStatus } from '../components/research/QueryStatus'
+import { ChartResetButton } from '../components/charts/ChartResetButton'
+import { formatDate, formatNumber, isFiniteNumber } from '../utils/dataFormat'
 
 const { Option } = Select
 
@@ -79,6 +83,7 @@ export default function AgentAnalysis() {
   const [jobStages, setJobStages] = useState<AgentStage[]>([])
   const [currentJobId, setCurrentJobId] = useState<string | null>(null)
   const [stockIndicators, setStockIndicators] = useState<KlineIndicator[]>([])
+  const [chartResetKey, setChartResetKey] = useState(0)
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const historyQuery = useQuery({
@@ -103,7 +108,6 @@ export default function AgentAnalysis() {
 
     try {
       setAnalyzing(true)
-      setResult(null)
       setJobProgress(0)
       setJobStages([])
 
@@ -124,6 +128,7 @@ export default function AgentAnalysis() {
           }
         },
       })
+      setStockIndicators([])
       setResult(data)
 
       if (data.success) {
@@ -182,9 +187,9 @@ export default function AgentAnalysis() {
   const getSignalColor = (signal: string) => {
     switch (signal) {
       case 'buy':
-        return 'green'
-      case 'sell':
         return 'red'
+      case 'sell':
+        return 'green'
       default:
         return 'default'
     }
@@ -358,6 +363,7 @@ export default function AgentAnalysis() {
       dataIndex: 'analysis_date',
       key: 'date',
       width: 120,
+      render: formatDate,
     },
     {
       title: '股票',
@@ -391,20 +397,23 @@ export default function AgentAnalysis() {
       dataIndex: 'final_confidence',
       key: 'confidence',
       width: 100,
-      render: (confidence: number) => (
-        <Progress
-          percent={Math.round(confidence * 100)}
-          size="small"
-          strokeColor="var(--color-ink)"
-        />
-      ),
+      render: (confidence: number) =>
+        isFiniteNumber(confidence) ? (
+          <Progress
+            percent={Math.round(confidence * 100)}
+            size="small"
+            strokeColor="var(--color-ink)"
+          />
+        ) : (
+          '—'
+        ),
     },
     {
       title: '耗时',
       dataIndex: 'duration_s',
       key: 'duration',
       width: 80,
-      render: (s: number) => `${s.toFixed(1)}s`,
+      render: (s: number) => `${formatNumber(s, 1)} 秒`,
     },
     {
       title: '操作',
@@ -415,7 +424,7 @@ export default function AgentAnalysis() {
           type="link"
           icon={<EyeOutlined />}
           onClick={() => handleViewDetail(record)}
-          loading={detailQuery.isFetching}
+          loading={detailQuery.isFetching && selectedDetailId === record.id}
         >
           查看
         </Button>
@@ -473,6 +482,7 @@ export default function AgentAnalysis() {
       {/* 分析结果 */}
       {result && (
         <div className="fade-in">
+          <QueryStatus fetching={analyzing} label="新分析运行中，以下保留上次结果" />
           {/* K线图表 - 轻量版 */}
           {stockIndicators.length > 0 && (
             <Card
@@ -483,17 +493,23 @@ export default function AgentAnalysis() {
                 </span>
               }
               extra={
-                <a
-                  href={`/stocks/${result.stock_code}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  style={{ color: 'var(--color-accent)' }}
-                >
-                  查看完整图表 →
-                </a>
+                <div className="research-chart-actions">
+                  <ChartResetButton
+                    onReset={() => setChartResetKey((value) => value + 1)}
+                  />
+                  <a
+                    href={`/stocks/${result.stock_code}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{ color: 'var(--color-accent)' }}
+                  >
+                    查看完整图表 →
+                  </a>
+                </div>
               }
             >
               <LazyECharts
+                resetKey={chartResetKey}
                 option={chartOption}
                 style={{ height: 300 }}
                 opts={{ renderer: 'canvas' }}
@@ -513,29 +529,27 @@ export default function AgentAnalysis() {
             }}
           >
             <button
+              className="analysis-export-button"
               onClick={() => copyToClipboard(result.final_reason || '')}
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: 'var(--space-sm)',
                 padding: '6px 24px',
-                background: '#FFFFFF',
+                background: 'var(--ui-panel)',
                 color: '#141413',
-                border: '1.5px solid #141413',
+                border: '1px solid var(--ui-line)',
                 borderRadius: 'var(--radius-btn)',
                 fontSize: 'var(--font-size-md)',
                 fontWeight: 450,
                 cursor: 'pointer',
-                transition: 'transform 0.1s',
               }}
-              onMouseDown={(e) => (e.currentTarget.style.transform = 'scale(0.98)')}
-              onMouseUp={(e) => (e.currentTarget.style.transform = 'scale(1)')}
-              onMouseLeave={(e) => (e.currentTarget.style.transform = 'scale(1)')}
             >
               <CopyOutlined />
               复制结论
             </button>
             <button
+              className="analysis-export-button"
               onClick={() => exportPdf(result)}
               style={{
                 display: 'inline-flex',
@@ -544,17 +558,13 @@ export default function AgentAnalysis() {
                 padding: '6px 24px',
                 background: '#141413',
                 color: '#F3F0EE',
-                border: '1.5px solid #141413',
+                border: '1px solid var(--ui-line)',
                 borderRadius: 'var(--radius-btn)',
                 fontSize: 'var(--font-size-md)',
                 fontWeight: 500,
                 letterSpacing: '-0.32px',
                 cursor: 'pointer',
-                transition: 'transform 0.1s',
               }}
-              onMouseDown={(e) => (e.currentTarget.style.transform = 'scale(0.98)')}
-              onMouseUp={(e) => (e.currentTarget.style.transform = 'scale(1)')}
-              onMouseLeave={(e) => (e.currentTarget.style.transform = 'scale(1)')}
             >
               <DownloadOutlined />
               导出 PDF
@@ -762,13 +772,32 @@ export default function AgentAnalysis() {
   const renderHistoryPanel = () => (
     <div className="fade-in">
       <Card>
-        <Table
-          columns={historyColumns}
-          dataSource={history}
-          rowKey="id"
-          pagination={{ pageSize: 10 }}
-          locale={{ emptyText: '暂无分析历史' }}
+        <QueryStatus
+          fetching={historyQuery.isFetching && Boolean(historyQuery.data)}
+          onRefresh={() => void historyQuery.refetch()}
         />
+        {historyQuery.isError && (
+          <Alert
+            type="error"
+            showIcon
+            message="更新分析历史失败"
+            action={<Button onClick={() => void historyQuery.refetch()}>重试</Button>}
+          />
+        )}
+        {historyQuery.isLoading ? (
+          <div role="status" aria-label="正在加载分析历史" aria-busy="true">
+            <Skeleton active paragraph={{ rows: 5 }} />
+          </div>
+        ) : (
+          <Table
+            columns={historyColumns}
+            dataSource={history}
+            rowKey="id"
+            pagination={{ pageSize: 10 }}
+            locale={{ emptyText: '暂无分析历史' }}
+            scroll={{ x: 700 }}
+          />
+        )}
       </Card>
     </div>
   )
@@ -834,7 +863,7 @@ export default function AgentAnalysis() {
   }
 
   return (
-    <div>
+    <div className="analysis-workspace">
       <PageHeader
         eyebrow="RESEARCH REPORTS"
         title="分析报告"

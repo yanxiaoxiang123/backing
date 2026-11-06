@@ -1,14 +1,16 @@
 # Backing
 
-### Remote Kronos on the DL prediction page
+### Remote Kronos and TimesFM on the DL prediction page
 
-The DL page supports remote Kronos-small/base forecasts (60–512 historical bars,
+The DL page supports remote Kronos-small/base and TimesFM 2.5 forecasts (60–512 historical bars,
 1–30 future exchange sessions) alongside the existing predictor. Forecasts and
 rolling backtests use durable jobs with progress, cancellation and refresh
 recovery. Configure `KRONOS_SERVICE_URL` and the backend-only
 `KRONOS_SERVICE_TOKEN`; deployment, pinned revisions, unit conventions, operational
 checks and historical evaluation limitations are in
 [deploy/kronos/README.md](deploy/kronos/README.md).
+TimesFM forecasts closing prices only; its fixed artifacts, deployment and
+verification records are documented in [deploy/kronos/TIMESFM.md](deploy/kronos/TIMESFM.md).
 
 ### Quant foundation update (2026-10-30)
 
@@ -148,7 +150,6 @@ backend/
       realtime_service.py     实时行情服务
       job_store.py            后台任务状态存储
       baostock_service.py     股票数据同步服务
-      dashboard_service.py    仪表盘数据服务
       strategy/
         base.py              策略基类
         factors.py           技术指标库
@@ -302,46 +303,50 @@ PR 由 [`.github/workflows/ci.yml`](.github/workflows/ci.yml) 强制执行上述
 
 ### 基础数据
 
-- `GET /api/stocks` - 股票列表
-- `GET /api/stocks/{code}` - 股票详情
-- `GET /api/stocks/{code}/kline` - K线数据
-- `GET /api/stocks/{code}/indicators` - 技术指标
-- `GET /api/dashboard` - 仪表盘数据
-- `GET /api/health` - 健康检查
-- `GET /api/indices` - 指数列表
-- `GET /api/indices/{code}/kline` - 指数K线
+- `GET /api/v1/stocks` - 股票列表
+- `GET /api/v1/stocks/{code}` - 股票详情
+- `GET /api/v1/stocks/{code}/kline` - K线数据
+- `GET /api/v1/stocks/{code}/indicators` - 技术指标
+- `GET /api/v1/health` - 健康检查
+- `GET /api/v1/indices` - 指数列表
 
 ### 实时行情
 
-- `GET /api/realtime/quotes?codes=600036,000001` - 批量股票行情（provider 不可达时返回 503 + `provider_unavailable`）
-- `GET /api/realtime/indices` - 主要指数行情（同上）
-- `GET /api/realtime/{code}?period=daily|weekly|monthly` - 股票K线数据（可达但无数据 → 200 + `data: []`；provider 不可达 → 503）
-- `GET /api/realtime/health` - Provider 健康快照：选中节点、池规模、计数器（requests/failovers/cache_hits/provider_unavailable）
-- `WS /api/ws/realtime/{code}?api_key=xxx` - WebSocket 实时K线推送（init/update 帧附带 `status` 字段）
+- `GET /api/v1/realtime/quotes?codes=600036,000001` - 批量股票行情（provider 不可达时返回 503 + `provider_unavailable`）
+- `GET /api/v1/realtime/indices` - 主要指数行情（同上）
+- `GET /api/v1/realtime/{code}?period=daily|weekly|monthly` - 股票K线数据（可达但无数据 → 200 + `data: []`；provider 不可达 → 503）
+- `GET /api/v1/realtime/health` - Provider 健康快照：选中节点、池规模、计数器（requests/failovers/cache_hits/provider_unavailable）
+- `WS /api/v1/ws/realtime/{code}?api_key=xxx` - WebSocket 实时K线推送（init/update 帧附带 `status` 字段）
 
 ### 股票筛选器
 
-- `POST /api/screener` - 执行筛选（同步）
-- `POST /api/screener/submit` - 提交筛选任务（异步，AI 深度分析）
-- `GET /api/screener/{job_id}` - 查询筛选任务状态
+- `POST /api/v1/screener/submit` - 提交筛选任务（异步，AI 深度分析）
+- `GET /api/v1/screener/history` - 筛选任务历史
+- `GET /api/v1/screener/{job_id}` - 查询筛选任务状态
 
 ### 回测与策略
 
-- `POST /api/backtest`
-- `GET /api/backtest/results`
-- `GET /api/backtest/{id}`
-- `GET /api/strategies`
-- `POST /api/strategies/signals`
-- `POST /api/strategies/backtest`
-- `POST /api/strategies/optimize`
+- `POST /api/v1/backtest`
+- `GET /api/v1/backtest/results`
+- `GET /api/v1/backtest/{id}`
+- `GET /api/v1/strategies`
+- `POST /api/v1/strategies/signals`
+- `POST /api/v1/strategies/backtest`
+- `POST /api/v1/strategies/optimize`
+- `POST /api/v1/strategies/optimize/submit` - 异步参数优化
 
 ### AI 分析
 
-- `POST /api/agent/analyze`
-- `GET /api/agent/history`
-- `GET /api/agent/{id}`
-- `GET /api/agent/indices`
-- `POST /api/agent/market/analyze`
+- `POST /api/v1/agent/analyze`
+- `POST /api/v1/agent/analyze/submit` - 异步股票分析
+- `GET /api/v1/agent/history`
+- `GET /api/v1/agent/{id}`
+
+仪表盘通过自选股、实时行情、分析历史和任务状态接口组合数据。旧版
+`GET /api/v1/dashboard`、`POST /api/v1/screener`、
+`GET /api/v1/agent/indices` 和 `POST /api/v1/agent/market/analyze`
+已移除；选股统一使用 `/api/v1/screener/submit` 提交并查询任务结果。
+清理依据、兼容范围与验证记录见 [无效代码清理记录](docs/2026-11-05-dead-code-cleanup.md)。
 
 ## 研究行情、公司行动与风险证据
 
@@ -374,6 +379,10 @@ python data_sync_cli.py --codes sh.600000 --days 730 --metadata-only
 全市场下载可能耗时较长；进度报告中失败或未处理证券不计为补数完成。
 下载适配器通过独立进程限制单次 SDK 请求为 45 秒，超时后关闭该连接并
 报告失败，不让阻塞的网络调用无限占用任务。
+
+Agent 工作台会使用现有 DeepSeek 配置，根据首条消息后台生成并保存会话标题。
+打开最近列表时会自动补全已有未命名会话；AI 失败时使用首条消息摘要，不影响聊天。
+无需新增配置或数据库迁移，详见 `docs/2026-11-05-agent-chat-titles.md`。
 
 Agent 工作台“风险”页可输入明确的目标权重、止损距离和理由。
 `POST /api/v1/agent-runs/{run_id}/risk` 接收 `targets`，每项包含

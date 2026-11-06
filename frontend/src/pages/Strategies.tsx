@@ -7,7 +7,7 @@ import {
   lazy,
   Suspense,
 } from 'react'
-import { Card, message } from 'antd'
+import { Alert, Card, message } from 'antd'
 import { useQuery } from '@tanstack/react-query'
 import {
   generateSignals,
@@ -43,6 +43,7 @@ import { strategyKeys } from '../services/queryKeys'
 import { normalizeStockCode } from '../utils/stockIdentity'
 import { useSearchParams } from 'react-router-dom'
 import { syncResearchHistory } from '../services/marketData'
+import { STRATEGY_METADATA } from '../constants/strategy'
 
 function Strategies() {
   const chartRef = useRef<HTMLDivElement>(null)
@@ -64,6 +65,7 @@ function Strategies() {
     null,
   )
   const [loadingSignals, setLoadingSignals] = useState(false)
+  const [catalogOpen, setCatalogOpen] = useState(false)
   const [loadingBacktest, setLoadingBacktest] = useState(false)
   const [loadingOptimize, setLoadingOptimize] = useState(false)
   const [loadingData, setLoadingData] = useState(false)
@@ -114,6 +116,14 @@ function Strategies() {
   // Results state
   const [signals, setSignals] = useState<SignalDataPoint[]>([])
   const [signalStats, setSignalStats] = useState<SignalStats | null>(null)
+  const [signalContext, setSignalContext] = useState('')
+  const currentSignalContext = JSON.stringify({
+    stockCode,
+    dateRange,
+    selectedStrategy,
+    parameters,
+    executionOptions,
+  })
   const [backtestResult, setBacktestResult] = useState<StrategyBacktestResponse | null>(
     null,
   )
@@ -194,8 +204,6 @@ function Strategies() {
     }
 
     setLoadingSignals(true)
-    setBacktestResult(null)
-    setOptimizeResult(null)
     try {
       await loadResearchData()
       const response = await generateSignals({
@@ -206,6 +214,9 @@ function Strategies() {
         parameters,
         ...executionOptions,
       })
+      setBacktestResult(null)
+      setOptimizeResult(null)
+      setSignalContext(currentSignalContext)
       setSignals(response.data)
       setSignalStats(response.stats ?? null)
     } catch (error) {
@@ -221,6 +232,7 @@ function Strategies() {
     parameters,
     loadResearchData,
     executionOptions,
+    currentSignalContext,
   ])
 
   const handleRunBacktest = useCallback(async () => {
@@ -320,7 +332,6 @@ function Strategies() {
       return
     }
     setLoadingCompare(true)
-    setCompareResult(null)
     try {
       await loadResearchData()
       const response = await compareStrategies({
@@ -341,8 +352,27 @@ function Strategies() {
   }, [stockCode, dateRange, initialCapital, loadResearchData, executionOptions])
 
   const getCurrentChartOption = useMemo(
-    () => getChartOption(klineData, signals, backtestResult),
-    [klineData, signals, backtestResult],
+    () =>
+      getChartOption(
+        klineData,
+        signalContext === currentSignalContext ? signals : [],
+        backtestResult?.stock_code === stockCode &&
+          backtestResult.start_date === dateRange[0] &&
+          backtestResult.end_date === dateRange[1] &&
+          backtestResult.strategy_name === selectedStrategy
+          ? backtestResult
+          : null,
+      ),
+    [
+      klineData,
+      signals,
+      backtestResult,
+      signalContext,
+      currentSignalContext,
+      stockCode,
+      dateRange,
+      selectedStrategy,
+    ],
   )
   const getCurrentPortfolioChartOption = useMemo(
     () => getPortfolioChartOption(backtestResult?.portfolio_values ?? []),
@@ -356,52 +386,89 @@ function Strategies() {
         title="策略研究"
         subtitle="选择策略、配置参数并验证历史表现"
       />
+      {backtestResult && (
+        <Alert
+          className="strategy-saved-context"
+          type="info"
+          showIcon
+          message={`已保存结果 #${backtestResult.result_id} · ${backtestResult.stock_code} · ${STRATEGY_METADATA[backtestResult.strategy_name]?.name || backtestResult.strategy_name}`}
+          description={`${backtestResult.start_date} — ${backtestResult.end_date}。${
+            backtestResult.stock_code !== stockCode ||
+            backtestResult.strategy_name !== selectedStrategy ||
+            backtestResult.start_date !== dateRange[0] ||
+            backtestResult.end_date !== dateRange[1] ||
+            backtestResult.initial_capital !== initialCapital ||
+            Object.keys({ ...parameters, ...backtestResult.parameters }).some(
+              (key) => parameters[key] !== backtestResult.parameters?.[key],
+            )
+              ? '当前配置已调整；重新执行回测后更新绩效与交易记录。'
+              : '绩效与交易记录对应这次已保存运行。'
+          }`}
+        />
+      )}
 
       <div className="strategies-layout">
-        <StrategyList
-          strategies={strategies}
-          selectedStrategy={selectedStrategy}
-          loading={strategiesQuery.isLoading}
-          onSelect={setSelectedStrategy}
-          error={strategiesQuery.error}
-          onRetry={() => void strategiesQuery.refetch()}
-        />
+        <div className="strategy-configuration-column">
+          <details
+            className="strategy-catalog-disclosure"
+            open={catalogOpen || !selectedStrategy}
+            onToggle={(event) => setCatalogOpen(event.currentTarget.open)}
+          >
+            <summary>
+              {selectedStrategy
+                ? `当前策略：${STRATEGY_METADATA[selectedStrategy]?.name || selectedStrategy}`
+                : '选择研究策略'}
+              <span>展开搜索与切换策略</span>
+            </summary>
+            <StrategyList
+              strategies={strategies}
+              selectedStrategy={selectedStrategy}
+              loading={strategiesQuery.isLoading}
+              onSelect={(name) => {
+                setSelectedStrategy(name)
+                setCatalogOpen(false)
+              }}
+              error={strategiesQuery.error}
+              onRetry={() => void strategiesQuery.refetch()}
+            />
+          </details>
 
-        <StrategyConfig
-          strategies={strategies}
-          selectedStrategy={selectedStrategy}
-          stockCode={stockCode}
-          dateRange={dateRange}
-          initialCapital={initialCapital}
-          parameters={parameters}
-          priceSource={priceSource}
-          corporateActionMode={corporateActionMode}
-          dividendTaxRate={dividendTaxRate}
-          loadingData={loadingData}
-          onPriceSourceChange={setPriceSource}
-          onCorporateActionModeChange={setCorporateActionMode}
-          onDividendTaxRateChange={setDividendTaxRate}
-          onSyncData={handleSyncData}
-          loading={{
-            signals: loadingSignals,
-            backtest: loadingBacktest,
-            optimize: loadingOptimize,
-            compare: loadingCompare,
-          }}
-          onStockCodeChange={setStockCode}
-          onDateRangeChange={setDateRange}
-          onCapitalChange={setInitialCapital}
-          onParameterChange={setParameters}
-          onGenerateSignals={handleGenerateSignals}
-          onRunBacktest={handleRunBacktest}
-          onOptimize={handleOptimize}
-          onCompare={handleCompare}
-        />
+          <StrategyConfig
+            strategies={strategies}
+            selectedStrategy={selectedStrategy}
+            stockCode={stockCode}
+            dateRange={dateRange}
+            initialCapital={initialCapital}
+            parameters={parameters}
+            priceSource={priceSource}
+            corporateActionMode={corporateActionMode}
+            dividendTaxRate={dividendTaxRate}
+            loadingData={loadingData}
+            onPriceSourceChange={setPriceSource}
+            onCorporateActionModeChange={setCorporateActionMode}
+            onDividendTaxRateChange={setDividendTaxRate}
+            onSyncData={handleSyncData}
+            loading={{
+              signals: loadingSignals,
+              backtest: loadingBacktest,
+              optimize: loadingOptimize,
+              compare: loadingCompare,
+            }}
+            onStockCodeChange={setStockCode}
+            onDateRangeChange={setDateRange}
+            onCapitalChange={setInitialCapital}
+            onParameterChange={setParameters}
+            onGenerateSignals={handleGenerateSignals}
+            onRunBacktest={handleRunBacktest}
+            onOptimize={handleOptimize}
+            onCompare={handleCompare}
+          />
+        </div>
 
         <StrategyResults
           klineData={klineData}
           signals={signals}
-          signalStats={signalStats}
+          signalStats={signalContext === currentSignalContext ? signalStats : null}
           backtestResult={backtestResult}
           loading={{ signals: loadingSignals, backtest: loadingBacktest }}
           chartRef={chartRef}

@@ -1,377 +1,322 @@
-import { useEffect, useMemo, useState } from 'react'
-import { Alert, Button, Input, Modal, Select, Spin, Table } from 'antd'
+import { useMemo, useRef, useState } from 'react'
+import {
+  Alert,
+  Button,
+  Descriptions,
+  Drawer,
+  Empty,
+  Grid,
+  Input,
+  Pagination,
+  Select,
+  Skeleton,
+  Table,
+} from 'antd'
 import { useQuery } from '@tanstack/react-query'
-import { EyeOutlined } from '@ant-design/icons'
+import { EyeOutlined, LeftOutlined, RightOutlined } from '@ant-design/icons'
+import { Link } from 'react-router-dom'
+import { Prose } from '../components/Prose'
 import { LazyECharts } from '../components/charts/LazyECharts'
+import { ChartResetButton } from '../components/charts/ChartResetButton'
+import { FinancialValue } from '../components/research/FinancialValue'
+import { QueryStatus } from '../components/research/QueryStatus'
+import { ParameterSnapshot } from '../components/research/ParameterSnapshot'
+import { MetricCard, PageHeader } from '../components/research/ResearchPrimitives'
 import { getBacktestResults, getBacktestResult, getStock } from '../services/api'
 import type { BacktestListItem } from '../types'
 import { backtestKeys, stockKeys } from '../services/queryKeys'
-import { MetricCard, PageHeader } from '../components/research/ResearchPrimitives'
+import { STRATEGY_METADATA } from '../constants/strategy'
+import { useHistoryLocation } from '../hooks/useHistoryLocation'
+import { useScrollMemory } from '../hooks/useScrollMemory'
+import {
+  formatDate,
+  formatDateTime,
+  formatNumber,
+  formatPercent,
+  isFiniteNumber,
+  tradeAction,
+} from '../utils/dataFormat'
 
-const StatBox = ({
-  label,
-  value,
-  suffix = '',
-  color,
-}: {
-  label: string
-  value: number | string
-  suffix?: string
-  color?: string
-}) => (
-  <div className="stat-card" style={{ padding: 'var(--space-md)' }}>
-    <div
-      style={{
-        fontSize: 'var(--font-size-xs)',
-        color: 'var(--color-text-secondary)',
-        marginBottom: 4,
-      }}
-    >
-      {label}
-    </div>
-    <div
-      className="stat-value"
-      style={{
-        fontSize: 'var(--font-size-lg)',
-        color: color || 'var(--color-text-primary)',
-      }}
-    >
-      {typeof value === 'number' ? value.toLocaleString() : value}
-      {suffix}
-    </div>
-  </div>
-)
+const strategyLabel = (name?: string) =>
+  name ? STRATEGY_METADATA[name]?.name || name : '历史策略'
 
 function BacktestHistory() {
-  const [page, setPage] = useState(1)
-  const [pageSize, setPageSize] = useState(20)
-  const [detailVisible, setDetailVisible] = useState(false)
-  const [selectedResultId, setSelectedResultId] = useState<number | null>(null)
-  const [stockFilter, setStockFilter] = useState('')
-  const [strategyFilter, setStrategyFilter] = useState('')
-  const [sortOrder, setSortOrder] = useState<'newest' | 'return'>('newest')
-
-  const [debouncedStock, setDebouncedStock] = useState('')
-  const [debouncedStrategy, setDebouncedStrategy] = useState('')
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedStock(stockFilter)
-      setDebouncedStrategy(strategyFilter)
-      setPage(1)
-    }, 300)
-    return () => clearTimeout(timer)
-  }, [stockFilter, strategyFilter])
-
+  const location = useHistoryLocation()
+  const { page, pageSize, stock, strategy, sort, selectedId, update } = location
+  const screens = Grid.useBreakpoint()
+  const [resetKey, setResetKey] = useState(0)
+  const opener = useRef<HTMLElement | null>(null)
   const resultsQuery = useQuery({
     queryKey: backtestKeys.list({
       cursor: (page - 1) * pageSize,
       limit: pageSize,
-      stock: debouncedStock || undefined,
-      strategy: debouncedStrategy || undefined,
-      sort: sortOrder,
+      stock: stock || undefined,
+      strategy: strategy || undefined,
+      sort,
     }),
     queryFn: () =>
       getBacktestResults(
-        debouncedStock || undefined,
+        stock || undefined,
         (page - 1) * pageSize,
         pageSize,
-        debouncedStrategy || undefined,
-        sortOrder,
+        strategy || undefined,
+        sort,
       ),
     placeholderData: (previous) => previous,
     staleTime: 30_000,
   })
   const detailQuery = useQuery({
-    queryKey: backtestKeys.detail(selectedResultId ?? 0),
-    queryFn: () => getBacktestResult(selectedResultId as number),
-    enabled: detailVisible && selectedResultId !== null,
+    queryKey: backtestKeys.detail(selectedId ?? 0),
+    queryFn: () => getBacktestResult(selectedId as number),
+    enabled: selectedId !== null,
     staleTime: 5 * 60_000,
   })
+  const currentResult = detailQuery.data
   const stockQuery = useQuery({
-    queryKey: stockKeys.detail(detailQuery.data?.stock_code ?? ''),
-    queryFn: () => getStock(detailQuery.data?.stock_code as string),
-    enabled: detailVisible && Boolean(detailQuery.data?.stock_code),
+    queryKey: stockKeys.detail(currentResult?.stock_code ?? ''),
+    queryFn: () => getStock(currentResult!.stock_code),
+    enabled: selectedId !== null && Boolean(currentResult?.stock_code),
     staleTime: 5 * 60_000,
   })
+  useScrollMemory(
+    location.scrollKey,
+    Boolean(resultsQuery.data) && !resultsQuery.isPlaceholderData,
+  )
   const results = useMemo(
     () => resultsQuery.data?.items ?? [],
     [resultsQuery.data?.items],
   )
   const total = resultsQuery.data?.total ?? 0
-  const currentResult = detailQuery.data ?? null
-  const stockInfo = stockQuery.data ?? null
-  const visibleResults = results
   const summary = useMemo(() => {
-    const totalReturn = visibleResults.reduce((sum, item) => sum + item.total_return, 0)
-    const positive = visibleResults.filter((item) => item.total_return > 0).length
+    const returns = results.map((item) => item.total_return).filter(isFiniteNumber)
     return {
-      runs: visibleResults.length,
-      averageReturn: visibleResults.length ? totalReturn / visibleResults.length : 0,
-      positive,
+      runs: results.length,
+      average: returns.length
+        ? returns.reduce((sum, value) => sum + value, 0) / returns.length
+        : null,
+      positive: returns.filter((value) => value > 0).length,
+      measured: returns.length,
     }
-  }, [visibleResults])
-
-  const handleViewDetail = (id: number) => {
-    setDetailVisible(true)
-    setSelectedResultId(id)
+  }, [results])
+  const selectedIndex = results.findIndex((item) => item.id === selectedId)
+  const openDetail = (id: number) => {
+    opener.current =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null
+    update({ result: id })
   }
+  const changePage = (next: number, size: number) =>
+    update({ page: size === pageSize ? next : 1, page_size: size })
 
   const chartOption = useMemo(() => {
     if (!currentResult) return {}
-
-    if (currentResult.portfolio_values?.length) {
-      const values = currentResult.portfolio_values
-      return {
-        tooltip: { trigger: 'axis' },
-        grid: { left: '10%', right: '5%', bottom: '10%', top: '15%' },
-        xAxis: { type: 'category', data: values.map((item) => item.date) },
-        yAxis: { type: 'value', name: '资金(元)' },
-        series: [
-          {
-            name: '组合价值',
-            data: values.map((item) => item.total_value),
-            type: 'line',
-            smooth: true,
-          },
-        ],
-      }
-    }
-
-    if (!currentResult.trades.length) return {}
-
-    const trades = currentResult.trades
+    const saved = currentResult.portfolio_values
     const dates: string[] = []
     const capital: number[] = []
-    let currentCapital = currentResult.initial_capital
-
-    trades.forEach((trade) => {
-      dates.push(trade.trade_date || trade.date || '')
-      if (trade.action === 'buy') {
-        currentCapital -= trade.amount
-      } else {
-        currentCapital += trade.amount
+    if (saved?.length) {
+      saved.forEach((item) => {
+        dates.push(item.date)
+        capital.push(item.total_value)
+      })
+    } else {
+      let cash = currentResult.initial_capital
+      currentResult.trades.forEach((trade) => {
+        dates.push(trade.trade_date || trade.date || '')
+        cash += trade.action === 'buy' ? -trade.amount : trade.amount
+        capital.push(cash)
+      })
+      if (capital.length) {
+        dates.push(currentResult.end_date)
+        capital.push(currentResult.final_capital)
       }
-      capital.push(currentCapital)
-    })
-
-    dates.push(currentResult.end_date)
-    capital.push(currentResult.final_capital)
-
+    }
     return {
       tooltip: {
         trigger: 'axis',
-        backgroundColor: '#fff',
-        borderColor: 'var(--color-border)',
-        textStyle: { color: 'var(--color-text-primary)' },
+        valueFormatter: (value: unknown) => `${formatNumber(value)} 元`,
       },
-      grid: { left: '10%', right: '5%', bottom: '10%', top: '15%' },
+      grid: { left: 68, right: 20, bottom: 64, top: 34 },
       xAxis: {
         type: 'category',
         data: dates,
-        axisLine: { lineStyle: { color: 'var(--color-border)' } },
-        axisLabel: { color: 'var(--color-text-tertiary)', fontSize: 10 },
+        boundaryGap: false,
+        axisLabel: { hideOverlap: true, color: '#6b6b6b' },
+        axisLine: { lineStyle: { color: '#e8e8e8' } },
       },
       yAxis: {
         type: 'value',
-        name: '资金(元)',
-        axisLine: { show: false },
-        axisLabel: { color: 'var(--color-text-tertiary)', fontSize: 10 },
-        splitLine: {
-          lineStyle: { color: 'var(--color-border-light)', type: 'dashed' },
+        scale: true,
+        name: '资金 / 元',
+        axisLabel: {
+          color: '#6b6b6b',
+          formatter: (value: number) => formatNumber(value, 0),
         },
+        splitLine: { lineStyle: { color: '#eeeeee' } },
       },
+      dataZoom: [
+        { type: 'inside', start: 0, end: 100 },
+        { type: 'slider', bottom: 4, height: 20, start: 0, end: 100 },
+      ],
       series: [
         {
+          name: saved?.length ? '组合价值' : '交易现金流估算',
           data: capital,
           type: 'line',
-          smooth: true,
-          lineStyle: { color: '#0071e3', width: 2 },
-          areaStyle: {
-            color: {
-              type: 'linear',
-              x: 0,
-              y: 0,
-              x2: 0,
-              y2: 1,
-              colorStops: [
-                { offset: 0, color: 'rgba(0, 113, 227, 0.15)' },
-                { offset: 1, color: 'rgba(0, 113, 227, 0)' },
-              ],
-            },
-          },
+          step: saved?.length ? false : 'end',
+          smooth: false,
+          showSymbol: false,
+          lineStyle: { color: '#1677ff', width: 2 },
+          itemStyle: { color: '#1677ff' },
         },
       ],
     }
   }, [currentResult])
 
   const columns = [
-    {
-      title: 'ID',
-      dataIndex: 'id',
-      key: 'id',
-      width: 60,
-    },
-    {
-      title: '策略',
-      dataIndex: 'strategy_name',
-      key: 'strategy_name',
-      width: 120,
-      render: (name?: string) => name || '历史策略',
-    },
+    { title: 'ID', dataIndex: 'id', width: 65 },
+    { title: '策略', dataIndex: 'strategy_name', width: 130, render: strategyLabel },
     {
       title: '股票代码',
       dataIndex: 'stock_code',
-      key: 'stock_code',
-      width: 100,
-      render: (code: string) => (
-        <span style={{ color: 'var(--color-accent)', fontWeight: 500 }}>{code}</span>
-      ),
+      width: 112,
+      render: (code: string) => <Link to={`/stocks/${code}`}>{code}</Link>,
     },
-    {
-      title: '开始日期',
-      dataIndex: 'start_date',
-      key: 'start_date',
-      width: 100,
-    },
-    {
-      title: '结束日期',
-      dataIndex: 'end_date',
-      key: 'end_date',
-      width: 100,
-    },
+    { title: '开始日期', dataIndex: 'start_date', width: 110, render: formatDate },
+    { title: '结束日期', dataIndex: 'end_date', width: 110, render: formatDate },
     {
       title: '收益率',
       dataIndex: 'total_return',
-      key: 'total_return',
-      width: 100,
-      render: (value: number) => {
-        const isUp = value > 0
-        return (
-          <span className={`price-badge ${isUp ? 'up' : 'down'}`}>
-            {isUp ? '+' : ''}
-            {value?.toFixed(2)}%
-          </span>
-        )
-      },
+      width: 105,
+      align: 'right' as const,
+      render: (value: unknown) => <FinancialValue value={value} />,
     },
     {
       title: '交易次数',
       dataIndex: 'total_trades',
-      key: 'total_trades',
-      width: 80,
+      width: 90,
+      align: 'right' as const,
+      render: (value: unknown) => formatNumber(value, 0),
     },
     {
-      title: '回测时间',
+      title: '回测时间（北京时间）',
       dataIndex: 'created_at',
-      key: 'created_at',
-      width: 180,
-      render: (text: string) => new Date(text).toLocaleString(),
+      width: 174,
+      render: formatDateTime,
     },
     {
       title: '操作',
       key: 'action',
-      width: 80,
+      width: 85,
+      fixed: 'right' as const,
       render: (_: unknown, record: BacktestListItem) => (
         <Button
           type="text"
           icon={<EyeOutlined />}
-          onClick={() => handleViewDetail(record.id)}
-          style={{ color: 'var(--color-accent)' }}
+          onClick={() => openDetail(record.id)}
         >
           查看
         </Button>
       ),
     },
   ]
-
   const tradeColumns = [
     {
       title: '日期',
       dataIndex: 'trade_date',
-      key: 'trade_date',
-      width: 120,
-      render: (_: string, record: { trade_date?: string; date?: string }) =>
-        record.trade_date || record.date || '-',
+      width: 116,
+      render: (_: unknown, record: { trade_date?: string; date?: string }) =>
+        formatDate(record.trade_date || record.date),
     },
     {
       title: '操作',
       dataIndex: 'action',
-      key: 'action',
-      width: 80,
-      render: (action: string) => (
-        <span
-          style={{
-            color: action === 'buy' ? 'var(--color-danger)' : 'var(--color-success)',
-            fontWeight: 500,
-          }}
-        >
-          {action === 'buy' ? '买入' : '卖出'}
-        </span>
-      ),
+      width: 76,
+      render: (action: string) => {
+        const value = tradeAction(action)
+        return <span className={value.className}>{value.label}</span>
+      },
     },
-    { title: '价格', dataIndex: 'price', key: 'price', width: 100 },
-    { title: '数量', dataIndex: 'quantity', key: 'quantity', width: 100 },
-    { title: '金额', dataIndex: 'amount', key: 'amount', width: 120 },
+    {
+      title: '价格 / 元',
+      dataIndex: 'price',
+      align: 'right' as const,
+      render: (value: unknown) => formatNumber(value),
+    },
+    {
+      title: '数量 / 股',
+      dataIndex: 'quantity',
+      align: 'right' as const,
+      render: (value: unknown) => formatNumber(value, 0),
+    },
+    {
+      title: '金额 / 元',
+      dataIndex: 'amount',
+      align: 'right' as const,
+      render: (value: unknown) => formatNumber(value),
+    },
   ]
 
   return (
-    <div className="fade-in">
+    <div className="fade-in history-workspace">
       <PageHeader
         eyebrow="BACKTEST HISTORY"
         title="回测历史"
-        subtitle="查看历史运行、绩效指标和交易记录"
+        subtitle="筛选已保存的运行，比较收益并追溯参数与交易。"
+        actions={
+          <QueryStatus
+            fetching={resultsQuery.isFetching && Boolean(resultsQuery.data)}
+            onRefresh={() => void resultsQuery.refetch()}
+          />
+        }
       />
-
       <div className="backtest-history-summary" aria-label="回测摘要">
-        <MetricCard label="当前页运行" value={summary.runs} detail="按当前筛选条件" />
         <MetricCard
-          label="平均收益率"
-          value={`${summary.averageReturn >= 0 ? '+' : ''}${summary.averageReturn.toFixed(2)}%`}
-          tone={
-            summary.averageReturn > 0
-              ? 'up'
-              : summary.averageReturn < 0
-                ? 'down'
-                : 'neutral'
+          label="当前页运行"
+          value={formatNumber(summary.runs, 0)}
+          detail={`筛选后共 ${formatNumber(total, 0)} 次运行`}
+        />
+        <MetricCard
+          label="本页平均收益率"
+          value={<FinancialValue value={summary.average} />}
+          detail={
+            summary.measured
+              ? `${summary.measured} 条有效收益 · 非全量统计`
+              : '暂无有效收益'
           }
         />
         <MetricCard
-          label="盈利运行"
-          value={summary.positive}
+          label="本页盈利运行"
+          value={formatNumber(summary.positive, 0)}
           detail={
-            summary.runs
-              ? `占 ${Math.round((summary.positive / summary.runs) * 100)}%`
+            summary.measured
+              ? `有效记录中占 ${formatPercent((summary.positive / summary.measured) * 100, 0)}`
               : '暂无记录'
           }
-          tone={summary.positive > 0 ? 'up' : 'neutral'}
         />
       </div>
-
-      {/* 历史记录列表 */}
-      <div className="research-panel backtest-history-panel">
+      <section className="research-panel backtest-history-panel" aria-label="实验记录">
+        <div className="research-panel-heading">
+          <Prose as="h2">实验记录</Prose>
+          <span>共 {formatNumber(total, 0)} 次运行</span>
+        </div>
         <div className="backtest-history-toolbar" aria-label="回测历史筛选">
           <Input
             allowClear
             placeholder="筛选股票代码"
             aria-label="筛选股票代码"
-            value={stockFilter}
-            onChange={(event) => setStockFilter(event.target.value)}
+            value={location.stockInput}
+            onChange={(event) => location.setStockInput(event.target.value)}
           />
           <Input
             allowClear
             placeholder="筛选策略"
             aria-label="筛选策略"
-            value={strategyFilter}
-            onChange={(event) => setStrategyFilter(event.target.value)}
+            value={location.strategyInput}
+            onChange={(event) => location.setStrategyInput(event.target.value)}
           />
           <Select
             aria-label="回测排序"
-            value={sortOrder}
-            onChange={(val) => {
-              setSortOrder(val)
-              setPage(1)
-            }}
+            value={sort}
+            onChange={(value) => update({ sort: value, page: 1 })}
             options={[
               { value: 'newest', label: '最新运行' },
               { value: 'return', label: '收益率优先' },
@@ -382,170 +327,251 @@ function BacktestHistory() {
           <Alert
             type="error"
             showIcon
-            message="加载历史记录失败"
+            message={
+              resultsQuery.data ? '更新失败，以下保留上次记录' : '加载历史记录失败'
+            }
             action={<Button onClick={() => void resultsQuery.refetch()}>重试</Button>}
           />
         )}
-        <Table
-          columns={columns}
-          dataSource={visibleResults}
-          rowKey="id"
-          loading={resultsQuery.isLoading || resultsQuery.isFetching}
-          pagination={{
-            current: page,
-            pageSize: pageSize,
-            total,
-            onChange: (p, ps) => {
-              if (ps !== pageSize) {
-                setPage(1)
-                setPageSize(ps)
-              } else {
-                setPage(p)
-                setPageSize(ps)
-              }
-            },
-            showSizeChanger: true,
-            showTotal: (t) => `共 ${t} 条`,
-          }}
-        />
-      </div>
-
-      {/* 详情 Modal */}
-      <Modal
-        title={
-          <span style={{ fontWeight: 600 }}>
-            回测详情{' '}
-            {stockInfo && (
-              <span style={{ color: 'var(--color-text-secondary)', fontWeight: 400 }}>
-                - {stockInfo.name}
-              </span>
-            )}
-          </span>
-        }
-        open={detailVisible}
-        onCancel={() => setDetailVisible(false)}
-        footer={null}
-        width={900}
-        centered
+        {resultsQuery.isLoading ? (
+          <div
+            className="history-loading"
+            role="status"
+            aria-label="正在加载历史记录"
+            aria-busy="true"
+          >
+            <Skeleton active paragraph={{ rows: 6 }} />
+          </div>
+        ) : screens.md ? (
+          <Table
+            columns={columns}
+            dataSource={results}
+            rowKey="id"
+            scroll={{ x: 1080 }}
+            pagination={false}
+            rowClassName={(record) =>
+              record.id === selectedId ? 'history-row-selected' : ''
+            }
+          />
+        ) : results.length ? (
+          <ul className="history-mobile-list" aria-label="回测记录">
+            {results.map((record) => (
+              <li key={record.id}>
+                <div className="history-mobile-top">
+                  <Link to={`/stocks/${record.stock_code}`}>{record.stock_code}</Link>
+                  <FinancialValue value={record.total_return} />
+                </div>
+                <div className="history-mobile-meta">
+                  <span>
+                    {strategyLabel(record.strategy_name)} · #{record.id}
+                  </span>
+                  <Button
+                    type="text"
+                    size="small"
+                    icon={<EyeOutlined />}
+                    onClick={() => openDetail(record.id)}
+                  >
+                    查看
+                  </Button>
+                </div>
+                <div className="history-mobile-dates">
+                  {formatDate(record.start_date)} — {formatDate(record.end_date)}
+                </div>
+                <div className="history-mobile-dates">
+                  {formatDateTime(record.created_at)} · 北京时间
+                </div>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <Empty
+            image={Empty.PRESENTED_IMAGE_SIMPLE}
+            description="没有符合筛选的回测记录"
+          />
+        )}
+        {total > 0 && (
+          <Pagination
+            className="history-pagination"
+            current={page}
+            pageSize={pageSize}
+            total={total}
+            onChange={changePage}
+            showSizeChanger={Boolean(screens.md)}
+            pageSizeOptions={[10, 20, 50, 100]}
+            simple={!screens.md}
+            showTotal={(count) => `共 ${formatNumber(count, 0)} 条`}
+          />
+        )}
+      </section>
+      <Drawer
+        title={`回测详情${selectedId ? ` · #${selectedId}` : ''}${stockQuery.data?.name ? ` · ${stockQuery.data.name}` : ''}`}
+        open={selectedId !== null}
+        onClose={() => update({ result: null }, true)}
+        width={screens.md ? 880 : '100%'}
+        rootClassName="history-detail-drawer"
+        afterOpenChange={(open) => {
+          if (!open && opener.current?.isConnected) opener.current.focus()
+        }}
       >
-        {(detailQuery.isLoading || stockQuery.isLoading) && (
-          <div className="loading-container" style={{ minHeight: 200 }}>
-            <Spin size="large" />
+        <div className="history-detail-navigation">
+          <span>
+            {selectedIndex >= 0
+              ? `本页第 ${selectedIndex + 1} / ${results.length} 条`
+              : '通过链接查看的记录'}
+          </span>
+          <div>
+            <Button
+              size="small"
+              icon={<LeftOutlined />}
+              disabled={selectedIndex <= 0 || resultsQuery.isPlaceholderData}
+              onClick={() => update({ result: results[selectedIndex - 1].id }, true)}
+            >
+              上一条
+            </Button>
+            <Button
+              size="small"
+              disabled={
+                selectedIndex < 0 ||
+                selectedIndex >= results.length - 1 ||
+                resultsQuery.isPlaceholderData
+              }
+              onClick={() => update({ result: results[selectedIndex + 1].id }, true)}
+            >
+              下一条 <RightOutlined />
+            </Button>
+          </div>
+        </div>
+        {detailQuery.isLoading && (
+          <div role="status" aria-label="正在加载回测详情" aria-busy="true">
+            <Skeleton active paragraph={{ rows: 8 }} />
           </div>
         )}
-
         {detailQuery.isError && (
           <Alert
             type="error"
             showIcon
-            message="加载详情失败"
+            message="加载详情失败，记录可能已被删除"
             action={<Button onClick={() => void detailQuery.refetch()}>重试</Button>}
           />
         )}
-
-        {currentResult && !detailQuery.isLoading && !stockQuery.isLoading && (
-          <>
-            {/* 统计指标 */}
-            <div
-              className="grid"
-              style={{
-                gridTemplateColumns: 'repeat(4, 1fr)',
-                marginBottom: 'var(--space-md)',
-              }}
-            >
-              <StatBox
+        {currentResult && (
+          <div className="history-detail-content">
+            <div className="backtest-detail-metrics">
+              <MetricCard
                 label="总收益率"
-                value={currentResult.total_return.toFixed(2)}
-                suffix="%"
-                color={
-                  currentResult.total_return > 0
-                    ? 'var(--color-success)'
-                    : 'var(--color-danger)'
-                }
+                value={<FinancialValue value={currentResult.total_return} />}
               />
-              <StatBox
+              <MetricCard
                 label="年化收益率"
-                value={currentResult.annual_return.toFixed(2)}
-                suffix="%"
-                color={
-                  currentResult.annual_return > 0
-                    ? 'var(--color-success)'
-                    : 'var(--color-danger)'
-                }
+                value={<FinancialValue value={currentResult.annual_return} />}
               />
-              <StatBox
+              <MetricCard
                 label="夏普比率"
-                value={(currentResult.sharpe_ratio || 0).toFixed(2)}
+                value={formatNumber(currentResult.sharpe_ratio)}
               />
-              <StatBox
+              <MetricCard
                 label="最大回撤"
-                value={(currentResult.max_drawdown || 0).toFixed(2)}
-                suffix="%"
-                color="var(--color-danger)"
+                value={formatPercent(currentResult.max_drawdown)}
               />
             </div>
-
-            <div
-              style={{
-                marginBottom: 'var(--space-md)',
-                color: 'var(--color-text-secondary)',
-              }}
-            >
-              参数快照：
-              {currentResult.parameters
-                ? JSON.stringify(currentResult.parameters)
-                : '未保存（旧记录）'}
-            </div>
-
-            {/* 资金曲线 */}
-            <div
-              style={{
-                marginBottom: 'var(--space-md)',
-                padding: 'var(--space-md)',
-                background: 'var(--color-canvas-lifted)',
-                borderRadius: 'var(--radius-card)',
-              }}
-            >
-              <div
-                style={{
-                  fontSize: 'var(--font-size-sm)',
-                  fontWeight: 600,
-                  marginBottom: 'var(--space-sm)',
-                  color: 'var(--color-text-secondary)',
-                }}
-              >
-                资金曲线
+            <Descriptions size="small" bordered column={screens.sm ? 2 : 1}>
+              <Descriptions.Item label="股票">
+                <Link to={`/stocks/${currentResult.stock_code}`}>
+                  {currentResult.stock_code}
+                </Link>
+              </Descriptions.Item>
+              <Descriptions.Item label="策略">
+                {strategyLabel(currentResult.strategy_name)}
+              </Descriptions.Item>
+              <Descriptions.Item label="回测区间" span={2}>
+                <span className="data-nowrap">
+                  {formatDate(currentResult.start_date)}
+                </span>
+                {' — '}
+                <span className="data-nowrap">
+                  {formatDate(currentResult.end_date)}
+                </span>
+              </Descriptions.Item>
+              <Descriptions.Item label="初始资金 / 元">
+                <span className="data-nowrap">
+                  {formatNumber(currentResult.initial_capital)}
+                </span>
+              </Descriptions.Item>
+              <Descriptions.Item label="最终资金 / 元">
+                <span className="data-nowrap">
+                  {formatNumber(currentResult.final_capital)}
+                </span>
+              </Descriptions.Item>
+              <Descriptions.Item label="生成时间" span={2}>
+                <span className="data-nowrap">
+                  {formatDateTime(currentResult.created_at)}
+                </span>{' '}
+                <small className="research-data-context">北京时间</small>
+              </Descriptions.Item>
+            </Descriptions>
+            <section>
+              <Prose as="h3">参数快照</Prose>
+              <ParameterSnapshot parameters={currentResult.parameters} />
+            </section>
+            <section className="history-equity-panel">
+              <div className="history-section-heading">
+                <Prose as="h3">
+                  {currentResult.portfolio_values?.length
+                    ? '资金曲线'
+                    : '交易现金流（旧记录估算）'}
+                </Prose>
+                <ChartResetButton onReset={() => setResetKey((value) => value + 1)} />
               </div>
-              <LazyECharts option={chartOption} style={{ height: 280 }} />
-            </div>
-
-            {/* 交易记录 */}
-            <div
-              style={{
-                background: 'var(--color-canvas-lifted)',
-                borderRadius: 'var(--radius-card)',
-              }}
-            >
-              <div
-                style={{
-                  fontSize: 'var(--font-size-md)',
-                  fontWeight: 600,
-                  marginBottom: 'var(--space-md)',
-                }}
-              >
-                交易记录
-              </div>
+              <p className="research-data-context">
+                {formatDate(
+                  currentResult.portfolio_values?.[0]?.date || currentResult.start_date,
+                )}{' '}
+                —{' '}
+                {formatDate(
+                  currentResult.portfolio_values?.[
+                    currentResult.portfolio_values.length - 1
+                  ]?.date || currentResult.end_date,
+                )}{' '}
+                · 单位：人民币元
+              </p>
+              {currentResult.portfolio_values?.length || currentResult.trades.length ? (
+                <LazyECharts
+                  option={chartOption}
+                  resetKey={resetKey}
+                  style={{ height: 300 }}
+                  summary="本次回测已保存资金或旧记录交易现金流，可缩放和重置视图"
+                />
+              ) : (
+                <Empty
+                  image={Empty.PRESENTED_IMAGE_SIMPLE}
+                  description="这条记录没有保存曲线或交易数据"
+                />
+              )}
+              {!currentResult.portfolio_values?.length && (
+                <Prose as="p" className="research-data-context">
+                  旧记录仅保留交易现金流估算，不能代表逐日组合净值。
+                </Prose>
+              )}
+            </section>
+            <section>
+              <Prose as="h3">
+                交易记录 <small>{formatNumber(currentResult.total_trades, 0)} 次</small>
+              </Prose>
               <Table
                 columns={tradeColumns}
                 dataSource={currentResult.trades}
                 rowKey="id"
+                scroll={{ x: 570 }}
                 pagination={{ pageSize: 10 }}
                 size="small"
               />
-            </div>
-          </>
+            </section>
+            <Prose as="p" className="research-data-context">
+              历史表现仅供研究，不代表未来收益；请结合数据口径、费用与风险评估。
+            </Prose>
+          </div>
         )}
-      </Modal>
+      </Drawer>
     </div>
   )
 }

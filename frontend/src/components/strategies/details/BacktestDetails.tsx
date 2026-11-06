@@ -9,6 +9,9 @@ import type {
 } from '../../../types'
 import { getCompareChartOption } from '../../../utils/chart'
 import { COMPARE_COLORS } from '../../../constants/strategy'
+import { FinancialValue } from '../../research/FinancialValue'
+import { formatNumber, formatPercent } from '../../../utils/dataFormat'
+import { ParameterSnapshot } from '../../research/ParameterSnapshot'
 
 interface BacktestDetailsProps {
   optimizeResult: OptimizeResponse | null
@@ -23,30 +26,26 @@ const optimizeColumns = [
     dataIndex: 'params',
     key: 'params',
     render: (params: Record<string, number>) => (
-      <span>
-        {Object.entries(params)
-          .map(([k, v]) => `${k}: ${v}`)
-          .join(', ')}
-      </span>
+      <ParameterSnapshot parameters={params} />
     ),
   },
   {
     title: '夏普比率',
     dataIndex: 'score',
     key: 'score',
-    render: (v: number) => v.toFixed(4),
+    render: (v: number) => formatNumber(v, 4),
   },
   {
     title: '收益率',
     dataIndex: 'metrics',
     key: 'total_return',
-    render: (m: Record<string, number>) => `${m.total_return.toFixed(2)}%`,
+    render: (m: Record<string, number>) => <FinancialValue value={m.total_return} />,
   },
   {
     title: '胜率',
     dataIndex: 'metrics',
     key: 'win_rate',
-    render: (m: Record<string, number>) => `${m.win_rate.toFixed(2)}%`,
+    render: (m: Record<string, number>) => formatPercent(m.win_rate),
   },
 ]
 
@@ -77,11 +76,7 @@ function getCompareColumns(
         a: { metrics: { total_return: number } },
         b: { metrics: { total_return: number } },
       ) => a.metrics.total_return - b.metrics.total_return,
-      render: (v: number) => (
-        <span style={{ color: v >= 0 ? '#34c759' : '#ff3b30', fontWeight: 600 }}>
-          {v.toFixed(2)}%
-        </span>
-      ),
+      render: (v: number) => <FinancialValue value={v} />,
     },
     {
       title: '夏普比率',
@@ -91,7 +86,7 @@ function getCompareColumns(
         a: { metrics: { sharpe_ratio: number } },
         b: { metrics: { sharpe_ratio: number } },
       ) => a.metrics.sharpe_ratio - b.metrics.sharpe_ratio,
-      render: (v: number) => v.toFixed(4),
+      render: (v: number) => formatNumber(v, 4),
     },
     {
       title: '最大回撤',
@@ -101,7 +96,7 @@ function getCompareColumns(
         a: { metrics: { max_drawdown: number } },
         b: { metrics: { max_drawdown: number } },
       ) => a.metrics.max_drawdown - b.metrics.max_drawdown,
-      render: (v: number) => <span style={{ color: '#ff3b30' }}>{v.toFixed(2)}%</span>,
+      render: (v: number) => formatPercent(v),
     },
     {
       title: '胜率',
@@ -111,7 +106,7 @@ function getCompareColumns(
         a: { metrics: { win_rate: number } },
         b: { metrics: { win_rate: number } },
       ) => a.metrics.win_rate - b.metrics.win_rate,
-      render: (v: number) => `${v.toFixed(2)}%`,
+      render: (v: number) => formatPercent(v),
     },
     {
       title: '交易次数',
@@ -155,15 +150,13 @@ export function BacktestDetails({
           <div style={{ marginBottom: 'var(--space-md)' }}>
             <Descriptions column={2} size="small" bordered>
               <Descriptions.Item label="最优参数" span={2}>
-                {Object.entries(optimizeResult.best_params)
-                  .map(([k, v]) => `${k}: ${v}`)
-                  .join(', ')}
+                <ParameterSnapshot parameters={optimizeResult.best_params} />
               </Descriptions.Item>
               <Descriptions.Item label="最优夏普比率">
-                {optimizeResult.best_score.toFixed(4)}
+                {formatNumber(optimizeResult.best_score, 4)}
               </Descriptions.Item>
               <Descriptions.Item label="总收益">
-                {optimizeResult.best_metrics.total_return.toFixed(2)}%
+                <FinancialValue value={optimizeResult.best_metrics.total_return} />
               </Descriptions.Item>
             </Descriptions>
             {onRunBestBacktest && (

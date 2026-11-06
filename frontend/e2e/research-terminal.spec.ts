@@ -19,6 +19,15 @@ async function mockApi(page: Page) {
       authenticated = true
       return json(route, { authenticated: true })
     }
+    if (path.endsWith('/agent/history')) return json(route, [])
+    if (path.endsWith('/paper/alerts')) return json(route, { alerts: [] })
+    if (path.endsWith('/jobs/metrics')) {
+      return json(route, {
+        started_at: '2026-11-05T00:00:00Z',
+        counters: [],
+        durations: [],
+      })
+    }
     if (path.endsWith('/watchlist')) {
       return json(route, {
         items: [
@@ -84,8 +93,6 @@ async function mockApi(page: Page) {
         ],
       })
     }
-    if (path.endsWith('/dashboard'))
-      return json(route, { recent_activity: [], alerts: [] })
     if (path.endsWith('/stocks/sh.600000/overview')) {
       return json(route, {
         stock: {

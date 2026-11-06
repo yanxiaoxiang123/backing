@@ -1,4 +1,4 @@
-"""Authenticated backend-only Kronos client; never exposes credentials to the UI."""
+"""Authenticated backend-only forecasting client; credentials never reach the UI."""
 
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeout
@@ -12,15 +12,21 @@ from app.exceptions import ExternalServiceError, ProviderTimeoutError, ProviderU
 MODEL_REVISIONS = {
     "kronos-small": "901c26c1332695a2a8f243eb2f37243a37bea320",
     "kronos-base": "2b554741eca47781b64468546e77fef3e85130e6",
+    "timesfm-2.5": "1d952420fba87f3c6dee4f240de0f1a0fbc790e3",
 }
 SOURCE_REVISION = "67b630e67f6a18c9e9be918d9b4337c960db1e9a"
 TOKENIZER_REVISION = "0e0117387f39004a9016484a186a908917e22426"
+TIMESFM_SOURCE_REVISION = "2011cfb9a483296b893571df050b5d25a26ef9cc"
+
+
+def source_revision(model: str) -> str:
+    return TIMESFM_SOURCE_REVISION if model == "timesfm-2.5" else SOURCE_REVISION
 
 
 class KronosClient:
     def __init__(self):
         if not settings.KRONOS_SERVICE_URL or not settings.KRONOS_SERVICE_TOKEN:
-            raise ProviderUnavailableError("远程 Kronos 服务尚未配置", provider="kronos", retryable=False)
+            raise ProviderUnavailableError("远程预测服务尚未配置", provider="kronos", retryable=False)
         self.base_url = settings.KRONOS_SERVICE_URL.rstrip("/")
         self.headers = {"Authorization": f"Bearer {settings.KRONOS_SERVICE_TOKEN}"}
 
@@ -33,9 +39,9 @@ class KronosClient:
             ) as client:
                 return client.request(method, path, **kwargs)
         except httpx.TimeoutException as exc:
-            raise ProviderTimeoutError("远程 Kronos 推理超时", provider="kronos") from exc
+            raise ProviderTimeoutError("远程模型推理超时", provider="kronos") from exc
         except httpx.RequestError as exc:
-            raise ProviderUnavailableError("无法连接远程 Kronos 服务", provider="kronos") from exc
+            raise ProviderUnavailableError("无法连接远程预测服务", provider="kronos") from exc
 
     @staticmethod
     def _error(response: httpx.Response) -> None:
@@ -44,8 +50,8 @@ class KronosClient:
         messages = {
             "gpu_oom": "远程 GPU 显存不足，请释放容量后重试",
             "model_unavailable": "远程固定版本模型或运行依赖不可用",
-            "inference_failed": "Kronos 推理失败，未生成替代预测",
-            "unauthorized": "远程 Kronos 服务认证失败，请检查后端配置",
+            "inference_failed": "模型推理失败，未生成替代预测",
+            "unauthorized": "远程预测服务认证失败，请检查后端配置",
         }
         try:
             detail = response.json().get("detail", {})
@@ -53,7 +59,7 @@ class KronosClient:
         except (ValueError, AttributeError):
             code = "remote_error"
         raise ExternalServiceError(
-            detail=messages.get(code, f"远程 Kronos 返回错误（HTTP {response.status_code}）"),
+            detail=messages.get(code, f"远程预测服务返回错误（HTTP {response.status_code}）"),
             error_code=code, provider="kronos", retryable=False,
         )
 
@@ -62,9 +68,14 @@ class KronosClient:
         self._error(response)
         state = response.json()
         models = {row["id"]: row["revision"] for row in state.get("models", [])}
+        # Older Kronos-only deployments remain usable while the new model is provisioned.
         if (state.get("source_revision") != SOURCE_REVISION
-                or state.get("tokenizer_revision") != TOKENIZER_REVISION or models != MODEL_REVISIONS):
-            raise ValueError("远程 Kronos 服务版本不匹配")
+                or state.get("tokenizer_revision") != TOKENIZER_REVISION
+                or not {"kronos-small", "kronos-base"} <= set(models)
+                or any(MODEL_REVISIONS.get(name) != revision for name, revision in models.items())
+                or any(row.get("source_revision") != TIMESFM_SOURCE_REVISION for row in state.get("models", [])
+                       if row["id"] == "timesfm-2.5")):
+            raise ValueError("远程预测服务版本不匹配")
         return state
 
     def _predict_with_progress(self, payload: dict, check, progress) -> httpx.Response:
@@ -91,6 +102,8 @@ class KronosClient:
         while True:
             check()
             state = self.status()
+            if "models" in state and payload["model"] not in {row["id"] for row in state["models"]}:
+                raise ProviderUnavailableError("所选模型尚未在远端部署", provider="kronos", retryable=False)
             if state.get("busy"):
                 progress("等待 GPU · " + ("加载模型" if state.get("phase") == "loading_model" else "推理中"))
             else:
@@ -101,9 +114,10 @@ class KronosClient:
                     result = response.json()
                     if (result.get("model") != payload["model"]
                             or result.get("model_revision") != MODEL_REVISIONS[payload["model"]]
-                            or result.get("source_revision") != SOURCE_REVISION
-                            or result.get("tokenizer_revision") != TOKENIZER_REVISION):
-                        raise ValueError("远程 Kronos 返回的模型版本与固定版本不一致")
+                            or result.get("source_revision") != source_revision(payload["model"])
+                            or result.get("tokenizer_revision") != (
+                                None if payload["model"] == "timesfm-2.5" else TOKENIZER_REVISION)):
+                        raise ValueError("远程预测服务返回的模型版本与固定版本不一致")
                     check()
                     return result
             if time.monotonic() >= deadline:

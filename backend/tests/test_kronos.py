@@ -27,7 +27,9 @@ from app.models.market_data import TradingSession
 from app.models.models import JobDbRecord
 from app.services.dl_prediction import experiments as exp
 from app.services.dl_prediction.contracts import BacktestExperimentRequest, ExperimentRequest
-from app.services.dl_prediction.remote import KronosClient, MODEL_REVISIONS, SOURCE_REVISION, TOKENIZER_REVISION
+from app.services.dl_prediction.remote import (
+    KronosClient, MODEL_REVISIONS, SOURCE_REVISION, TOKENIZER_REVISION, TIMESFM_SOURCE_REVISION, source_revision,
+)
 from app.services.tasks import TaskCancelledError
 
 
@@ -148,10 +150,11 @@ def test_cancelled_job_transport_failure_cannot_trigger_retry(sessions, monkeypa
         exp.run_experiment("cancel-race", ExperimentRequest(stock_code="600000").model_dump(mode="json"), False)
 
 
-def test_rolling_backtest_is_causal_and_uses_next_open(monkeypatch, sessions):
+@pytest.mark.parametrize("model", ["kronos-small", "timesfm-2.5"])
+def test_rolling_backtest_is_causal_and_uses_next_open(monkeypatch, sessions, model):
     frame = bars(80)
     period_start = frame.iloc[60]["date"]
-    request = BacktestExperimentRequest(stock_code="600000", kline_days=60,
+    request = BacktestExperimentRequest(stock_code="600000", model=model, kline_days=60,
                                         start_date=period_start, end_date=frame.iloc[-1]["date"])
     monkeypatch.setattr(exp, "SessionLocal", sessions)
     monkeypatch.setattr(exp, "prepare_history", Mock())
@@ -206,7 +209,8 @@ def test_client_status_rejects_unpinned_catalog(monkeypatch):
     monkeypatch.setattr(settings, "KRONOS_SERVICE_TOKEN", "private-fixture-token")
     client = KronosClient()
     catalog = {"source_revision": SOURCE_REVISION, "tokenizer_revision": TOKENIZER_REVISION,
-               "models": [{"id": name, "revision": revision} for name, revision in MODEL_REVISIONS.items()]}
+               "models": [{"id": name, "revision": revision, "source_revision": source_revision(name)}
+                          for name, revision in MODEL_REVISIONS.items()]}
     monkeypatch.setattr(client, "_request", lambda *a, **kw: httpx.Response(200, json=catalog))
     assert client.status() == catalog
     catalog["models"][0]["revision"] = "changed"
@@ -394,7 +398,89 @@ def test_remote_reuses_one_model_switches_and_releases_idle_weights(monkeypatch,
     assert len(loads) == 2
     assert len(alive) == 1
     assert runtime.loaded_model == "kronos-base"
+    class TimesFM:
+        config = {"normalize_inputs": True}
+
+        def __init__(self, *args):
+            self.model = Weight.from_pretrained("timesfm")
+
+        def predict(self, closes, horizon):
+            return [closes[-1] + 0.1] * horizon
+
+    monkeypatch.setitem(sys.modules, "timesfm_adapter", SimpleNamespace(TimesFMAdapter=TimesFM))
+    result = runtime.run(service.PredictRequest(**{
+        **payload, "model": "timesfm-2.5", "bars": [{"close": 10}] * 60,
+    }))
+    assert len(alive) == 1
+    assert len(loads) == 3
+    assert result["source_revision"] == TIMESFM_SOURCE_REVISION
+    assert result["sampling"] is None
+    assert result["tokenizer_revision"] is None
+    assert result["output_fields"] == ["close"]
+    assert result["predictions"] == [{"date": "2026-08-03", "close": 10.1}]
+    assert runtime.loaded_model == "timesfm-2.5"
     runtime.last_used -= service.IDLE_SECONDS + 1
     runtime.expire()
     assert runtime.loaded_model is None
     assert not alive
+
+
+@pytest.mark.parametrize("horizon,context", [(1, 60), (30, 512)])
+def test_timesfm_request_supports_shared_horizon_and_context(horizon, context):
+    request = ExperimentRequest(stock_code="600000", model="timesfm-2.5",
+                                prediction_days=horizon, kline_days=context)
+    assert request.model == "timesfm-2.5"
+
+
+def test_timesfm_infer_sends_only_historical_closes(monkeypatch):
+    history = bars(60)
+    request = ExperimentRequest(stock_code="600000", model="timesfm-2.5", kline_days=60)
+    dates = ["2026-08-03", "2026-08-04", "2026-08-05", "2026-08-06", "2026-08-07"]
+    monkeypatch.setattr(exp, "future_dates", lambda *args: dates)
+    client = Mock()
+    client.predict.return_value = {"predictions": [{"date": day, "close": 11.0} for day in dates]}
+    _, audit = exp.infer(client, None, request, history, 5, "job", lambda: None, lambda _: None)
+    assert audit["input"]["bars"] == [{"close": 10.0}] * 60
+    assert audit["input"]["history_dates"][-1] == str(history.iloc[-1]["date"])
+
+
+def test_timesfm_forecast_does_not_invent_future_ohlcv(monkeypatch, sessions):
+    request = ExperimentRequest(stock_code="600000", model="timesfm-2.5", kline_days=60)
+    monkeypatch.setattr(exp, "SessionLocal", sessions)
+    monkeypatch.setattr(exp, "KronosClient", Mock())
+    monkeypatch.setattr(exp, "prepare_history", lambda *args: bars(60))
+    result = {"forecast_target": "close", "predictions": [{"date": "2026-08-03", "close": 11.0}]}
+    monkeypatch.setattr(exp, "infer", lambda *args: (result, {"input": {}, "output": result}))
+    output = exp.forecast(request, "job", lambda: None, lambda _: None)
+    assert "predicted_klines" not in output
+    assert output["forecast_target"] == "close"
+    assert output["predicted_prices"] == [11.0]
+    assert output["kline_data"][0]["open"] == 10.0
+
+
+def test_timesfm_remote_rejects_incorrect_input_scope(remote_service):
+    payload = {
+        "model": "timesfm-2.5", "bars": [{"close": 10}] * 60,
+        "history_dates": list(bars(60)["date"]), "future_dates": [date(2026, 8, 3)], "prediction_days": 1,
+    }
+    assert len(remote_service.PredictRequest(**payload).bars) == 60
+    with pytest.raises(ValueError, match="TimesFM accepts close only"):
+        remote_service.PredictRequest(**{**payload, "bars": bars(60).drop(columns="date").to_dict("records")})
+    with pytest.raises(ValueError):
+        remote_service.PredictRequest(**{**payload, "model": "kronos-small"})
+
+
+def test_kronos_only_server_keeps_working_and_marks_timesfm_unavailable(monkeypatch):
+    from app.api import dl_prediction as api
+
+    old_catalog = {
+        "available": True, "source_revision": SOURCE_REVISION, "tokenizer_revision": TOKENIZER_REVISION,
+        "models": [{"id": name, "revision": revision} for name, revision in MODEL_REVISIONS.items()
+                   if name.startswith("kronos")],
+    }
+    monkeypatch.setattr(api.KronosClient, "status", lambda self: old_catalog)
+    monkeypatch.setattr("app.config.settings.KRONOS_SERVICE_URL", "http://fixture")
+    monkeypatch.setattr("app.config.settings.KRONOS_SERVICE_TOKEN", "private-fixture-token")
+    catalog = api.models()
+    available = {row["id"]: row["available"] for row in catalog["models"]}
+    assert available == {"kronos-small": True, "kronos-base": True, "timesfm-2.5": False, "legacy": True}

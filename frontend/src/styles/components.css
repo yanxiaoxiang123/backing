@@ -6,7 +6,10 @@
   border-radius: var(--radius-card);
   padding: var(--space-lg);
   box-shadow: var(--shadow-card);
-  transition: all var(--transition-normal);
+  transition:
+    background-color var(--transition-normal),
+    color var(--transition-normal),
+    border-color var(--transition-normal);
 }
 
 .mc-card:hover {
@@ -71,7 +74,10 @@
   border-radius: var(--radius-btn);
   border: 1.5px solid transparent;
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition:
+    background-color var(--transition-fast),
+    color var(--transition-fast),
+    border-color var(--transition-fast);
   line-height: 1.5;
 }
 
@@ -151,7 +157,10 @@
 }
 
 .mc-table tbody tr {
-  transition: all var(--transition-fast);
+  transition:
+    background-color var(--transition-fast),
+    color var(--transition-fast),
+    border-color var(--transition-fast);
 }
 
 .mc-table tbody tr:hover td {
@@ -304,7 +313,7 @@
 .metric-card__value {
   color: var(--color-text-primary);
   font-size: var(--font-size-xl);
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: tabular-nums lining-nums;
 }
 
 .metric-card--up .metric-card__value {
@@ -411,7 +420,7 @@
 
 .research-result-card__quote strong {
   font-size: var(--font-size-lg);
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: tabular-nums lining-nums;
 }
 
 .research-result-card__summary {
@@ -512,11 +521,6 @@
 .ant-input:focus-visible,
 .ant-input-affix-wrapper:focus-visible,
 .ant-select-focused .ant-select-selector,
-.nav-item:focus-visible,
-.nav-logo:focus-visible,
-.nav-search-btn:focus-visible,
-.nav-mobile-toggle:focus-visible,
-.nav-mobile-close:focus-visible,
 .strategy-item:focus-visible {
   outline: 2px solid var(--color-focus-ring) !important;
   outline-offset: 2px !important;
@@ -655,9 +659,11 @@
   font-family: var(--font-family) !important;
 }
 
-.ant-pagination-item-active {
+.ant-pagination-item-active,
+.ant-pagination-item-active a {
   background: var(--color-ink) !important;
   border-color: var(--color-ink) !important;
+  color: var(--color-canvas) !important;
 }
 
 /* Spin */

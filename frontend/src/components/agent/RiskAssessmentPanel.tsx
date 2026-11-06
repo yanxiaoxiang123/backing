@@ -1,3 +1,4 @@
+import { Prose } from '../Prose'
 import { useState } from 'react'
 import { Alert, Button, Descriptions, Form, Input, InputNumber, Table } from 'antd'
 import { assessRunRisk, proposeRiskOrder } from '../../services/agentRuns'
@@ -73,9 +74,9 @@ export function RiskAssessmentPanel({
           onFinish={(values) => void submit(values)}
           onValuesChange={() => setAssessment(null)}
         >
-          <p>
+          <Prose as="p">
             为 {stockCode} 提供明确目标，按当前账户现金、持仓和风险限制计算建议数量。
-          </p>
+          </Prose>
           <Form.Item
             name="weight"
             label="目标仓位（%）"
@@ -110,7 +111,9 @@ export function RiskAssessmentPanel({
           <Button htmlType="submit" loading={busy}>
             计算风险与建议数量
           </Button>
-          <p>提议后须人工审批；获批委托在下个交易日日线核验后，以开盘价模拟记账。</p>
+          <Prose as="p">
+            提议后须人工审批；获批委托在下个交易日日线核验后，以开盘价模拟记账。
+          </Prose>
         </Form>
       ) : null}
       {error ? <Alert type="error" showIcon message={error} /> : null}

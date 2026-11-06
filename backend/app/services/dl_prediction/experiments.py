@@ -14,7 +14,7 @@ from app.models.models import JobDbRecord
 from app.services.backtest_simulation import ExecutionCosts, daily_metrics, simulate_daily
 from app.services.corporate_actions import execution_actions
 from app.services.dl_prediction.contracts import BacktestExperimentRequest, ExperimentRequest
-from app.services.dl_prediction.remote import KronosClient, MODEL_REVISIONS
+from app.services.dl_prediction.remote import KronosClient, MODEL_REVISIONS, source_revision
 from app.services.job_store import job_store
 from app.services.market_data import digest, load_bars, next_session, open_sessions
 from app.services.market_data_sync import completed_end, sync_calendar, sync_history, sync_metadata
@@ -97,9 +97,10 @@ def forecast_cutoff(now: datetime | None = None) -> date:
 def infer(client, db, request: ExperimentRequest, history: pd.DataFrame,
           horizon: int, job_id: str, check, progress) -> tuple[dict, dict]:
     history = validate_history(history, request.kline_days)
+    fields = ["close"] if request.model == "timesfm-2.5" else ["open", "high", "low", "close", "volume", "amount"]
     payload = {
         "model": request.model,
-        "bars": history[["open", "high", "low", "close", "volume", "amount"]].to_dict("records"),
+        "bars": history[fields].to_dict("records"),
         "history_dates": [str(day)[:10] for day in history["date"]],
         "future_dates": future_dates(db, request.stock_code, pd.Timestamp(history.iloc[-1]["date"]).date(), horizon),
         "prediction_days": horizon, "request_id": job_id,
@@ -132,7 +133,8 @@ def forecast(request: ExperimentRequest, job_id: str, check, progress) -> dict:
             "predicted_prices": [row["close"] for row in result["predictions"]],
             "kline_data": [{**row, "date": str(row["date"])[:10]} for row in
                            json.loads(history.to_json(orient="records", date_format="iso"))],
-            "predicted_klines": result["predictions"], "model_metadata": {
+            **({"predicted_klines": result["predictions"]} if request.model != "timesfm-2.5" else {}),
+            "forecast_target": result.get("forecast_target", "ohlcv_amount"), "model_metadata": {
                 key: value for key, value in result.items() if key != "predictions"
             }, "data_provenance": frame.attrs.get("provenance"),
             "input_start": str(history.iloc[0]["date"])[:10], "audit": audit,
@@ -177,6 +179,7 @@ def rolling_backtest(request: BacktestExperimentRequest, job_id: str, check, pro
             check()
             history = validate_history(frame[frame["date"] <= day], request.kline_days)
             key = digest({"model": request.model, "revision": MODEL_REVISIONS[request.model],
+                          "source_revision": source_revision(request.model),
                           "history": json.loads(history.to_json(orient="records", date_format="iso"))})
             previous = next((item for item in cached if item.get("cache_key") == key), None)
             if previous:

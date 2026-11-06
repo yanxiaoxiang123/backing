@@ -32,7 +32,6 @@ export const dashboardKeys = {
   quotes: (codes: string[]) =>
     [...dashboardKeys.all, 'quotes', [...codes].sort()] as const,
   trend: (code: string) => [...dashboardKeys.all, 'trend', code] as const,
-  briefing: () => [...dashboardKeys.all, 'briefing'] as const,
 }
 
 export const strategyKeys = {

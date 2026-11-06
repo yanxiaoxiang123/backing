@@ -1,4 +1,4 @@
-"""Private, single-GPU inference service for pinned official Kronos weights."""
+"""Private, single-GPU inference service for pinned Kronos and TimesFM weights."""
 
 from __future__ import annotations
 
@@ -26,7 +26,9 @@ REVISION = "67b630e67f6a18c9e9be918d9b4337c960db1e9a"
 MODEL_REVISIONS = {
     "kronos-small": "901c26c1332695a2a8f243eb2f37243a37bea320",
     "kronos-base": "2b554741eca47781b64468546e77fef3e85130e6",
+    "timesfm-2.5": "1d952420fba87f3c6dee4f240de0f1a0fbc790e3",
 }
+TIMESFM_SOURCE = "2011cfb9a483296b893571df050b5d25a26ef9cc"
 TOKENIZER_REVISION = "0e0117387f39004a9016484a186a908917e22426"
 FIELDS = ["open", "high", "low", "close", "volume", "amount"]
 ROOT = Path(os.environ.get("KRONOS_ROOT", Path(__file__).resolve().parent))
@@ -57,10 +59,15 @@ class Bar(BaseModel):
         return self
 
 
+class CloseBar(BaseModel):
+    model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
+    close: float = Field(gt=0)
+
+
 class PredictRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    model: Literal["kronos-small", "kronos-base"]
-    bars: list[Bar] = Field(min_length=60, max_length=512)
+    model: Literal["kronos-small", "kronos-base", "timesfm-2.5"]
+    bars: list[Bar | CloseBar] = Field(min_length=60, max_length=512)
     history_dates: list[date] = Field(min_length=60, max_length=512)
     future_dates: list[date] = Field(min_length=1, max_length=30)
     prediction_days: int = Field(default=5, ge=1, le=30)
@@ -73,6 +80,9 @@ class PredictRequest(BaseModel):
         all_dates = self.history_dates + self.future_dates
         if all_dates != sorted(set(all_dates)):
             raise ValueError("Dates must be unique, increasing, and future must follow history")
+        expected = CloseBar if self.model == "timesfm-2.5" else Bar
+        if not all(isinstance(bar, expected) for bar in self.bars):
+            raise ValueError("TimesFM accepts close only; Kronos requires complete OHLCV/amount")
         return self
 
 
@@ -96,6 +106,7 @@ class Runtime:
             "Kronos-small": MODEL_REVISIONS["kronos-small"],
             "Kronos-base": MODEL_REVISIONS["kronos-base"],
             "Kronos-Tokenizer-base": TOKENIZER_REVISION,
+            "TimesFM-2.5-200M": MODEL_REVISIONS["timesfm-2.5"],
         }.items():
             directory = ROOT / "models" / name
             manifest = json.loads((directory / "revision.json").read_text())
@@ -111,6 +122,9 @@ class Runtime:
             self.identities[name] = manifest
         if (ROOT / "UPSTREAM_REVISION.txt").read_text().strip() != REVISION:
             raise ValueError("Unexpected upstream source revision")
+        if ((ROOT / "TIMESFM_REVISION.txt").read_text().strip() != TIMESFM_SOURCE
+                or self.identities["TimesFM-2.5-200M"].get("source_revision") != TIMESFM_SOURCE):
+            raise ValueError("Unexpected TimesFM source revision")
 
     def unload(self):
         self.predictor = None
@@ -150,14 +164,19 @@ class Runtime:
                 if torch.cuda.is_available():
                     torch.cuda.reset_peak_memory_stats(DEVICE)
                 load_started = time.monotonic()
-                sys.path.insert(0, str(ROOT / "vendor" / "Kronos"))
-                from model import Kronos, KronosPredictor, KronosTokenizer
+                if request.model == "timesfm-2.5":
+                    from timesfm_adapter import TimesFMAdapter
 
-                tokenizer = KronosTokenizer.from_pretrained(str(ROOT / "models" / "Kronos-Tokenizer-base"))
-                model = Kronos.from_pretrained(str(ROOT / "models" / request.model.replace("kronos", "Kronos")))
-                tokenizer.requires_grad_(False).eval()
-                model.requires_grad_(False).eval()
-                self.predictor = KronosPredictor(model, tokenizer, device=DEVICE, max_context=512)
+                    self.predictor = TimesFMAdapter(ROOT, DEVICE)
+                else:
+                    sys.path.insert(0, str(ROOT / "vendor" / "Kronos"))
+                    from model import Kronos, KronosPredictor, KronosTokenizer
+
+                    tokenizer = KronosTokenizer.from_pretrained(str(ROOT / "models" / "Kronos-Tokenizer-base"))
+                    model = Kronos.from_pretrained(str(ROOT / "models" / request.model.replace("kronos", "Kronos")))
+                    tokenizer.requires_grad_(False).eval()
+                    model.requires_grad_(False).eval()
+                    self.predictor = KronosPredictor(model, tokenizer, device=DEVICE, max_context=512)
                 self.loaded_model = request.model
                 loaded_ms = (time.monotonic() - load_started) * 1000
             elif torch.cuda.is_available():
@@ -169,28 +188,42 @@ class Runtime:
             if torch.cuda.is_available():
                 torch.cuda.manual_seed_all(2026)
             with torch.inference_mode():
-                frame = self.predictor.predict(
-                    df=pd.DataFrame([bar.model_dump() for bar in request.bars], columns=FIELDS),
-                    x_timestamp=pd.Series(pd.to_datetime(request.history_dates)),
-                    y_timestamp=pd.Series(pd.to_datetime(request.future_dates)),
-                    pred_len=request.prediction_days, T=1.0, top_p=0.9, sample_count=3, verbose=False,
-                )
+                if request.model == "timesfm-2.5":
+                    values = self.predictor.predict([bar.close for bar in request.bars], request.prediction_days)
+                    if len(values) != request.prediction_days:
+                        raise ValueError("Unexpected TimesFM prediction length")
+                    frame = pd.DataFrame({"close": values})
+                else:
+                    frame = self.predictor.predict(
+                        df=pd.DataFrame([bar.model_dump() for bar in request.bars], columns=FIELDS),
+                        x_timestamp=pd.Series(pd.to_datetime(request.history_dates)),
+                        y_timestamp=pd.Series(pd.to_datetime(request.future_dates)),
+                        pred_len=request.prediction_days, T=1.0, top_p=0.9, sample_count=3, verbose=False,
+                    )
             rows = []
-            for day, values in zip(request.future_dates, frame[FIELDS].to_numpy().tolist(), strict=True):
+            output_fields = ["close"] if request.model == "timesfm-2.5" else FIELDS
+            for day, values in zip(request.future_dates, frame[output_fields].to_numpy().tolist(), strict=True):
                 if not all(math.isfinite(float(value)) for value in values) or min(values[:4]) <= 0:
                     raise ValueError("Model generated nonfinite or nonpositive prices")
-                row = dict(zip(FIELDS, map(float, values), strict=True))
-                row.update(date=day.isoformat(), ohlc_valid=(
-                    row["low"] <= min(row["open"], row["close"])
-                    and row["high"] >= max(row["open"], row["close"])
-                    and row["volume"] >= 0 and row["amount"] >= 0
-                ))
+                row = dict(zip(output_fields, map(float, values), strict=True))
+                row["date"] = day.isoformat()
+                if request.model != "timesfm-2.5":
+                    row["ohlc_valid"] = (
+                        row["low"] <= min(row["open"], row["close"])
+                        and row["high"] >= max(row["open"], row["close"])
+                        and row["volume"] >= 0 and row["amount"] >= 0
+                    )
                 rows.append(row)
             return {
                 "predictions": rows, "model": request.model,
                 "model_revision": MODEL_REVISIONS[request.model],
-                "tokenizer_revision": TOKENIZER_REVISION, "source_revision": REVISION,
-                "sampling": {"temperature": 1.0, "top_p": 0.9, "sample_count": 3, "seed": 2026},
+                "tokenizer_revision": None if request.model == "timesfm-2.5" else TOKENIZER_REVISION,
+                "source_revision": TIMESFM_SOURCE if request.model == "timesfm-2.5" else REVISION,
+                "sampling": None if request.model == "timesfm-2.5" else
+                    {"temperature": 1.0, "top_p": 0.9, "sample_count": 3, "seed": 2026},
+                "input_fields": output_fields, "output_fields": output_fields,
+                "forecast_target": "close" if request.model == "timesfm-2.5" else "ohlcv_amount",
+                "inference_config": getattr(self.predictor, "config", None) if request.model == "timesfm-2.5" else None,
                 "device": DEVICE, "load_ms": round(loaded_ms, 2),
                 "execution_time_ms": round((time.monotonic() - started) * 1000, 2),
                 "peak_gpu_memory_mb": round(torch.cuda.max_memory_allocated(DEVICE) / 1024 ** 2, 2)
@@ -209,7 +242,7 @@ class Runtime:
                 self.unload()
                 code, message = "model_unavailable", "Pinned model files or runtime are unavailable"
             else:
-                code, message = "inference_failed", "Kronos inference failed; no substitute prediction was generated"
+                code, message = "inference_failed", "Model inference failed; no substitute prediction was generated"
             self.error = code
             raise HTTPException(503 if code != "inference_failed" else 502,
                                 detail={"code": code, "message": message}) from exc
@@ -238,7 +271,7 @@ async def lifespan(_app):
     task.cancel()
 
 
-app = FastAPI(title="Backing Kronos", lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)
+app = FastAPI(title="Backing forecasting", lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)
 
 
 @app.get("/v1/status", dependencies=[Depends(authorize)])
@@ -247,7 +280,8 @@ def status():
         "available": True, "device": DEVICE, "loaded_model": runtime.loaded_model,
         "busy": runtime.lock.locked(), "phase": runtime.phase, "error": runtime.error,
         "source_revision": REVISION, "tokenizer_revision": TOKENIZER_REVISION,
-        "models": [{"id": name, "revision": revision, "max_context": 512}
+        "models": [{"id": name, "revision": revision, "max_context": 512,
+                    "source_revision": TIMESFM_SOURCE if name == "timesfm-2.5" else REVISION}
                    for name, revision in MODEL_REVISIONS.items()],
     }
 

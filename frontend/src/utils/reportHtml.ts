@@ -1,5 +1,6 @@
 import type { AgentAnalyzeResponse } from '../types'
 import { escapeHtml, safeHttpUrl } from './safeHtml'
+import { formatNumber, formatPercent, isFiniteNumber } from './dataFormat'
 
 const STAGE_LABELS: Record<string, string> = {
   technical_analysis: '技术分析',
@@ -10,8 +11,8 @@ const STAGE_LABELS: Record<string, string> = {
 }
 
 const SIGNAL_COLORS = {
-  buy: '#52c41a',
-  sell: '#ff4d4f',
+  buy: '#c4242a',
+  sell: '#1e7a4d',
   hold: '#8c8c8c',
 } as const
 
@@ -24,9 +25,11 @@ function signalColor(signal: string): string {
 }
 
 function safeNumber(value: unknown, digits = 1): string {
-  const number = typeof value === 'number' && Number.isFinite(value) ? value : 0
-  return number.toFixed(digits)
+  return formatNumber(value, digits)
 }
+
+const confidence = (value: unknown) =>
+  formatPercent(isFiniteNumber(value) ? value * 100 : null, 0)
 
 /**
  * Build a standalone, print-friendly report from a typed API response.
@@ -42,7 +45,7 @@ export function buildAgentReportHtml(report: AgentAnalyzeResponse): string {
         return `<tr>
           <td class="cell cell--strong">${name}</td>
           <td class="cell"><span class="signal" style="color:${color}">${signalLabel(stage.opinion.signal)}</span></td>
-          <td class="cell">${Math.round(stage.opinion.confidence * 100)}%</td>
+          <td class="cell">${confidence(stage.opinion.confidence)}</td>
           <td class="cell">${escapeHtml(stage.opinion.reason || '—')}</td>
         </tr>`
       }
@@ -111,7 +114,7 @@ export function buildAgentReportHtml(report: AgentAnalyzeResponse): string {
   <div class="signal-card">
     <div class="arrow" style="color:${color}">${arrow}</div>
     <div class="label" style="color:${color}">${signalLabel(report.final_signal)}</div>
-    <div class="meta">置信度: ${Math.round(report.final_confidence * 100)}%</div>
+    <div class="meta">置信度: ${confidence(report.final_confidence)}</div>
   </div>
   <h2>结论</h2>
   <div class="reason-box">${escapeHtml(report.final_reason || '无')}</div>

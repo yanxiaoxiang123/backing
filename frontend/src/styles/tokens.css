@@ -1,22 +1,22 @@
 /* ============================================
    1. Design tokens — Backing research terminal
-   Direction: editorial-greeting (seed 563119555)
-   Ink + deep teal, white ground, tonal panels.
+   Shared gray surfaces from public/ui-tokens.css.
+   Market signals and the small green brand mark retain their semantic colors.
    ============================================ */
 :root {
   color-scheme: light;
 
   /* Surfaces */
-  --color-canvas: #ffffff;
-  --color-canvas-lifted: #f9f9f9;
-  --color-white: #ffffff;
-  --color-surface: #f9f9f9;
-  --color-surface-subtle: #f9f9f9;
-  --color-surface-muted: #f1f1ef;
-  --color-active: #eeeeee;
+  --color-canvas: var(--ui-main);
+  --color-canvas-lifted: var(--ui-panel);
+  --color-white: var(--ui-panel);
+  --color-surface: var(--ui-panel);
+  --color-surface-subtle: var(--ui-main);
+  --color-surface-muted: var(--ui-sidebar);
+  --color-active: var(--ui-main);
 
   /* Brand and ink */
-  --color-ink: #1f201d;
+  --color-ink: var(--ui-ink);
   --color-charcoal: #3d3d3a;
   --color-accent: #1b6e66;
   --color-accent-light: #2f8a80;
@@ -42,17 +42,17 @@
   --color-text-primary: var(--color-ink);
   --color-text-secondary: #636361;
   --color-text-tertiary: #6b6b6b;
-  --color-text-disabled: #9a9a97;
-  --color-bg-secondary: #f3f3f1;
-  --color-bg-disabled: #f1f1ef;
+  --color-text-disabled: var(--ui-muted);
+  --color-bg-secondary: var(--ui-main);
+  --color-bg-disabled: var(--ui-sidebar);
   --color-border-disabled: #d9d9d6;
   --color-focus-ring: var(--color-accent);
 
   /* Lines */
-  --color-border: #eaeaea;
+  --color-border: var(--ui-line);
   --color-border-medium: #d9d9d6;
   --color-border-strong: #bdbdb8;
-  --color-rule: #f3f3f3;
+  --color-rule: var(--ui-line);
 
   /* Secondary accent used by existing chart/copilot code */
   --color-accent-blue: #1b6e66;
@@ -135,9 +135,9 @@
   --fs-small: 12px;
 
   /* Motion */
-  --transition-fast: 0.15s ease;
-  --transition-normal: 0.25s ease;
-  --transition-slow: 0.4s ease;
+  --transition-fast: var(--ui-fast) var(--ui-ease);
+  --transition-normal: var(--ui-normal) var(--ui-ease);
+  --transition-slow: var(--ui-overlay) var(--ui-ease);
 
   /* Layout */
   --content-max-width: 1100px;

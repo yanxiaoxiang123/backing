@@ -67,7 +67,7 @@ describe('StrategyResults', () => {
     await userEvent.setup().click(screen.getByRole('tab', { name: '绩效指标' }))
     expect(screen.getByRole('link', { name: /#42/ })).toHaveAttribute(
       'href',
-      '/history',
+      '/history?result=42',
     )
   })
 })

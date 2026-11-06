@@ -323,15 +323,15 @@ backing/
 
 ## 11. API 能力分组
 
-主要 API 统一位于 `/api/v1`，认证相关接口位于 `/api/auth`。功能分组如下：
+主要 API 统一位于 `/api/v1`，认证相关接口位于 `/api/v1/auth`。功能分组如下：
 
 
 | API 分组                             | 代表能力                        |
 | ---------------------------------- | --------------------------- |
-| `/stocks`、`/indices`、`/dashboard`  | 股票、指数、K 线、指标、同步和仪表盘         |
+| `/stocks`、`/indices`                | 股票、指数、K 线、指标和同步                |
 | `/realtime`、`/ws/realtime`         | 实时行情、Provider 健康和 WebSocket |
 | `/watchlist`                       | 自选股增删查                      |
-| `/screener`                        | 同步/异步选股与 AI 深度筛选            |
+| `/screener`                        | 异步选股、任务历史与 AI 深度筛选          |
 | `/strategies`、`/backtest`          | 策略、信号、回测、优化、比较和历史结果         |
 | `/dl`                              | DL 预测及预测回测                  |
 | `/agent`                           | 固定流程 AI 分析和历史记录             |

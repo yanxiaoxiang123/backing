@@ -1,3 +1,4 @@
+import { Prose } from '../components/Prose'
 import { useState, type FormEvent } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { loginWithCredentials } from '../services/api'
@@ -143,14 +144,16 @@ export default function Login() {
               <span className="login-hero__badge-version">Backing Core</span>
             </div>
 
-            <h1 id="login-hero-title" className="login-hero__title">
+            <Prose as="h1" id="login-hero-title" className="login-hero__title">
               量化决策系统
-            </h1>
-            <p className="login-hero__subtitle">A 股研究、回测与模拟交易工作台</p>
-            <p className="login-hero__lede">
+            </Prose>
+            <Prose as="p" className="login-hero__subtitle">
+              A 股研究、回测与模拟交易工作台
+            </Prose>
+            <Prose as="p" className="login-hero__lede">
               策略研究、回测引擎与 AI
               研判共用一套可复现的数据与工具网关，从信号到净值曲线全部可追溯。
-            </p>
+            </Prose>
 
             <ul className="login-features">
               {FEATURES.map((feature) => (
@@ -163,8 +166,12 @@ export default function Login() {
                       {feature.tag}
                     </span>
                   </div>
-                  <h2 className="login-feature__title">{feature.title}</h2>
-                  <p className="login-feature__body">{feature.body}</p>
+                  <Prose as="h2" className="login-feature__title">
+                    {feature.title}
+                  </Prose>
+                  <Prose as="p" className="login-feature__body">
+                    {feature.body}
+                  </Prose>
                   <div className="login-feature__foot">
                     <span className="login-feature__metric-label">
                       {feature.metricLabel}
@@ -212,8 +219,12 @@ export default function Login() {
           <aside className="login-panel">
             <div className="login-panel__head">
               <div>
-                <h2 className="login-panel__title">欢迎使用量化系统</h2>
-                <p className="login-panel__hint">请使用管理员分配的账号登录研究终端</p>
+                <Prose as="h2" className="login-panel__title">
+                  欢迎使用量化系统
+                </Prose>
+                <Prose as="p" className="login-panel__hint">
+                  请使用管理员分配的账号登录研究终端
+                </Prose>
               </div>
               <span className="login-panel__chip">ACCOUNT AUTH</span>
             </div>
@@ -294,9 +305,9 @@ export default function Login() {
               </div>
 
               {error && (
-                <p className="login-error" role="alert">
+                <Prose as="p" className="login-error" role="alert">
                   {error}
-                </p>
+                </Prose>
               )}
 
               <div className="login-form__meta">

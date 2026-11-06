@@ -128,9 +128,13 @@ beforeEach(() => {
 describe('AgentWorkspace', () => {
   it('渲染三栏布局：会话列表 / 聊天 / 研究区', () => {
     renderWorkspace()
+    expect(
+      screen.getByRole('heading', { level: 1, name: 'Agent 工作台' }),
+    ).toBeInTheDocument()
     expect(screen.getByRole('complementary', { name: /会话列表/ })).toBeInTheDocument()
     expect(screen.getByLabelText('聊天输入')).toBeInTheDocument()
     expect(screen.getByRole('region', { name: /股票研究区/ })).toBeInTheDocument()
+    expect(screen.getByText('等待研究标的').closest('[role="status"]')).not.toBeNull()
   })
 
   it('桌面侧栏可以折叠并恢复', async () => {
@@ -157,10 +161,24 @@ describe('AgentWorkspace', () => {
     expect(mockChat.send).toHaveBeenCalledWith('分析 sh.600000')
   })
 
+  it('研究示例填入草稿并聚焦，等待用户确认后才发送', async () => {
+    const user = userEvent.setup()
+    renderWorkspace()
+    await user.click(screen.getByRole('button', { name: /验证一个策略/ }))
+    const input = screen.getByLabelText('聊天输入')
+    expect((input as HTMLTextAreaElement).value).toContain('5 日与 20 日均线交叉策略')
+    expect(input).toHaveFocus()
+    expect(mockChat.send).not.toHaveBeenCalled()
+    await user.click(screen.getByRole('button', { name: '发送消息' }))
+    expect(mockChat.send).toHaveBeenCalledWith(expect.stringContaining('交易成本'))
+    await user.click(screen.getByRole('button', { name: /验证一个策略/ }))
+    expect((input as HTMLTextAreaElement).value).toContain('5 日与 20 日均线交叉策略')
+  })
+
   it('研究区页签可切换且不跳页', async () => {
     const user = userEvent.setup()
     renderWorkspace()
-    expect(screen.getByText(/在左侧发起新对话/)).toBeInTheDocument()
+    expect(screen.getByText('等待研究标的')).toBeInTheDocument()
 
     await user.click(screen.getByRole('tab', { name: /证据/ }))
     expect(screen.getByText('暂无证据条目')).toBeInTheDocument()

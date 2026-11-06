@@ -154,6 +154,45 @@ function renderDashboard() {
 }
 
 describe('Dashboard partial degrade', () => {
+  it('按所选月份筛选真实日线，日期以最后可用交易日为准', async () => {
+    mockedBars.mockResolvedValue({
+      success: true,
+      code: '600036',
+      data: ['2026-01-05', '2026-07-20', '2026-08-14'].map((date, index) => ({
+        date,
+        open: 10,
+        high: 13,
+        low: 9,
+        close: 10 + index,
+        volume: 100,
+        amount: 1000,
+        symbol: '600036',
+      })),
+    })
+    renderDashboard()
+    await screen.findByRole('img', { name: /近6个月收盘价走势，2个交易日/ })
+    await userEvent.click(screen.getByRole('button', { name: /^1月$/ }))
+    expect(
+      screen.getByRole('img', { name: /近1个月收盘价走势，2个交易日/ }),
+    ).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: /^1年$/ }))
+    expect(
+      screen.getByRole('img', { name: /近12个月收盘价走势，3个交易日/ }),
+    ).toBeInTheDocument()
+    expect(screen.getByText(/2026-01-05 — 2026-08-14/)).toBeInTheDocument()
+    expect(mockedBars).toHaveBeenCalledTimes(1)
+  })
+
+  it('没有分析记录时展示发起入口与空状态，不生成研究信号', async () => {
+    mockedAnalysisHistory.mockResolvedValue([])
+    renderDashboard()
+    await screen.findByRole('heading', { name: '今天还没有研究结论' })
+    expect(screen.getByRole('button', { name: '发起分析' })).toBeInTheDocument()
+    expect(screen.getByText('未分析')).toBeInTheDocument()
+    expect(screen.queryByText('买入')).not.toBeInTheDocument()
+    expect(screen.getByText('上证指数')).toBeInTheDocument()
+  })
+
   it('渲染指数、自选股、走势图和最新研究结论', async () => {
     renderDashboard()
     await waitFor(() => expect(screen.getByText('上证指数')).toBeInTheDocument())
@@ -254,7 +293,11 @@ describe('Dashboard partial degrade', () => {
     await waitFor(() =>
       expect(screen.getByText('研究摘要暂不可用')).toBeInTheDocument(),
     )
-    expect(screen.getByText('分析记录暂不可用。')).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        (_, node) => node?.tagName === 'P' && node.textContent === '分析记录暂不可用。',
+      ),
+    ).toBeInTheDocument()
     expect(
       screen.getAllByRole('button', { name: /重试/ }).length,
     ).toBeGreaterThanOrEqual(1)

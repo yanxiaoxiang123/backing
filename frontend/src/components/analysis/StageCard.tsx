@@ -1,5 +1,6 @@
 import { Card, Tag, Row, Col, Empty } from 'antd'
 import type { AgentStage } from '../../types'
+import { formatPercent, isFiniteNumber } from '../../utils/dataFormat'
 
 interface StageCardProps {
   stage: AgentStage
@@ -17,9 +18,9 @@ const stageLabels: Record<string, string> = {
 function getSignalColor(signal: string) {
   switch (signal) {
     case 'buy':
-      return 'green'
-    case 'sell':
       return 'red'
+    case 'sell':
+      return 'green'
     default:
       return 'default'
   }
@@ -68,7 +69,7 @@ export function StageCard({ stage }: StageCardProps) {
     >
       {stage.opinion ? (
         <Row gutter={16} align="top">
-          <Col span={4}>
+          <Col xs={24} sm={6} style={{ marginBottom: 12 }}>
             <Tag
               color={getSignalColor(stage.opinion.signal)}
               style={{ fontSize: 12, padding: '2px 8px' }}
@@ -82,10 +83,16 @@ export function StageCard({ stage }: StageCardProps) {
                 marginTop: 'var(--space-xs)',
               }}
             >
-              置信度: {Math.round(stage.opinion.confidence * 100)}%
+              置信度:{' '}
+              {formatPercent(
+                isFiniteNumber(stage.opinion.confidence)
+                  ? stage.opinion.confidence * 100
+                  : null,
+                0,
+              )}
             </div>
           </Col>
-          <Col span={20}>
+          <Col xs={24} sm={18}>
             <div style={{ fontSize: 14, lineHeight: 1.6 }}>
               {stage.opinion.reason || '无'}
             </div>

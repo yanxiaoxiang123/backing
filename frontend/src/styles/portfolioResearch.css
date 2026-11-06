@@ -86,7 +86,7 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 24px;
   margin: 24px 0;
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: tabular-nums lining-nums;
 }
 .portfolio-metrics dt {
   font-size: 12px;
@@ -130,7 +130,7 @@
   font-family: inherit;
   font-size: 12px;
   fill: var(--color-text-secondary);
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: tabular-nums lining-nums;
 }
 .portfolio-grid-line {
   stroke: var(--color-chart-grid);
@@ -147,7 +147,7 @@
   stroke-dasharray: 4 4;
 }
 .portfolio-research td {
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: tabular-nums lining-nums;
 }
 .portfolio-research .ant-table-thead > tr > th {
   font-size: 12px;

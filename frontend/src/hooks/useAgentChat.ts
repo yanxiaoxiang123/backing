@@ -79,6 +79,8 @@ export function useAgentChat(options: UseAgentChatOptions = {}): UseAgentChatRes
   )
   const [threads, setThreads] = useState<ChatThread[]>([])
   const [currentThread, setCurrentThread] = useState<ChatThread | null>(null)
+  const currentThreadRef = useRef(currentThread)
+  currentThreadRef.current = currentThread
   const [turns, setTurns] = useState<ChatTurn[]>([])
   const [parts, setParts] = useState<Record<number, TurnParts>>({})
   const [streamState, setStreamState] = useState<ChatStreamState>('idle')
@@ -100,6 +102,7 @@ export function useAgentChat(options: UseAgentChatOptions = {}): UseAgentChatRes
   // 终态事件先到时 turns 中尚无对应行，先暂存补丁，REST 返回后再合并，
   // 避免 completed 被随后到达的 queued 快照覆盖。
   const terminalTurnPatchesRef = useRef<Map<number, Partial<ChatTurn>>>(new Map())
+  const titleRefreshSeqRef = useRef(0)
 
   const persistThreadId = useCallback((id: string | null) => {
     if (typeof window === 'undefined') return
@@ -265,9 +268,36 @@ export function useAgentChat(options: UseAgentChatOptions = {}): UseAgentChatRes
   )
 
   const refreshThreads = useCallback(async () => {
+    const sequence = ++titleRefreshSeqRef.current
     try {
       const data = await listThreads()
+      if (sequence !== titleRefreshSeqRef.current) return
       setThreads(data.threads)
+      setCurrentThread((prev) => {
+        const updated = data.threads.find((item) => item.thread_id === prev?.thread_id)
+        return prev && updated
+          ? { ...prev, title: updated.title, title_pending: updated.title_pending }
+          : prev
+      })
+      // An older selected chat can be outside the first page of recent chats.
+      const activeId = activeThreadRef.current
+      if (
+        activeId &&
+        currentThreadRef.current?.title_pending &&
+        !data.threads.some((item) => item.thread_id === activeId)
+      ) {
+        const detail = await getThread(activeId, 1)
+        if (sequence !== titleRefreshSeqRef.current) return
+        setCurrentThread((prev) =>
+          prev?.thread_id === activeId
+            ? {
+                ...prev,
+                title: detail.thread.title,
+                title_pending: detail.thread.title_pending,
+              }
+            : prev,
+        )
+      }
     } catch {
       // 列表失败不阻塞当前会话
     }
@@ -375,23 +405,12 @@ export function useAgentChat(options: UseAgentChatOptions = {}): UseAgentChatRes
         })
         loadedTurnIdsRef.current.add(mergedTurn.id)
         terminalTurnPatchesRef.current.delete(mergedTurn.id)
-        if (thread.title === '' || thread.title == null) {
-          setCurrentThread((prev) =>
-            prev ? { ...prev, title: text.slice(0, 36) } : prev,
-          )
-          setThreads((prev) =>
-            prev.map((t) =>
-              t.thread_id === thread!.thread_id
-                ? { ...t, title: text.slice(0, 36) }
-                : t,
-            ),
-          )
-        }
+        void refreshThreads()
       } catch (exc) {
         if (sessionVersionRef.current === version) setError(getApiErrorMessage(exc))
       }
     },
-    [connectStream, currentThread, persistThreadId, runtimeStatus],
+    [connectStream, currentThread, persistThreadId, refreshThreads, runtimeStatus],
   )
 
   const stop = useCallback(async (): Promise<void> => {
@@ -410,6 +429,7 @@ export function useAgentChat(options: UseAgentChatOptions = {}): UseAgentChatRes
     async (threadId: string): Promise<void> => {
       try {
         await archiveThread(threadId)
+        titleRefreshSeqRef.current += 1
         setThreads((prev) => prev.filter((t) => t.thread_id !== threadId))
         if (activeThreadRef.current === threadId) {
           clearSession()
@@ -469,8 +489,15 @@ export function useAgentChat(options: UseAgentChatOptions = {}): UseAgentChatRes
   useEffect(() => {
     const id = initialThreadId.current
     if (id) {
-      initialThreadId.current = null
-      void selectThread(id)
+      // StrictMode cleans up the first effect before its request resolves.
+      // Keep the restore target until selection finishes so the second setup
+      // can retry instead of leaving the conversation empty.
+      void selectThread(id).then(() => {
+        if (activeThreadRef.current === id) {
+          initialThreadId.current = null
+          void refreshThreads()
+        }
+      })
     } else {
       void refreshThreads()
     }
@@ -479,6 +506,7 @@ export function useAgentChat(options: UseAgentChatOptions = {}): UseAgentChatRes
   useEffect(() => {
     return () => {
       sessionVersionRef.current += 1
+      titleRefreshSeqRef.current += 1
       streamRef.current?.stop()
     }
   }, [])
@@ -489,6 +517,26 @@ export function useAgentChat(options: UseAgentChatOptions = {}): UseAgentChatRes
     if (!latestTurnStatus) return
     void refreshThreads()
   }, [latestTurnStatus, refreshThreads])
+
+  // Naming runs independently of the chat turn, including historical chats.
+  // Refresh until the server has persisted either an AI title or its fallback.
+  const hasPendingTitles =
+    Boolean(currentThread?.title_pending) ||
+    threads.some((thread) => thread.title_pending)
+  useEffect(() => {
+    if (!hasPendingTitles) return
+    let cancelled = false
+    let timer: ReturnType<typeof window.setTimeout>
+    const poll = async () => {
+      await refreshThreads()
+      if (!cancelled) timer = window.setTimeout(() => void poll(), 2000)
+    }
+    timer = window.setTimeout(() => void poll(), 2000)
+    return () => {
+      cancelled = true
+      window.clearTimeout(timer)
+    }
+  }, [hasPendingTitles, refreshThreads])
 
   const messages = useMemo<ChatMessage[]>(() => {
     const msgs: ChatMessage[] = []
