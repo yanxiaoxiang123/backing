@@ -4,10 +4,13 @@
 import secrets
 from typing import Optional
 
-from fastapi import HTTPException, Request, Security, status
+from fastapi import Depends, HTTPException, Request, Security, status
 from fastapi.security import APIKeyHeader
+from sqlalchemy.orm import Session
 
 from app.config import settings
+from app.models.models import User
+from app.passwords import DUMMY_HASH, verify_password
 
 # API Key header scheme
 api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
@@ -50,6 +53,21 @@ def validate_api_key(api_key: Optional[str]) -> str:
     return api_key
 
 
+def authenticate_user(db: Session, username: str, password: str) -> User:
+    """
+    校验账号密码。
+
+    用户不存在时仍执行一次 KDF（DUMMY_HASH），避免通过响应时间枚举账号；
+    两种失败返回同一条错误信息。
+    """
+    user = db.query(User).filter(User.username == username).first()
+    stored = user.password_hash if user is not None else DUMMY_HASH
+    valid = verify_password(password, stored)
+    if user is None or not valid:
+        raise AuthError("Invalid username or password")
+    return user
+
+
 async def get_current_api_key(
     api_key: Optional[str] = Security(api_key_header),
     request: Request = None,
@@ -60,13 +78,22 @@ async def get_current_api_key(
     认证方式（按优先级）：
     1. HTTP-only session cookie（前端浏览器使用，API key 不暴露在 JS bundle 中）
     2. X-API-Key 请求头（外部 API 客户端使用）
+
+    session 认证返回登录时的用户名；旧会话（无 username）返回 session_user。
     """
     # 优先检查 session cookie（前端浏览器请求）
     if request is not None and request.session.get("authenticated"):
-        return "session_user"
+        return request.session.get("username") or "session_user"
 
     # 回退到 X-API-Key 请求头（外部客户端 / curl）
     return validate_api_key(api_key)
+
+
+async def get_authenticated_actor(principal: str = Depends(get_current_api_key)) -> str:
+    """An audit label must never contain the API-key credential itself."""
+    if settings.API_KEY and secrets.compare_digest(principal, settings.API_KEY):
+        return "api_key"
+    return principal
 
 
 def generate_api_key(length: int = 32) -> str:

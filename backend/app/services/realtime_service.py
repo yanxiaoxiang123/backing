@@ -97,6 +97,9 @@ class RealtimeService:
     _selected_server: Server | None = None
     _unhealthy_until: ClassVar[dict[Server, float]] = {}
     _unhealthy_ttl_s = 60.0
+    _discovered_servers: ClassVar[list[Server]] = []
+    _last_discovery_time: ClassVar[float] = 0.0
+    _discovery_cooldown_s: ClassVar[float] = 300.0
 
     # Short-term caches keyed by (endpoint, key). Values are
     # (FetchResult, stored_at, estimated_bytes).
@@ -126,7 +129,8 @@ class RealtimeService:
     @classmethod
     def _server_candidates(cls) -> list[Server]:
         candidates: list[Server] = []
-        for raw in settings.MOOTDX_SERVERS.split(","):
+        raw_servers = getattr(settings, "MOOTDX_SERVERS", "") or ""
+        for raw in raw_servers.split(","):
             raw = raw.strip()
             if not raw:
                 continue
@@ -138,6 +142,11 @@ class RealtimeService:
                 continue
             if candidate not in candidates:
                 candidates.append(candidate)
+
+        for s in cls._discovered_servers:
+            if s not in candidates:
+                candidates.append(s)
+
         return candidates
 
     @classmethod
@@ -203,6 +212,44 @@ class RealtimeService:
                 cls._local.server = server
                 logger.info("mootdx connected to %s:%s", *server)
                 return client
+
+            # All configured candidates failed. Trigger automatic server discovery if enabled.
+            if getattr(settings, "MOOTDX_AUTO_DISCOVER", False):
+                if now - cls._last_discovery_time >= cls._discovery_cooldown_s or not cls._discovered_servers:
+                    logger.warning(
+                        "All configured mootdx servers failed. Triggering automatic server discovery..."
+                    )
+                    cls._last_discovery_time = now
+                    try:
+                        from app.services.mootdx_discovery import discover_best_servers
+
+                        discovered = discover_best_servers(
+                            limit=5,
+                            timeout_s=min(getattr(settings, "MOOTDX_TIMEOUT_S", 1.5) or 1.5, 1.5),
+                        )
+                        cls._discovered_servers = [(d.host, d.port) for d in discovered]
+                    except Exception as disc_err:
+                        logger.error("Automatic mootdx server discovery failed: %s", disc_err)
+
+                for server in cls._discovered_servers:
+                    if server in cls._unhealthy_until and cls._unhealthy_until[server] > now:
+                        continue
+                    try:
+                        client = cls._connect(server)
+                    except Exception as exc:
+                        cls._unhealthy_until[server] = now + cls._unhealthy_ttl_s
+                        logger.warning(
+                            "Discovered mootdx server %s:%s unavailable: %s", *server, exc
+                        )
+                        cls._failover_count += 1
+                        task_metrics.inc("realtime.failover", endpoint="connect")
+                        continue
+
+                    cls._selected_server = server
+                    cls._local.client = client
+                    cls._local.server = server
+                    logger.info("mootdx connected to auto-discovered server %s:%s", *server)
+                    return client
 
             logger.error("No usable mootdx server found")
             return None
@@ -449,10 +496,12 @@ class RealtimeService:
                     stale=stale,
                     cache_source="memory",
                 )
-            with self._cache_lock:
-                removed = self._snapshot_cache.pop(endpoint, None)
-                if removed:
-                    type(self)._snapshot_cache_bytes -= removed[2]
+            # A fresh-only miss must retain the last good result for failover.
+            if age / 1000 > _STALE_RETENTION_S:
+                with self._cache_lock:
+                    removed = self._snapshot_cache.pop(endpoint, None)
+                    if removed:
+                        type(self)._snapshot_cache_bytes -= removed[2]
 
         if not market_cache.enabled:
             return None
@@ -516,7 +565,49 @@ class RealtimeService:
     # Public envelope-returning methods
     # ------------------------------------------------------------------
 
+    def _fetch_tencent_bars(self, symbol: str, period: str, *, tail: bool) -> FetchResult:
+        from app.services.tencent_realtime import fetch_bars
+
+        # Isolate the HTTPS series from existing mootdx memory and Redis caches.
+        cache_symbol = f"tencent:{symbol}"
+        with self._fetch_lock(cache_symbol, period, "tail" if tail else "full"):
+            cached = self._cache_get_bars(cache_symbol, period, tail=tail, allow_stale=False)
+            if cached is not None:
+                self._record_cache_hit(ENDPOINT_BARS)
+                return cached
+            self._bump_request(ENDPOINT_BARS, period=period)
+            try:
+                records = fetch_bars(
+                    symbol, period, count=2 if tail else 640,
+                    timeout=settings.MOOTDX_TIMEOUT_S,
+                )
+                result = FetchResult(
+                    status=STATUS_OK if records else STATUS_EMPTY,
+                    data=records, provider="tencent", fetched_at=time.time(),
+                    market_at=records[-1]["date"] if records else None,
+                )
+            except Exception as exc:
+                logger.warning("Tencent bars unavailable for %s/%s: %s", symbol, period, exc)
+                self._record_unavailable(ENDPOINT_BARS, "tencent_unavailable")
+                stale = self._cache_get_bars(cache_symbol, period, tail=tail, allow_stale=True)
+                if stale is not None and stale.status == STATUS_OK:
+                    return FetchResult(
+                        status=STATUS_OK, data=stale.data, provider="tencent",
+                        reason="tencent_unavailable", stale=True,
+                        cache_age_ms=stale.cache_age_ms, fetched_at=stale.fetched_at,
+                        market_at=stale.market_at, cache_source=stale.cache_source,
+                    )
+                return FetchResult(
+                    status=STATUS_UNAVAILABLE, provider="tencent", reason="tencent_unavailable",
+                )
+            self._cache_put_bars(cache_symbol, period, result, tail=tail)
+            if tail:
+                self._merge_tail_into_full(cache_symbol, period, result)
+            return result
+
     def fetch_bars(self, symbol: str, period: str = "daily") -> FetchResult:
+        if settings.REALTIME_BARS_PROVIDER == "tencent":
+            return self._fetch_tencent_bars(symbol, period, tail=False)
         cached = self._cache_get_bars(symbol, period, tail=False, allow_stale=False)
         if cached is not None:
             self._record_cache_hit(ENDPOINT_BARS)
@@ -598,6 +689,8 @@ class RealtimeService:
         return result
 
     def fetch_bars_tail(self, symbol: str, period: str = "daily") -> FetchResult:
+        if settings.REALTIME_BARS_PROVIDER == "tencent":
+            return self._fetch_tencent_bars(symbol, period, tail=True)
         cached = self._cache_get_bars(symbol, period, tail=True, allow_stale=False)
         if cached is not None:
             self._record_cache_hit(ENDPOINT_BARS)
@@ -658,8 +751,50 @@ class RealtimeService:
             self._merge_tail_into_full(symbol, period, result)
         return result
 
+    def _fetch_tencent_snapshot(self, symbols: list[str], *, indices: bool = False) -> FetchResult:
+        from app.services.tencent_realtime import fetch_quotes
+
+        endpoint = ENDPOINT_INDICES if indices else ENDPOINT_QUOTES
+        key = f"tencent:{endpoint}:{','.join(sorted(set(symbols)))}"
+        with self._fetch_lock(key, "snapshot", endpoint):
+            cached = self._cache_get_snapshot(key)
+            if cached is not None:
+                self._record_cache_hit(endpoint)
+                return cached
+            self._bump_request(endpoint)
+            try:
+                records = fetch_quotes(symbols, timeout=settings.MOOTDX_TIMEOUT_S)
+                if indices:
+                    records = [{**row, "symbol": row["symbol"][2:]} for row in records]
+                result = FetchResult(
+                    status=STATUS_OK if records else STATUS_EMPTY,
+                    data=records,
+                    provider="tencent",
+                    fetched_at=time.time(),
+                    market_at=min(row["market_at"] for row in records) if records else None,
+                )
+            except Exception as exc:
+                logger.warning("Tencent %s unavailable: %s", endpoint, exc)
+                self._record_unavailable(endpoint, "tencent_unavailable")
+                stale = self._cache_get_snapshot(key, allow_stale=True)
+                if stale is not None and stale.status == STATUS_OK:
+                    return FetchResult(
+                        status=STATUS_OK, data=stale.data, provider="tencent",
+                        reason="tencent_unavailable", stale=True,
+                        cache_age_ms=stale.cache_age_ms, fetched_at=stale.fetched_at,
+                        market_at=stale.market_at, cache_source=stale.cache_source,
+                    )
+                return FetchResult(
+                    status=STATUS_UNAVAILABLE, provider="tencent",
+                    reason="tencent_unavailable",
+                )
+            self._cache_put_snapshot(key, result)
+            return result
+
     def fetch_quotes(self, symbols: list[str]) -> FetchResult:
-        """Fetch latest quotes for ``symbols`` (each is a single call)."""
+        """Fetch latest quotes through the configured snapshot provider."""
+        if settings.REALTIME_SNAPSHOT_PROVIDER == "tencent":
+            return self._fetch_tencent_snapshot(symbols)
         cache_key = f"{ENDPOINT_QUOTES}:{','.join(sorted(set(symbols)))}"
         cached = self._cache_get_snapshot(cache_key)
         if cached is not None:
@@ -751,6 +886,11 @@ class RealtimeService:
 
     def fetch_indices(self) -> FetchResult:
         """Fetch snapshots for the major indices wrapped in ``FetchResult``."""
+        if settings.REALTIME_SNAPSHOT_PROVIDER == "tencent":
+            return self._fetch_tencent_snapshot(
+                ["sh000001", "sz399001", "sh000300", "sz399006", "sh000688"],
+                indices=True,
+            )
         cached = self._cache_get_snapshot(ENDPOINT_INDICES)
         if cached is not None:
             self._record_cache_hit(ENDPOINT_INDICES)
@@ -916,6 +1056,8 @@ class RealtimeService:
         ]
         return {
             "provider": "mootdx",
+            "snapshot_provider": settings.REALTIME_SNAPSHOT_PROVIDER,
+            "bars_provider": settings.REALTIME_BARS_PROVIDER,
             "selected_server": cls._selected_server,
             "total_servers": len(candidates),
             "healthy_count": len(healthy),

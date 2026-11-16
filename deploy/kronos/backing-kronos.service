@@ -1,0 +1,23 @@
+[Unit]
+Description=Backing Kronos GPU inference
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=yanxx
+Group=yanxx
+WorkingDirectory=/home/yanxx/kronos-service
+EnvironmentFile=/home/yanxx/kronos-service/service.env
+Environment=HF_HUB_OFFLINE=1
+Environment=PYTHONDONTWRITEBYTECODE=1
+ExecStart=/home/yanxx/kronos-service/.venv/bin/python -m uvicorn service:app --host 172.22.226.86 --port 8211 --workers 1 --no-access-log
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=180
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

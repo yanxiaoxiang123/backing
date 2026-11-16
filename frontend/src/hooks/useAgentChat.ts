@@ -20,30 +20,45 @@ import {
   type ChatStreamState,
 } from '../services/agentChats'
 import { getApiErrorMessage } from '../services/api'
+import { normalizeStockCode } from '../utils/stockIdentity'
 
 interface TurnParts {
   reasoning: string
   content: string
   tools: ToolRow[]
   runId: string | null
+  stockCode: string | null
 }
 
 export interface UseAgentChatOptions {
   onRunLinked?: (runId: string) => void
   context?: PageContext
+  threadId?: string | null
+  onThreadChange?: (id: string | null) => void
+}
+
+export interface ChatSendResult {
+  accepted: boolean
+  threadId: string | null
 }
 
 export interface UseAgentChatResult {
   threads: ChatThread[]
   currentThread: ChatThread | null
   messages: ChatMessage[]
+  stockCode: string | null
   streamState: ChatStreamState
   running: boolean
+  restoring: boolean
   error: string | null
   runtimeStatus: ChatRuntimeStatus | null
   selectThread: (threadId: string) => Promise<void>
   newThread: () => Promise<string>
-  send: (content: string, context?: PageContext) => Promise<void>
+  send: (
+    content: string,
+    context?: PageContext,
+    onThreadCreated?: (threadId: string) => void,
+  ) => Promise<ChatSendResult>
   stop: () => Promise<void>
   archive: (threadId: string) => Promise<void>
   refreshStatus: () => Promise<void>
@@ -68,6 +83,8 @@ export function useAgentChat(options: UseAgentChatOptions = {}): UseAgentChatRes
   onRunLinkedRef.current = options.onRunLinked
   const contextRef = useRef(options.context)
   contextRef.current = options.context
+  const onThreadChangeRef = useRef(options.onThreadChange)
+  onThreadChangeRef.current = options.onThreadChange
 
   const initialThreadId = useRef<string | null>(
     typeof window === 'undefined'
@@ -76,6 +93,8 @@ export function useAgentChat(options: UseAgentChatOptions = {}): UseAgentChatRes
   )
   const [threads, setThreads] = useState<ChatThread[]>([])
   const [currentThread, setCurrentThread] = useState<ChatThread | null>(null)
+  const currentThreadRef = useRef(currentThread)
+  currentThreadRef.current = currentThread
   const [turns, setTurns] = useState<ChatTurn[]>([])
   const [parts, setParts] = useState<Record<number, TurnParts>>({})
   const [streamState, setStreamState] = useState<ChatStreamState>('idle')
@@ -84,6 +103,10 @@ export function useAgentChat(options: UseAgentChatOptions = {}): UseAgentChatRes
   const [hasMoreHistory, setHasMoreHistory] = useState(false)
   const historyOffsetRef = useRef(0)
   const streamRef = useRef<ChatEventStream | null>(null)
+  const sessionVersionRef = useRef(0)
+  const activeThreadRef = useRef<string | null>(null)
+  const seenEventIdsRef = useRef<Set<number>>(new Set())
+  const selectionSeqRef = useRef<Map<number, number>>(new Map())
   // The SSE endpoint replays from the supplied cursor. Keep the replay bounded
   // to the paged turn window so old events do not recreate an unbounded parts
   // map in the browser.
@@ -93,133 +116,170 @@ export function useAgentChat(options: UseAgentChatOptions = {}): UseAgentChatRes
   // 终态事件先到时 turns 中尚无对应行，先暂存补丁，REST 返回后再合并，
   // 避免 completed 被随后到达的 queued 快照覆盖。
   const terminalTurnPatchesRef = useRef<Map<number, Partial<ChatTurn>>>(new Map())
+  const titleRefreshSeqRef = useRef(0)
 
   const persistThreadId = useCallback((id: string | null) => {
+    if (onThreadChangeRef.current) {
+      onThreadChangeRef.current(id)
+      return
+    }
     if (typeof window === 'undefined') return
     const url = new URL(window.location.href)
     if (id) url.searchParams.set('thread_id', id)
     else url.searchParams.delete('thread_id')
-    window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`)
+    window.history.replaceState(
+      window.history.state,
+      '',
+      `${url.pathname}${url.search}${url.hash}`,
+    )
   }, [])
 
-  const applyEvent = useCallback(
-    (event: ChatEvent) => {
-      const turnId = event.turn_id
-      const payload = event.payload
-      const minLoadedTurnId = minLoadedTurnIdRef.current
-      if (minLoadedTurnId !== null && turnId < minLoadedTurnId) return
-      if (event.type === 'reasoning') {
-        setParts((prev) => ({
-          ...prev,
-          [turnId]: {
-            reasoning:
-              (prev[turnId]?.reasoning ?? '') + String(payload['content'] ?? ''),
-            content: prev[turnId]?.content ?? '',
-            tools: prev[turnId]?.tools ?? [],
-            runId: prev[turnId]?.runId ?? null,
-          },
-        }))
-      } else if (event.type === 'assistant_chunk') {
-        setParts((prev) => ({
-          ...prev,
-          [turnId]: {
-            reasoning: prev[turnId]?.reasoning ?? '',
-            content: (prev[turnId]?.content ?? '') + String(payload['content'] ?? ''),
-            tools: prev[turnId]?.tools ?? [],
-            runId: prev[turnId]?.runId ?? null,
-          },
-        }))
-      } else if (event.type === 'tool_call') {
-        setParts((prev) => ({
-          ...prev,
-          [turnId]: {
-            reasoning: prev[turnId]?.reasoning ?? '',
-            content: prev[turnId]?.content ?? '',
-            tools: [
-              ...(prev[turnId]?.tools ?? []),
-              {
-                tool: String(payload['tool'] ?? ''),
-                summary: '',
-                callId: String(payload['call_id'] ?? '') || null,
-                runId: null,
-              },
-            ],
-            runId: prev[turnId]?.runId ?? null,
-          },
-        }))
-      } else if (event.type === 'tool_result') {
-        setParts((prev) => {
-          const tools = [...(prev[turnId]?.tools ?? [])]
-          const callId = String(payload['call_id'] ?? '')
-          const idx = callId
-            ? tools.map((t) => t.callId).lastIndexOf(callId)
-            : tools.map((t) => t.tool).lastIndexOf(String(payload['tool'] ?? ''))
-          const rawSummary = payload['summary'] ?? payload['result'] ?? ''
-          const summary =
-            typeof rawSummary === 'string' ? rawSummary : JSON.stringify(rawSummary)
-          if (idx >= 0) {
-            tools[idx] = { ...tools[idx], summary }
-            if (payload['run_id'])
-              tools[idx] = { ...tools[idx], runId: String(payload['run_id']) }
-          }
-          return {
-            ...prev,
-            [turnId]: {
-              reasoning: prev[turnId]?.reasoning ?? '',
-              content: prev[turnId]?.content ?? '',
-              tools,
-              runId: prev[turnId]?.runId ?? null,
+  const applyEvent = useCallback((event: ChatEvent) => {
+    const turnId = event.turn_id
+    const payload = event.payload
+    const minLoadedTurnId = minLoadedTurnIdRef.current
+    if (minLoadedTurnId !== null && turnId < minLoadedTurnId) return
+    if (seenEventIdsRef.current.has(event.seq)) return
+    seenEventIdsRef.current.add(event.seq)
+    if (event.type === 'stock.selected') {
+      if ((selectionSeqRef.current.get(turnId) ?? -1) >= event.seq) return
+      selectionSeqRef.current.set(turnId, event.seq)
+      const stockCode = normalizeStockCode(String(payload['stock_code'] ?? ''))
+      if (!stockCode) return
+      setParts((prev) => ({
+        ...prev,
+        [turnId]: {
+          reasoning: prev[turnId]?.reasoning ?? '',
+          content: prev[turnId]?.content ?? '',
+          tools: prev[turnId]?.tools ?? [],
+          runId: prev[turnId]?.runId ?? null,
+          stockCode,
+        },
+      }))
+      return
+    }
+    if (event.type === 'reasoning') {
+      setParts((prev) => ({
+        ...prev,
+        [turnId]: {
+          reasoning: (prev[turnId]?.reasoning ?? '') + String(payload['content'] ?? ''),
+          content: prev[turnId]?.content ?? '',
+          tools: prev[turnId]?.tools ?? [],
+          runId: prev[turnId]?.runId ?? null,
+          stockCode: prev[turnId]?.stockCode ?? null,
+        },
+      }))
+    } else if (event.type === 'assistant_chunk') {
+      setParts((prev) => ({
+        ...prev,
+        [turnId]: {
+          reasoning: prev[turnId]?.reasoning ?? '',
+          content: (prev[turnId]?.content ?? '') + String(payload['content'] ?? ''),
+          tools: prev[turnId]?.tools ?? [],
+          runId: prev[turnId]?.runId ?? null,
+          stockCode: prev[turnId]?.stockCode ?? null,
+        },
+      }))
+    } else if (event.type === 'tool_call') {
+      setParts((prev) => ({
+        ...prev,
+        [turnId]: {
+          reasoning: prev[turnId]?.reasoning ?? '',
+          content: prev[turnId]?.content ?? '',
+          tools: [
+            ...(prev[turnId]?.tools ?? []),
+            {
+              tool: String(payload['tool'] ?? ''),
+              summary: '',
+              callId: String(payload['call_id'] ?? '') || null,
+              runId: null,
             },
-          }
-        })
-      } else if (event.type === 'run.linked') {
-        const runId = String(payload['run_id'] ?? '')
-        setParts((prev) => ({
+          ],
+          runId: prev[turnId]?.runId ?? null,
+          stockCode: prev[turnId]?.stockCode ?? null,
+        },
+      }))
+    } else if (event.type === 'tool_result') {
+      setParts((prev) => {
+        const tools = [...(prev[turnId]?.tools ?? [])]
+        const callId = String(payload['call_id'] ?? '')
+        const idx = callId
+          ? tools.map((t) => t.callId).lastIndexOf(callId)
+          : tools.map((t) => t.tool).lastIndexOf(String(payload['tool'] ?? ''))
+        const rawSummary = payload['summary'] ?? payload['result'] ?? ''
+        const summary =
+          typeof rawSummary === 'string' ? rawSummary : JSON.stringify(rawSummary)
+        if (idx >= 0) {
+          tools[idx] = { ...tools[idx], summary }
+          if (payload['run_id'])
+            tools[idx] = { ...tools[idx], runId: String(payload['run_id']) }
+        }
+        return {
           ...prev,
           [turnId]: {
             reasoning: prev[turnId]?.reasoning ?? '',
             content: prev[turnId]?.content ?? '',
-            tools: prev[turnId]?.tools ?? [],
-            runId,
+            tools,
+            runId: prev[turnId]?.runId ?? null,
+            stockCode: prev[turnId]?.stockCode ?? null,
           },
-        }))
-        if (runId) {
-          setCurrentThread((prev) => (prev ? { ...prev, last_run_id: runId } : prev))
-          setThreads((prev) =>
-            prev.map((thread) =>
-              thread.thread_id === currentThread?.thread_id
-                ? { ...thread, last_run_id: runId }
-                : thread,
-            ),
-          )
-          onRunLinkedRef.current?.(runId)
         }
-      } else if (event.type === 'turn.done') {
-        const patch: Partial<ChatTurn> = {
-          status: (payload['status'] as ChatTurn['status']) ?? 'completed',
-          final_reply: String(payload['final_reply'] ?? '') || null,
-          end_reason: String(payload['end_reason'] ?? '') || null,
-          error: String(payload['error'] ?? '') || null,
-        }
-        if (!loadedTurnIdsRef.current.has(turnId)) {
-          terminalTurnPatchesRef.current.set(turnId, patch)
-        }
-        setTurns((prev) =>
-          prev.map((turn) => (turn.id === turnId ? { ...turn, ...patch } : turn)),
+      })
+    } else if (event.type === 'run.linked') {
+      const runId = String(payload['run_id'] ?? '')
+      setParts((prev) => ({
+        ...prev,
+        [turnId]: {
+          reasoning: prev[turnId]?.reasoning ?? '',
+          content: prev[turnId]?.content ?? '',
+          tools: prev[turnId]?.tools ?? [],
+          runId,
+          stockCode: prev[turnId]?.stockCode ?? null,
+        },
+      }))
+      if (runId) {
+        setCurrentThread((prev) => (prev ? { ...prev, last_run_id: runId } : prev))
+        setThreads((prev) =>
+          prev.map((thread) =>
+            thread.thread_id === activeThreadRef.current
+              ? { ...thread, last_run_id: runId }
+              : thread,
+          ),
         )
-        setCurrentThread((prev) => (prev ? { ...prev, status: 'idle' } : prev))
+        onRunLinkedRef.current?.(runId)
       }
-    },
-    [currentThread?.thread_id],
-  )
+    } else if (event.type === 'turn.done') {
+      const patch: Partial<ChatTurn> = {
+        status: (payload['status'] as ChatTurn['status']) ?? 'completed',
+        final_reply: String(payload['final_reply'] ?? '') || null,
+        end_reason: String(payload['end_reason'] ?? '') || null,
+        error: String(payload['error'] ?? '') || null,
+      }
+      if (!loadedTurnIdsRef.current.has(turnId)) {
+        terminalTurnPatchesRef.current.set(turnId, patch)
+      }
+      setTurns((prev) =>
+        prev.map((turn) => (turn.id === turnId ? { ...turn, ...patch } : turn)),
+      )
+      setCurrentThread((prev) => (prev ? { ...prev, status: 'idle' } : prev))
+    }
+  }, [])
 
   const connectStream = useCallback(
     (threadId: string, lastEventId: number) => {
       streamRef.current?.stop()
+      const version = sessionVersionRef.current
       const stream = new ChatEventStream(threadId)
       streamRef.current = stream
-      stream.onEvent = applyEvent
+      const active = () =>
+        sessionVersionRef.current === version &&
+        activeThreadRef.current === threadId &&
+        streamRef.current === stream
+      stream.onEvent = (event) => {
+        if (active()) applyEvent(event)
+      }
       stream.onStateChange = (state, err) => {
+        if (!active()) return
         setStreamState(state)
         if (state === 'error')
           setError(err instanceof Error ? err.message : String(err))
@@ -230,18 +290,69 @@ export function useAgentChat(options: UseAgentChatOptions = {}): UseAgentChatRes
   )
 
   const refreshThreads = useCallback(async () => {
+    const sequence = ++titleRefreshSeqRef.current
     try {
       const data = await listThreads()
+      if (sequence !== titleRefreshSeqRef.current) return
       setThreads(data.threads)
+      setCurrentThread((prev) => {
+        const updated = data.threads.find((item) => item.thread_id === prev?.thread_id)
+        return prev && updated
+          ? { ...prev, title: updated.title, title_pending: updated.title_pending }
+          : prev
+      })
+      // An older selected chat can be outside the first page of recent chats.
+      const activeId = activeThreadRef.current
+      if (
+        activeId &&
+        currentThreadRef.current?.title_pending &&
+        !data.threads.some((item) => item.thread_id === activeId)
+      ) {
+        const detail = await getThread(activeId, 1)
+        if (sequence !== titleRefreshSeqRef.current) return
+        setCurrentThread((prev) =>
+          prev?.thread_id === activeId
+            ? {
+                ...prev,
+                title: detail.thread.title,
+                title_pending: detail.thread.title_pending,
+              }
+            : prev,
+        )
+      }
     } catch {
       // 列表失败不阻塞当前会话
     }
   }, [])
 
+  const clearSession = useCallback(() => {
+    sessionVersionRef.current += 1
+    activeThreadRef.current = null
+    const stream = streamRef.current
+    streamRef.current = null
+    stream?.stop()
+    setCurrentThread(null)
+    setTurns([])
+    setParts({})
+    setStreamState('idle')
+    setError(null)
+    seenEventIdsRef.current.clear()
+    selectionSeqRef.current.clear()
+    terminalTurnPatchesRef.current.clear()
+    loadedTurnIdsRef.current.clear()
+    minLoadedTurnIdRef.current = null
+    historyOffsetRef.current = 0
+    setHasMoreHistory(false)
+    return sessionVersionRef.current
+  }, [])
+
   const selectThread = useCallback(
     async (threadId: string): Promise<void> => {
+      const version = clearSession()
+      activeThreadRef.current = threadId
       try {
         const detail = await getThread(threadId)
+        if (sessionVersionRef.current !== version) return
         setCurrentThread(detail.thread)
         setTurns(detail.turns)
         historyOffsetRef.current = detail.turns.length
@@ -250,37 +361,60 @@ export function useAgentChat(options: UseAgentChatOptions = {}): UseAgentChatRes
         minLoadedTurnIdRef.current = detail.turns.length
           ? Math.min(...detail.turns.map((turn) => turn.id))
           : null
-        setParts({})
-        terminalTurnPatchesRef.current.clear()
-        setError(null)
         persistThreadId(threadId)
         connectStream(threadId, 0)
       } catch (exc) {
-        setError(getApiErrorMessage(exc))
+        if (sessionVersionRef.current === version) setError(getApiErrorMessage(exc))
       }
     },
-    [connectStream, persistThreadId],
+    [clearSession, connectStream, persistThreadId],
   )
 
   const newThread = useCallback(async (): Promise<string> => {
+    const version = clearSession()
+    persistThreadId(null)
     const thread = await createThread()
+    if (sessionVersionRef.current !== version) return thread.thread_id
     setThreads((prev) => [thread, ...prev])
     await selectThread(thread.thread_id)
     return thread.thread_id
-  }, [selectThread])
+  }, [clearSession, persistThreadId, selectThread])
 
   const send = useCallback(
-    async (content: string, context?: PageContext): Promise<void> => {
+    async (
+      content: string,
+      context?: PageContext,
+      onThreadCreated?: (threadId: string) => void,
+    ): Promise<ChatSendResult> => {
       const text = content.trim()
-      if (!text) return
+      let thread = currentThread
+      const receipt = (accepted: boolean): ChatSendResult => ({
+        accepted,
+        threadId: thread?.thread_id ?? null,
+      })
+      if (!text) return receipt(false)
+      const requestedId =
+        options.threadId !== undefined
+          ? options.threadId
+          : (activeThreadRef.current ?? initialThreadId.current)
+      if (requestedId && thread?.thread_id !== requestedId) {
+        setError('会话尚未加载完成，输入已保留；请加载会话后再发送')
+        return receipt(false)
+      }
+      const version = sessionVersionRef.current
+      const submittedContext = context ?? contextRef.current
+      setError(null)
       try {
         if (runtimeStatus && !runtimeStatus.available) {
           setError('Agent 聊天当前不可用，请检查模型配置后重试')
-          return
+          return receipt(false)
         }
-        let thread = currentThread
         if (!thread) {
           const created = await createThread()
+          thread = created
+          if (sessionVersionRef.current !== version) return receipt(false)
+          onThreadCreated?.(created.thread_id)
+          activeThreadRef.current = created.thread_id
           setThreads((prev) => [created, ...prev])
           setCurrentThread(created)
           minLoadedTurnIdRef.current = null
@@ -295,8 +429,13 @@ export function useAgentChat(options: UseAgentChatOptions = {}): UseAgentChatRes
           thread.thread_id,
           text,
           newIdempotencyKey(),
-          context || contextRef.current,
+          submittedContext,
         )
+        if (
+          sessionVersionRef.current !== version ||
+          activeThreadRef.current !== thread.thread_id
+        )
+          return receipt(true)
         const terminalPatch = terminalTurnPatchesRef.current.get(turn.id)
         const mergedTurn = terminalPatch ? { ...turn, ...terminalPatch } : turn
         setTurns((prev) => {
@@ -308,32 +447,32 @@ export function useAgentChat(options: UseAgentChatOptions = {}): UseAgentChatRes
         })
         loadedTurnIdsRef.current.add(mergedTurn.id)
         terminalTurnPatchesRef.current.delete(mergedTurn.id)
-        if (thread.title === '' || thread.title == null) {
-          setCurrentThread((prev) =>
-            prev ? { ...prev, title: text.slice(0, 36) } : prev,
-          )
-          setThreads((prev) =>
-            prev.map((t) =>
-              t.thread_id === thread!.thread_id
-                ? { ...t, title: text.slice(0, 36) }
-                : t,
-            ),
-          )
-        }
+        void refreshThreads()
+        return receipt(true)
       } catch (exc) {
-        setError(getApiErrorMessage(exc))
+        if (sessionVersionRef.current === version) setError(getApiErrorMessage(exc))
+        return receipt(false)
       }
     },
-    [connectStream, currentThread, persistThreadId, runtimeStatus],
+    [
+      connectStream,
+      currentThread,
+      options.threadId,
+      persistThreadId,
+      refreshThreads,
+      runtimeStatus,
+    ],
   )
 
   const stop = useCallback(async (): Promise<void> => {
     if (!currentThread) return
+    const version = sessionVersionRef.current
     try {
       const turn = await cancelTurn(currentThread.thread_id)
+      if (sessionVersionRef.current !== version) return
       setTurns((prev) => prev.map((t) => (t.id === turn.id ? { ...t, ...turn } : t)))
     } catch (exc) {
-      setError(getApiErrorMessage(exc))
+      if (sessionVersionRef.current === version) setError(getApiErrorMessage(exc))
     }
   }, [currentThread])
 
@@ -341,22 +480,17 @@ export function useAgentChat(options: UseAgentChatOptions = {}): UseAgentChatRes
     async (threadId: string): Promise<void> => {
       try {
         await archiveThread(threadId)
+        titleRefreshSeqRef.current += 1
         setThreads((prev) => prev.filter((t) => t.thread_id !== threadId))
-        if (currentThread?.thread_id === threadId) {
-          setCurrentThread(null)
-          setTurns([])
-          setParts({})
-          loadedTurnIdsRef.current.clear()
-          minLoadedTurnIdRef.current = null
-          historyOffsetRef.current = 0
-          setHasMoreHistory(false)
+        if (activeThreadRef.current === threadId) {
+          clearSession()
           persistThreadId(null)
         }
       } catch (exc) {
         setError(getApiErrorMessage(exc))
       }
     },
-    [currentThread, persistThreadId],
+    [clearSession, persistThreadId],
   )
 
   const refreshStatus = useCallback(async (): Promise<void> => {
@@ -369,12 +503,14 @@ export function useAgentChat(options: UseAgentChatOptions = {}): UseAgentChatRes
 
   const loadOlder = useCallback(async (): Promise<void> => {
     if (!currentThread || !hasMoreHistory) return
+    const version = sessionVersionRef.current
     try {
       const detail = await getThread(
         currentThread.thread_id,
         100,
         historyOffsetRef.current,
       )
+      if (sessionVersionRef.current !== version) return
       setTurns((prev) => {
         const existing = new Set(prev.map((turn) => turn.id))
         return [...detail.turns.filter((turn) => !existing.has(turn.id)), ...prev]
@@ -392,7 +528,7 @@ export function useAgentChat(options: UseAgentChatOptions = {}): UseAgentChatRes
       historyOffsetRef.current += detail.turns.length
       setHasMoreHistory(Boolean(detail.has_more))
     } catch (exc) {
-      setError(getApiErrorMessage(exc))
+      if (sessionVersionRef.current === version) setError(getApiErrorMessage(exc))
     }
   }, [currentThread, hasMoreHistory])
 
@@ -402,17 +538,40 @@ export function useAgentChat(options: UseAgentChatOptions = {}): UseAgentChatRes
   }, [refreshStatus])
 
   useEffect(() => {
+    if (options.threadId !== undefined) {
+      void refreshThreads()
+      return
+    }
     const id = initialThreadId.current
     if (id) {
-      initialThreadId.current = null
-      void selectThread(id)
+      // StrictMode cleans up the first effect before its request resolves.
+      // Keep the restore target until selection finishes so the second setup
+      // can retry instead of leaving the conversation empty.
+      void selectThread(id).then(() => {
+        if (activeThreadRef.current === id) {
+          initialThreadId.current = null
+          void refreshThreads()
+        }
+      })
     } else {
       void refreshThreads()
     }
-  }, [refreshThreads, selectThread])
+  }, [options.threadId, refreshThreads, selectThread])
 
   useEffect(() => {
-    return () => streamRef.current?.stop()
+    const id = options.threadId
+    if (id === undefined || id === activeThreadRef.current) return
+    if (id) void selectThread(id)
+    else clearSession()
+  }, [options.threadId, selectThread, clearSession])
+
+  useEffect(() => {
+    return () => {
+      sessionVersionRef.current += 1
+      titleRefreshSeqRef.current += 1
+      activeThreadRef.current = null
+      streamRef.current?.stop()
+    }
   }, [])
 
   // 左栏运行状态跟随最新 turn 生命周期刷新（queued/running → 完成/取消）
@@ -421,6 +580,26 @@ export function useAgentChat(options: UseAgentChatOptions = {}): UseAgentChatRes
     if (!latestTurnStatus) return
     void refreshThreads()
   }, [latestTurnStatus, refreshThreads])
+
+  // Naming runs independently of the chat turn, including historical chats.
+  // Refresh until the server has persisted either an AI title or its fallback.
+  const hasPendingTitles =
+    Boolean(currentThread?.title_pending) ||
+    threads.some((thread) => thread.title_pending)
+  useEffect(() => {
+    if (!hasPendingTitles) return
+    let cancelled = false
+    let timer: ReturnType<typeof window.setTimeout>
+    const poll = async () => {
+      await refreshThreads()
+      if (!cancelled) timer = window.setTimeout(() => void poll(), 2000)
+    }
+    timer = window.setTimeout(() => void poll(), 2000)
+    return () => {
+      cancelled = true
+      window.clearTimeout(timer)
+    }
+  }, [hasPendingTitles, refreshThreads])
 
   const messages = useMemo<ChatMessage[]>(() => {
     const msgs: ChatMessage[] = []
@@ -450,15 +629,31 @@ export function useAgentChat(options: UseAgentChatOptions = {}): UseAgentChatRes
     return msgs
   }, [parts, turns])
 
+  const stockCode = useMemo(() => {
+    const latest = Object.entries(parts)
+      .filter(([, part]) => part.stockCode)
+      .sort(([left], [right]) => Number(right) - Number(left))[0]
+    return latest?.[1].stockCode ?? null
+  }, [parts])
+
   const running = useMemo(
     () => turns.some((t) => t.status === 'queued' || t.status === 'running'),
     [turns],
   )
 
+  const requestedThreadId =
+    options.threadId !== undefined
+      ? options.threadId
+      : (activeThreadRef.current ?? initialThreadId.current)
+
   return {
     threads,
     currentThread,
+    restoring: Boolean(
+      requestedThreadId && currentThread?.thread_id !== requestedThreadId,
+    ),
     messages,
+    stockCode,
     streamState,
     running,
     error,

@@ -1,14 +1,23 @@
-import { useState } from 'react'
-import { Button, Drawer, Empty } from 'antd'
+import { lazy, Suspense, useState } from 'react'
+import { Button, Drawer, Empty, Spin } from 'antd'
 import { CloseOutlined, RobotOutlined } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
-import { ChatConversation } from '../chat/ChatConversation'
-import { ChatInput } from '../chat/ChatInput'
+import { ResearchChatInput } from '../chat/ResearchChatInput'
 import { useAgentChat } from '../../hooks/useAgentChat'
 import type { PageContext } from '../../types/chat'
+import { workspaceHref } from '../../utils/researchNavigation'
+
+const ChatConversation = lazy(() =>
+  import('../chat/ChatConversation').then((module) => ({
+    default: module.ChatConversation,
+  })),
+)
 
 interface ResearchCopilotProps {
   context?: PageContext
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
+  hideTrigger?: boolean
 }
 
 function CopilotContent({
@@ -20,6 +29,9 @@ function CopilotContent({
 }) {
   const navigate = useNavigate()
   const chat = useAgentChat({ context })
+  const threadId =
+    chat.currentThread?.thread_id ??
+    new URLSearchParams(window.location.search).get('thread_id')
 
   return (
     <div className="research-copilot-body">
@@ -33,49 +45,88 @@ function CopilotContent({
           description="问我这只股票的走势、风险或下一步验证方向"
         />
       ) : null}
-      <ChatConversation
-        messages={chat.messages}
-        running={chat.running}
-        streamState={chat.streamState}
-        error={chat.error}
-        hasOlder={chat.hasMoreHistory}
-        onLoadOlder={() => void chat.loadOlder()}
-      />
+      <Suspense
+        fallback={
+          <div
+            style={{
+              padding: '24px',
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              minHeight: 120,
+            }}
+          >
+            <Spin size="small" />
+          </div>
+        }
+      >
+        <ChatConversation
+          messages={chat.messages}
+          running={chat.running}
+          streamState={chat.streamState}
+          error={chat.error}
+          hasOlder={chat.hasMoreHistory}
+          onLoadOlder={() => void chat.loadOlder()}
+        />
+      </Suspense>
       <div className="research-copilot-actions">
         <Button
           size="small"
           onClick={() => {
             onClose()
-            navigate('/workspace')
+            navigate(
+              workspaceHref({
+                threadId,
+                stockCode:
+                  context?.entity_type === 'stock' ? context.entity_id : chat.stockCode,
+              }),
+            )
           }}
         >
           打开完整工作台
         </Button>
       </div>
-      <ChatInput
+      <ResearchChatInput
+        threadId={threadId}
+        stockCode={
+          context?.entity_type === 'stock' ? context.entity_id : chat.stockCode
+        }
         running={chat.running}
+        sendDisabled={chat.restoring}
         disabled={chat.runtimeStatus?.available === false}
-        onSend={(content) => void chat.send(content, context)}
+        onSend={(content, created) => chat.send(content, context, created)}
         onStop={() => void chat.stop()}
       />
     </div>
   )
 }
 
-export function ResearchCopilot({ context }: ResearchCopilotProps) {
-  const [open, setOpen] = useState(false)
+export function ResearchCopilot({
+  context,
+  open: controlledOpen,
+  onOpenChange,
+  hideTrigger = false,
+}: ResearchCopilotProps) {
+  const [internalOpen, setInternalOpen] = useState(false)
+  const open = controlledOpen ?? internalOpen
+  const setOpen = (next: boolean) => {
+    if (controlledOpen === undefined) setInternalOpen(next)
+    onOpenChange?.(next)
+  }
 
   return (
     <>
-      <button
-        type="button"
-        className="research-copilot-trigger"
-        aria-label="打开 AI 副驾驶"
-        onClick={() => setOpen(true)}
-      >
-        <RobotOutlined />
-        <span>AI 副驾驶</span>
-      </button>
+      {hideTrigger ? null : (
+        <button
+          type="button"
+          className="research-copilot-trigger"
+          aria-label="打开 AI 副驾驶"
+          onClick={() => setOpen(true)}
+        >
+          <RobotOutlined />
+          <span>AI 副驾驶</span>
+        </button>
+      )}
       <Drawer
         title={
           <div className="copilot-title">

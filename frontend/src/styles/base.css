@@ -8,7 +8,7 @@
 }
 
 html {
-  scroll-behavior: smooth;
+  scroll-behavior: auto;
   scrollbar-width: thin;
   scrollbar-color: var(--scrollbar-thumb) transparent;
 }
@@ -41,11 +41,13 @@ html {
 
 body {
   font-family: var(--font-family);
-  font-size: var(--font-size-base);
-  font-weight: 450;
+  font-size: var(--fs-body);
+  font-weight: 400;
   color: var(--color-text-primary);
   background: var(--color-canvas);
   line-height: 1.5;
+  font-kerning: normal;
+  font-synthesis: none;
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -53,6 +55,10 @@ body {
 
 #root {
   min-height: 100vh;
+}
+
+small {
+  font-size: var(--fs-meta);
 }
 
 a {
@@ -150,7 +156,7 @@ select {
 @keyframes fadeIn {
   from {
     opacity: 0;
-    transform: translateY(10px);
+    transform: translateY(4px);
   }
   to {
     opacity: 1;
@@ -159,5 +165,5 @@ select {
 }
 
 .fade-in {
-  animation: fadeIn 0.4s ease forwards;
+  animation: fadeIn var(--transition-normal) both;
 }

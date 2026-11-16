@@ -23,7 +23,7 @@ jobs:
         run: |
           pip install -r requirements.txt
           pip install -e ../TradingAgents-astock
-          pip install ruff
+          pip install ruff==0.16.3
       - name: Lint
         run: ruff check app/ main.py task_worker.py maintenance_cli.py migrations/ tests/
       - name: Tests
@@ -42,8 +42,8 @@ jobs:
           python-version: '3.12'
           cache: pip
           cache-dependency-path: TradingAgents-astock/pyproject.toml
-      - name: Install package
-        run: pip install -e .
+      - name: Install package and test runner
+        run: pip install -e . pytest
       - name: Tests
         run: pytest -q
 

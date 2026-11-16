@@ -65,6 +65,7 @@ import { useAgentRun } from './useAgentRun'
 
 describe('useAgentRun.attach', () => {
   beforeEach(() => {
+    window.history.replaceState({}, '', '/workspace')
     mocks.instances.length = 0
     mocks.createRun.mockReset()
     mocks.getRun.mockReset()
@@ -98,6 +99,90 @@ describe('useAgentRun.attach', () => {
     expect(result.current.run?.status).toBe('running')
     expect(mocks.instances).toHaveLength(1)
     expect(mocks.instances[0].start).toHaveBeenCalledWith(0)
+  })
+
+  it('detach clears run state and rejects late HTTP and SSE results', async () => {
+    let resolveRun!: (value: unknown) => void
+    let resolveArtifacts!: (value: unknown[]) => void
+    mocks.getRun.mockReturnValue(
+      new Promise((resolve) => {
+        resolveRun = resolve
+      }),
+    )
+    mocks.listArtifacts.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveArtifacts = resolve
+      }),
+    )
+    const { result } = renderHook(() => useAgentRun())
+    await act(async () => {
+      await result.current.attach('old-run')
+    })
+    act(() => {
+      result.current.detach()
+    })
+    await act(async () => {
+      resolveRun({
+        run_id: 'old-run',
+        objective: 'old',
+        status: 'completed',
+        steps: [],
+      })
+      resolveArtifacts([{ id: 'old-artifact' }])
+    })
+    act(() => {
+      mocks.instances[0].emit({ type: 'step', seq: 99 })
+    })
+    expect(result.current.runId).toBeNull()
+    expect(result.current.run).toBeNull()
+    expect(result.current.events).toEqual([])
+    expect(result.current.artifacts).toEqual([])
+    expect(window.location.search).not.toContain('run_id')
+  })
+
+  it('a previous run response cannot overwrite a newly attached run', async () => {
+    let resolveOld!: (value: unknown) => void
+    mocks.getRun
+      .mockReturnValueOnce(
+        new Promise((resolve) => {
+          resolveOld = resolve
+        }),
+      )
+      .mockResolvedValueOnce({ run_id: 'new-run', status: 'running', steps: [] })
+    const { result } = renderHook(() => useAgentRun())
+    await act(async () => {
+      await result.current.attach('old-run')
+    })
+    await act(async () => {
+      await result.current.attach('new-run')
+    })
+    await act(async () => {
+      resolveOld({ run_id: 'old-run', status: 'completed', steps: [] })
+    })
+    expect(result.current.run?.run_id).toBe('new-run')
+  })
+
+  it('detach prevents a pending create from reattaching', async () => {
+    let resolveCreate!: (value: { run_id: string }) => void
+    mocks.createRun.mockReturnValue(
+      new Promise((resolve) => {
+        resolveCreate = resolve
+      }),
+    )
+    const { result } = renderHook(() => useAgentRun())
+    let starting!: Promise<string>
+    act(() => {
+      starting = result.current.start('old objective')
+    })
+    act(() => {
+      result.current.detach()
+    })
+    await act(async () => {
+      resolveCreate({ run_id: 'late-run' })
+      await starting
+    })
+    expect(result.current.runId).toBeNull()
+    expect(mocks.instances).toHaveLength(0)
   })
 
   it('attach 后流式事件合并进 events', async () => {

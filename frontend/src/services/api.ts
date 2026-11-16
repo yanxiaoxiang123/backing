@@ -1,33 +1,25 @@
 import axios from 'axios'
-import { message } from 'antd'
+import { toast } from '../utils/toast'
 import type {
   Stock,
   DailyKline,
   BacktestResult,
   BacktestListItem,
-  SyncResponse,
-  BacktestRequest,
   KlineResponse,
   StrategyInfo,
   SignalResponse,
   StrategyBacktestResponse,
-  OptimizeResponse,
   AgentAnalyzeRequest,
   AgentAnalyzeResponse,
   AnalysisRecord,
-  IndexInfo,
-  MarketAnalyzeRequest,
-  MarketAnalyzeResponse,
-  DashboardSummary,
   StockOverview,
   JobStatus,
   JobSubmission,
   WatchlistItem,
   WatchlistResponse,
-  ScreenerRequest,
-  ScreenerResponse,
   CompareRequest,
   CompareResponse,
+  ResearchExecutionOptions,
 } from '../types'
 import { normalizeStockCode } from '../utils/stockIdentity'
 
@@ -94,6 +86,23 @@ export async function bootstrapAuth(): Promise<void> {
   } catch {
     setAuthState('unauthenticated')
   }
+}
+
+/**
+ * 用账号 + 密码换短期 HttpOnly session cookie。
+ *
+ * 密码只出现在本次请求体中，不落盘、不进 bundle、不随后续请求发送。
+ */
+export async function loginWithCredentials(
+  username: string,
+  password: string,
+): Promise<void> {
+  await axios.post(
+    '/api/v1/auth/session',
+    { username: username.trim(), password },
+    { baseURL: '' },
+  )
+  setAuthState('authenticated')
 }
 
 /** 用 API key 换短期 HttpOnly session cookie（key 不落盘、不进 bundle）。 */
@@ -177,9 +186,11 @@ export function getApiErrorMessage(error: unknown): string {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
+    // A page change or StrictMode cleanup deliberately aborts polling requests.
+    if (axios.isCancel(error)) return Promise.reject(error)
     if (!axios.isAxiosError(error)) {
       // 非网络错误 —— 透传并全局兜底提示
-      message.error(getApiErrorMessage(error))
+      toast.error(getApiErrorMessage(error))
       return Promise.reject(error)
     }
 
@@ -204,7 +215,7 @@ api.interceptors.response.use(
       apiError.userMessage = userMessage
     } else {
       // 网络层未知错误（无响应）：全局兜底提示
-      message.error(getApiErrorMessage(error))
+      toast.error(getApiErrorMessage(error))
     }
 
     return Promise.reject(error)
@@ -236,23 +247,6 @@ export async function getStocks(
   }
 }
 
-export async function getAllStocks(market?: string): Promise<Stock[]> {
-  const pageSize = 500
-  let cursor = 0
-  const items: Stock[] = []
-
-  do {
-    const response = await getStocks(market, cursor, pageSize)
-    items.push(...response.items)
-    if (response.items.length === 0) {
-      break
-    }
-    cursor = response.nextCursor ?? -1
-  } while (cursor !== -1)
-
-  return items
-}
-
 export async function getStock(code: string): Promise<Stock> {
   const response = await api.get<Stock>(
     `/stocks/${encodeURIComponent(canonicalStockCode(code))}`,
@@ -264,11 +258,13 @@ export async function getStockKline(
   code: string,
   startDate?: string,
   endDate?: string,
+  priceSource?: 'raw' | 'legacy',
 ): Promise<DailyKline[]> {
   const normalizedCode = canonicalStockCode(code)
   const params = new URLSearchParams()
   if (startDate) params.append('start_date', startDate)
   if (endDate) params.append('end_date', endDate)
+  if (priceSource) params.append('price_source', priceSource)
   const response = await api.get<DailyKline[]>(
     `/stocks/${encodeURIComponent(normalizedCode)}/kline?${params}`,
   )
@@ -298,21 +294,6 @@ export async function getStockIndicators(
   }
 }
 
-export async function getDashboardSummary(): Promise<DashboardSummary> {
-  const response = await api.get<DashboardSummary>('/dashboard')
-  return {
-    ...response.data,
-    watchlist: response.data.watchlist?.map((item) => ({
-      ...item,
-      code: canonicalStockCode(item.code),
-    })),
-    research_queue: response.data.research_queue?.map((item) => ({
-      ...item,
-      code: canonicalStockCode(item.code),
-    })),
-  }
-}
-
 export async function getStockOverview(code: string): Promise<StockOverview> {
   const response = await api.get<StockOverview>(
     `/stocks/${encodeURIComponent(canonicalStockCode(code))}/overview`,
@@ -330,33 +311,6 @@ export async function getStockOverview(code: string): Promise<StockOverview> {
         }
       : response.data.quote,
   }
-}
-
-export async function syncStocks(): Promise<SyncResponse> {
-  const response = await api.post<SyncResponse>('/stocks/sync')
-  return response.data
-}
-
-export async function syncKline(
-  stockCodes?: string[],
-  startDate?: string,
-  endDate?: string,
-): Promise<SyncResponse> {
-  const params: Record<string, string> = {}
-  if (startDate) {
-    params.start_date = startDate
-  }
-  if (endDate) {
-    params.end_date = endDate
-  }
-  const response = await api.post<SyncResponse>(
-    '/stocks/sync-kline',
-    canonicalStockCodes(stockCodes),
-    {
-      params,
-    },
-  )
-  return response.data
 }
 
 export async function submitSyncStocks(): Promise<JobSubmission> {
@@ -379,52 +333,30 @@ export async function submitSyncKline(
   return response.data
 }
 
-export async function getIndexList(): Promise<IndexInfo[]> {
-  const response = await api.get<IndexInfo[]>('/indices')
-  return response.data
-}
-
-export async function submitSyncIndices(
-  indexCodes?: string[],
-  startDate = '2020-01-01',
-  endDate?: string,
-): Promise<JobSubmission> {
-  const params: Record<string, string> = { start_date: startDate }
-  if (endDate) {
-    params.end_date = endDate
-  }
-  const response = await api.post<JobSubmission>('/indices/sync/submit', indexCodes, {
-    params,
-  })
-  return response.data
-}
-
-// Backtest APIs
-export async function runBacktest(request: BacktestRequest): Promise<BacktestResult> {
-  const response = await api.post<BacktestResult>(
-    '/backtest',
-    canonicalStockRequest(request),
-  )
-  return {
-    ...response.data,
-    stock_code: canonicalStockCode(response.data.stock_code),
-  }
-}
-
 export async function getBacktestResults(
   stockCode?: string,
   skip = 0,
   limit = 20,
-): Promise<BacktestListItem[]> {
+  strategyName?: string,
+  sort?: 'newest' | 'return',
+): Promise<{ items: BacktestListItem[]; total: number }> {
   const params = new URLSearchParams()
-  if (stockCode) params.append('stock_code', canonicalStockCode(stockCode))
+  if (stockCode?.trim()) params.append('stock_code', stockCode.trim())
+  if (strategyName?.trim()) params.append('strategy_name', strategyName.trim())
+  if (sort) params.append('sort', sort)
   params.append('skip', String(skip))
   params.append('limit', String(limit))
   const response = await api.get<BacktestListItem[]>(`/backtest/results?${params}`)
-  return response.data.map((item) => ({
+  const items = response.data.map((item) => ({
     ...item,
     stock_code: canonicalStockCode(item.stock_code),
   }))
+  const totalHeader =
+    response.headers['x-total-count'] ?? response.headers['X-Total-Count']
+  return {
+    items,
+    total: Number(totalHeader ?? items.length),
+  }
 }
 
 export async function getBacktestResult(id: number): Promise<BacktestResult> {
@@ -441,12 +373,7 @@ export async function getStrategies(): Promise<StrategyInfo[]> {
   return response.data
 }
 
-export async function getStrategy(strategyName: string): Promise<StrategyInfo> {
-  const response = await api.get<StrategyInfo>(`/strategies/${strategyName}`)
-  return response.data
-}
-
-export interface SignalRequest {
+export interface SignalRequest extends ResearchExecutionOptions {
   strategy_name: string
   stock_code: string
   start_date: string
@@ -465,7 +392,7 @@ export async function generateSignals(request: SignalRequest): Promise<SignalRes
   }
 }
 
-export interface StrategyBacktestRequest {
+export interface StrategyBacktestRequest extends ResearchExecutionOptions {
   strategy_name: string
   stock_code: string
   start_date: string
@@ -487,7 +414,7 @@ export async function runStrategyBacktest(
   }
 }
 
-export interface OptimizeRequest {
+export interface OptimizeRequest extends ResearchExecutionOptions {
   strategy_name: string
   stock_code: string
   start_date: string
@@ -495,19 +422,6 @@ export interface OptimizeRequest {
   initial_capital: number
   param_grid: Record<string, number[]>
   metric: string
-}
-
-export async function optimizeParameters(
-  request: OptimizeRequest,
-): Promise<OptimizeResponse> {
-  const response = await api.post<OptimizeResponse>(
-    '/strategies/optimize',
-    canonicalStockRequest(request),
-  )
-  return {
-    ...response.data,
-    stock_code: canonicalStockCode(response.data.stock_code),
-  }
 }
 
 export async function submitOptimizeParameters(
@@ -518,21 +432,6 @@ export async function submitOptimizeParameters(
     canonicalStockRequest(request),
   )
   return response.data
-}
-
-// ==================== Agent APIs ====================
-
-export async function analyzeStock(
-  request: AgentAnalyzeRequest,
-): Promise<AgentAnalyzeResponse> {
-  const response = await api.post<AgentAnalyzeResponse>(
-    '/agent/analyze',
-    canonicalStockRequest(request),
-  )
-  return {
-    ...response.data,
-    stock_code: canonicalStockCode(response.data.stock_code),
-  }
 }
 
 export async function submitAnalyzeStock(
@@ -579,101 +478,26 @@ export async function getJobStatus<T = Record<string, unknown>>(
   return response.data
 }
 
+export interface JobMetricCounter {
+  name: string
+  value: number
+  job_type?: string
+  [key: string]: unknown
+}
+
+export interface JobMetrics {
+  started_at: string
+  counters: JobMetricCounter[]
+  durations: Array<{ name: string; value_ms: number; [key: string]: unknown }>
+}
+
+export async function getJobMetrics(): Promise<JobMetrics> {
+  const response = await api.get<JobMetrics>('/jobs/metrics')
+  return response.data
+}
+
 export async function cancelJob(jobId: string): Promise<void> {
   await api.post(`/jobs/${jobId}/cancel`)
-}
-
-// 大盘分析 APIs
-export async function analyzeMarket(
-  request: MarketAnalyzeRequest,
-): Promise<MarketAnalyzeResponse> {
-  const response = await api.post<MarketAnalyzeResponse>(
-    '/agent/market/analyze',
-    request,
-  )
-  return response.data
-}
-
-// ============== DL Prediction API ==============
-
-export interface DLPredictionRequest {
-  stock_code: string
-  kline_days?: number
-}
-
-export interface DLPredictionResponse {
-  success: boolean
-  data?: {
-    stock_code: string
-    current_price: number
-    last_date: string
-    prediction_dates: string[]
-    predicted_prices: number[]
-    kline_data: Array<{
-      date: string
-      open: number
-      high: number
-      low: number
-      close: number
-      volume: number
-    }>
-  }
-  error?: string
-}
-
-export async function dlPredict(
-  request: DLPredictionRequest,
-): Promise<DLPredictionResponse> {
-  const response = await api.post<DLPredictionResponse>(
-    '/dl/predict',
-    canonicalStockRequest(request),
-  )
-  return response.data.data
-    ? {
-        ...response.data,
-        data: {
-          ...response.data.data,
-          stock_code: canonicalStockCode(response.data.data.stock_code),
-        },
-      }
-    : response.data
-}
-
-export interface DLBacktestRequest {
-  stock_code: string
-  start_date: string
-  end_date: string
-  initial_capital?: number
-}
-
-export interface DLBacktestResponse {
-  success: boolean
-  data?: {
-    total_return: number
-    annualized_return: number
-    sharpe_ratio: number
-    max_drawdown: number
-    win_rate: number
-    total_trades: number
-    trades: Array<{
-      date: string
-      action: 'BUY' | 'SELL'
-      price: number
-      quantity: number
-    }>
-    portfolio_values: number[]
-  }
-  error?: string
-}
-
-export async function dlBacktest(
-  request: DLBacktestRequest,
-): Promise<DLBacktestResponse> {
-  const response = await api.post<DLBacktestResponse>(
-    '/dl/backtest',
-    canonicalStockRequest(request),
-  )
-  return response.data
 }
 
 // Watchlist API
@@ -686,11 +510,6 @@ export async function getWatchlist(): Promise<WatchlistResponse> {
       stock_code: canonicalStockCode(item.stock_code),
     })),
   }
-}
-
-export async function getWatchlistCodes(): Promise<string[]> {
-  const response = await api.get<string[]>('/watchlist/codes')
-  return response.data.map(canonicalStockCode)
 }
 
 export async function addToWatchlist(stockCode: string): Promise<WatchlistItem> {
@@ -709,12 +528,6 @@ export async function removeFromWatchlist(
   const response = await api.delete<{ success: boolean }>(
     `/watchlist/${encodeURIComponent(canonicalStockCode(stockCode))}`,
   )
-  return response.data
-}
-
-// Screener API
-export async function runScreener(request: ScreenerRequest): Promise<ScreenerResponse> {
-  const response = await api.post<ScreenerResponse>('/screener', request)
   return response.data
 }
 

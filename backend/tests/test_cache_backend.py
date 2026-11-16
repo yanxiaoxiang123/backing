@@ -32,7 +32,16 @@ def test_memory_cache_is_bounded_and_refresh_lock_is_single_flight():
             assert not nested
 
 
-def test_realtime_tail_fetch_uses_two_rows_and_refreshes_full_snapshot():
+def test_realtime_tail_fetch_uses_two_rows_and_refreshes_full_snapshot(monkeypatch):
+    from collections import OrderedDict
+
+    from app.config import settings
+    from app.services.cache import market_cache
+
+    monkeypatch.setattr(settings, "REALTIME_BARS_PROVIDER", "mootdx")
+    monkeypatch.setattr(market_cache, "redis_url", "")
+    monkeypatch.setattr(RealtimeService, "_bars_cache", OrderedDict())
+    monkeypatch.setattr(RealtimeService, "_bars_cache_bytes", 0)
     service = RealtimeService()
     full = pd.DataFrame(
         [

@@ -4,6 +4,9 @@ from datetime import datetime, timezone
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.domain.stock_codes import StockCodeError, normalize_stock_code
+from app.models.models import Stock
+
 from app.services.baostock_service import baostock_service
 from app.services.indicator_service import indicator_service
 from app.services.realtime_service import STATUS_OK, realtime_service
@@ -12,11 +15,44 @@ from app.tools.base import Permission, Tool, ToolContext
 MAX_KLINE_ROWS = 500
 
 
+class MarketSearchParams(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    query: str = Field(..., min_length=1, max_length=100)
+    limit: int = Field(default=10, ge=1, le=20)
+
+
+def _market_search(params: MarketSearchParams, context: ToolContext) -> dict:
+    if context.db is None:
+        raise ValueError("缺少数据库会话，无法搜索股票")
+    query = context.db.query(Stock)
+    try:
+        code = normalize_stock_code(params.query, db=context.db)
+    except StockCodeError:
+        exact = query.filter(Stock.name == params.query)
+        query = exact if exact.first() is not None else query.filter(
+            Stock.name.contains(params.query, autoescape=True)
+        )
+    else:
+        query = query.filter(Stock.code == code)
+    total = query.count()
+    rows = query.order_by(Stock.code.asc()).limit(params.limit).all()
+    return {
+        "source_id": f"stock-search:{params.query}",
+        "as_of": context.as_of or datetime.now(timezone.utc),
+        "vendor": context.vendor,
+        "query": params.query,
+        "matches": [{"code": row.code, "name": row.name, "market": row.market} for row in rows],
+        "total": total,
+        "truncated": total > len(rows),
+    }
+
+
 class MarketKlineParams(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     stock_code: str = Field(
-        ..., min_length=1, description="股票代码，支持 sh.600000、sh600000、SH600000 或 600000"
+        ..., min_length=1, description="股票代码，支持 sh.600000、600000.sh、sh600000、SH600000 或 600000"
     )
     start_date: str = Field(..., pattern=r"^\d{4}-\d{2}-\d{2}$")
     end_date: str = Field(..., pattern=r"^\d{4}-\d{2}-\d{2}$")
@@ -46,7 +82,7 @@ class MarketSnapshotParams(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     stock_code: str = Field(
-        ..., min_length=1, description="股票代码，支持 sh.600000、sh600000、SH600000 或 600000"
+        ..., min_length=1, description="股票代码，支持 sh.600000、600000.sh、sh600000、SH600000 或 600000"
     )
     period: str = Field(default="daily", pattern=r"^(daily|weekly|monthly)$")
 
@@ -125,6 +161,15 @@ def _market_index_kline(
 
 
 MARKET_TOOLS = [
+    Tool(
+        name="market.search",
+        domain="market",
+        version="1.0.0",
+        permission=Permission.READ,
+        description="搜索本地股票库，支持股票代码、精确名称和名称片段（只读，有数量上限）",
+        input_schema=MarketSearchParams,
+        handler=_market_search,
+    ),
     Tool(
         name="market.kline",
         domain="market",

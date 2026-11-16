@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useState } from 'react'
-import { Button, Empty, List, Space, Spin, Tag } from 'antd'
+import { useEffect, useRef } from 'react'
+import { Alert, Button, Empty, List, Space, Skeleton, Tag } from 'antd'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { getAlerts, markAlertRead } from '../../services/agentRuns'
 
 export interface AlertItem {
@@ -19,72 +20,144 @@ const SEVERITY_COLOR: Record<string, string> = {
   warning: 'orange',
   critical: 'red',
 }
+const ALERTS_KEY = ['system', 'alerts'] as const
 
-/** 告警面板（US-3.4）：列表 + 已读 + 刷新（阈值可配置，落库 + 面板展示）。 */
-export function AlertsPanel() {
-  const [alerts, setAlerts] = useState<AlertItem[]>([])
-  const [loading, setLoading] = useState(true)
-
-  const refresh = useCallback(() => {
-    setLoading(true)
-    void getAlerts()
-      .then((d) => setAlerts(d.alerts ?? []))
-      .catch(() => setAlerts([]))
-      .finally(() => setLoading(false))
-  }, [])
+export function AlertsPanel({ selectedAlertId }: { selectedAlertId?: number | null }) {
+  const queryClient = useQueryClient()
+  const selectedRef = useRef<HTMLDivElement>(null)
+  const query = useQuery({
+    queryKey: ALERTS_KEY,
+    queryFn: getAlerts,
+    staleTime: 60_000,
+    retry: false,
+  })
+  const alerts: AlertItem[] = query.data?.alerts ?? []
+  const hasSelected = alerts.some((alert) => alert.id === selectedAlertId)
+  const markRead = useMutation({
+    mutationFn: markAlertRead,
+    onSuccess: (_data, id) => {
+      queryClient.setQueryData<Awaited<ReturnType<typeof getAlerts>>>(
+        ALERTS_KEY,
+        (current) =>
+          current
+            ? {
+                ...current,
+                alerts: current.alerts.map((alert) =>
+                  alert.id === id ? { ...alert, is_read: true } : alert,
+                ),
+              }
+            : current,
+      )
+      void queryClient.invalidateQueries({ queryKey: ALERTS_KEY })
+    },
+  })
 
   useEffect(() => {
-    refresh()
-  }, [refresh])
+    if (hasSelected) selectedRef.current?.scrollIntoView({ block: 'nearest' })
+  }, [selectedAlertId, hasSelected])
 
-  const markRead = (id: number) => {
-    void markAlertRead(id).then(() => refresh())
-  }
-
-  if (loading) return <Spin />
-  if (alerts.length === 0) return <Empty description="暂无告警" />
+  if (query.isPending)
+    return (
+      <div aria-label="正在加载告警">
+        <Skeleton active paragraph={{ rows: 3 }} />
+      </div>
+    )
 
   return (
-    <div>
-      <Space style={{ marginBottom: 8 }}>
-        <Button size="small" onClick={refresh}>
-          刷新
-        </Button>
-      </Space>
-      <List
+    <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+      <Button
         size="small"
-        dataSource={alerts}
-        renderItem={(item) => (
-          <List.Item
-            actions={[
-              !item.is_read ? (
-                <Button key="read" size="small" onClick={() => markRead(item.id)}>
-                  已读
-                </Button>
-              ) : null,
-            ]}
-          >
-            <List.Item.Meta
-              title={
-                <span>
-                  <Tag color={SEVERITY_COLOR[item.severity] ?? 'default'}>
-                    {item.severity}
-                  </Tag>
-                  <Tag>{item.alert_type}</Tag>
-                  {item.message}
-                </span>
-              }
-              description={
-                <span>
-                  {item.value != null && `value: ${item.value} · `}
-                  {item.threshold != null && `threshold: ${item.threshold} · `}
-                  {item.created_at ?? ''}
-                </span>
-              }
-            />
-          </List.Item>
-        )}
-      />
-    </div>
+        loading={query.isFetching}
+        onClick={() => void query.refetch()}
+        aria-label="刷新告警"
+      >
+        刷新告警
+      </Button>
+      {query.isError ? (
+        <Alert
+          type="error"
+          showIcon
+          message={query.data ? '告警刷新失败' : '告警加载失败'}
+          description={
+            query.data
+              ? '已保留上次读取的记录，请稍后重试。'
+              : '暂时无法读取告警，请稍后重试。'
+          }
+          action={
+            <Button size="small" onClick={() => void query.refetch()}>
+              重试
+            </Button>
+          }
+        />
+      ) : null}
+      {markRead.isError ? (
+        <Alert
+          type="error"
+          showIcon
+          message="标记已读失败"
+          description="记录仍保持未读，请再次点击该记录的标记已读。"
+        />
+      ) : null}
+      {selectedAlertId && !hasSelected && !query.isError ? (
+        <Alert
+          type="info"
+          showIcon
+          message="未找到指定告警"
+          description="当前返回的列表中没有这条记录，可以刷新或查看其他告警。"
+        />
+      ) : null}
+      {alerts.length ? (
+        <List
+          size="small"
+          dataSource={alerts}
+          renderItem={(item) => (
+            <List.Item
+              data-alert-id={item.id}
+              aria-current={item.id === selectedAlertId ? 'true' : undefined}
+              ref={item.id === selectedAlertId ? selectedRef : undefined}
+              actions={[
+                item.is_read ? (
+                  <span key="read">已读</span>
+                ) : (
+                  <Button
+                    key="read"
+                    size="small"
+                    loading={markRead.isPending && markRead.variables === item.id}
+                    disabled={markRead.isPending}
+                    onClick={() => markRead.mutate(item.id)}
+                  >
+                    标记已读
+                  </Button>
+                ),
+              ]}
+            >
+              <List.Item.Meta
+                title={
+                  <span>
+                    {item.id === selectedAlertId ? (
+                      <Tag color="blue">当前告警</Tag>
+                    ) : null}
+                    <Tag color={SEVERITY_COLOR[item.severity] ?? 'default'}>
+                      {item.severity}
+                    </Tag>
+                    <Tag>{item.alert_type}</Tag>
+                    {item.message}
+                  </span>
+                }
+                description={
+                  <span>
+                    {item.value != null && `数值：${item.value} · `}
+                    {item.threshold != null && `阈值：${item.threshold} · `}
+                    {item.created_at ?? ''}
+                  </span>
+                }
+              />
+            </List.Item>
+          )}
+        />
+      ) : !query.isError ? (
+        <Empty description="暂无告警" />
+      ) : null}
+    </Space>
   )
 }

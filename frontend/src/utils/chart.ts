@@ -6,6 +6,8 @@ import type {
   PortfolioValue,
 } from '../types'
 import { COMPARE_COLORS } from '../constants/strategy'
+import { formatNumber } from './dataFormat'
+import { CHART_TEXT } from '../styles/typography'
 
 export interface KlineData {
   date: string
@@ -68,24 +70,26 @@ export function getChartOption(
   }
 
   return {
-    backgroundColor: '#fff',
+    backgroundColor: 'transparent',
     animation: false,
+    textStyle: { fontFamily: CHART_TEXT.fontFamily },
+    axisPointer: { link: [{ xAxisIndex: 'all' }] },
     legend: {
       top: 10,
       left: 'center',
-      textStyle: { color: 'var(--color-text-secondary)', fontSize: 11 },
+      textStyle: { color: '#777777', fontSize: CHART_TEXT.label },
       data: ['K线'],
     },
     tooltip: {
       trigger: 'axis',
       axisPointer: { type: 'cross' },
-      backgroundColor: '#fff',
-      borderColor: 'var(--color-border)',
-      textStyle: { color: 'var(--color-text-primary)' },
+      backgroundColor: 'transparent',
+      borderColor: '#e8e8e8',
+      textStyle: { color: '#242424', fontFamily: CHART_TEXT.fontFamily },
     },
     grid: [
-      { left: '10%', right: '8%', height: '60%' },
-      { left: '10%', right: '8%', top: '75%', height: '15%' },
+      { left: 60, right: 24, top: 54, height: '56%' },
+      { left: 60, right: 24, top: '73%', height: '13%' },
     ],
     xAxis: [
       {
@@ -93,7 +97,12 @@ export function getChartOption(
         data: dates,
         boundaryGap: false,
         axisLine: { onZero: false },
-        axisLabel: { color: 'var(--color-text-tertiary)', fontSize: 10 },
+        axisLabel: {
+          color: '#777777',
+          fontSize: CHART_TEXT.label,
+          hideOverlap: true,
+          formatter: (value: string) => value.slice(5).replace('-', '.'),
+        },
         splitLine: { show: false },
       },
       {
@@ -111,7 +120,12 @@ export function getChartOption(
       {
         scale: true,
         splitArea: { show: false },
-        axisLabel: { color: 'var(--color-text-tertiary)', fontSize: 10 },
+        axisLabel: {
+          color: '#777777',
+          fontSize: CHART_TEXT.label,
+          formatter: (value: number) => value.toFixed(2),
+        },
+        splitLine: { lineStyle: { color: '#eeeeee' } },
       },
       {
         scale: true,
@@ -137,11 +151,21 @@ export function getChartOption(
         bottom: 10,
         start: 50,
         end: 100,
-        height: 20,
-        borderColor: 'var(--color-border)',
-        backgroundColor: 'var(--color-bg-secondary)',
-        fillerColor: 'rgba(0, 113, 227, 0.1)',
-        handleStyle: { color: 'var(--color-ink)' },
+        height: 24,
+        moveHandleSize: 0,
+        showDetail: false,
+        borderColor: '#e8e8e8',
+        backgroundColor: '#f7f7f7',
+        fillerColor: 'rgba(150, 150, 150, 0.12)',
+        handleStyle: { color: '#ffffff', borderColor: '#bbbbbb' },
+        dataBackground: {
+          lineStyle: { color: '#bbbbbb' },
+          areaStyle: { color: '#eeeeee' },
+        },
+        selectedDataBackground: {
+          lineStyle: { color: '#aaaaaa' },
+          areaStyle: { color: '#dddddd' },
+        },
       },
     ],
     series: [
@@ -150,10 +174,10 @@ export function getChartOption(
         type: 'candlestick',
         data: ohlc,
         itemStyle: {
-          color: '#ff3b30',
-          color0: '#34c759',
-          borderColor: '#ff3b30',
-          borderColor0: '#34c759',
+          color: '#c4242a',
+          color0: '#1e7a4d',
+          borderColor: '#c4242a',
+          borderColor0: '#1e7a4d',
         },
         markPoint: {
           data: [
@@ -183,7 +207,7 @@ export function getChartOption(
         yAxisIndex: 1,
         data: klineData.map((d) => ({
           value: d.volume,
-          itemColor: d.close >= d.open ? '#ff3b30' : '#34c759',
+          itemStyle: { color: d.close >= d.open ? '#c4242a' : '#1e7a4d', opacity: 0.5 },
         })),
       },
     ],
@@ -220,46 +244,47 @@ export function getCompareChartOption(compareResult: CompareResponse): EChartsOp
       type: 'line',
       data,
       lineStyle: { color, width: 2 },
-      smooth: true,
+      smooth: false,
       symbol: 'none',
     })
   })
 
   return {
-    backgroundColor: '#fff',
+    backgroundColor: 'transparent',
     animation: false,
+    textStyle: { fontFamily: CHART_TEXT.fontFamily },
     legend: {
       top: 10,
       left: 'center',
-      textStyle: { color: 'var(--color-text-secondary)', fontSize: 11 },
+      textStyle: { color: '#777777', fontSize: CHART_TEXT.label },
     },
     tooltip: {
       trigger: 'axis',
-      backgroundColor: '#fff',
-      borderColor: 'var(--color-border)',
-      textStyle: { color: 'var(--color-text-primary)' },
+      backgroundColor: 'transparent',
+      borderColor: '#e8e8e8',
+      textStyle: { color: '#242424', fontFamily: CHART_TEXT.fontFamily },
       formatter: ((params: { seriesName: string; value: [string, number] }[]) =>
         params
-          .map((p) => `${p.seriesName}: ¥${Number(p.value[1]).toLocaleString()}`)
+          .map((p) => `${p.seriesName}: ¥${formatNumber(p.value[1])}`)
           .join('<br/>')) as unknown as string,
     },
     grid: { left: '10%', right: '5%', bottom: '10%', top: '15%' },
     xAxis: {
       type: 'category',
       data: allDates,
-      axisLine: { lineStyle: { color: 'var(--color-border)' } },
-      axisLabel: { color: 'var(--color-text-tertiary)', fontSize: 10 },
+      axisLine: { lineStyle: { color: '#e8e8e8' } },
+      axisLabel: { color: '#777777', fontSize: CHART_TEXT.label },
     },
     yAxis: {
       type: 'value',
       name: '资金 (元)',
       axisLine: { show: false },
       axisLabel: {
-        color: 'var(--color-text-tertiary)',
-        fontSize: 10,
+        color: '#777777',
+        fontSize: CHART_TEXT.label,
         formatter: (v: number) => `¥${(v / 10000).toFixed(1)}万`,
       },
-      splitLine: { lineStyle: { color: 'var(--color-border-light)', type: 'dashed' } },
+      splitLine: { lineStyle: { color: '#eeeeee', type: 'dashed' } },
     },
     dataZoom: [
       { type: 'inside', start: 0, end: 100 },
@@ -270,10 +295,10 @@ export function getCompareChartOption(compareResult: CompareResponse): EChartsOp
         start: 0,
         end: 100,
         height: 20,
-        borderColor: 'var(--color-border)',
-        backgroundColor: 'var(--color-bg-secondary)',
-        fillerColor: 'rgba(0, 113, 227, 0.1)',
-        handleStyle: { color: 'var(--color-ink)' },
+        borderColor: '#e8e8e8',
+        backgroundColor: '#f7f7f7',
+        fillerColor: 'rgba(150, 150, 150, 0.12)',
+        handleStyle: { color: '#777777' },
       },
     ],
     series: seriesData,
@@ -284,46 +309,65 @@ export function getPortfolioChartOption(values: PortfolioValue[] = []): EChartsO
   if (values.length === 0) return {}
 
   return {
-    backgroundColor: '#fff',
+    backgroundColor: 'transparent',
     animation: false,
+    textStyle: { fontFamily: CHART_TEXT.fontFamily },
     tooltip: {
       trigger: 'axis',
-      backgroundColor: '#fff',
-      borderColor: 'var(--color-border)',
-      textStyle: { color: 'var(--color-text-primary)' },
-      valueFormatter: (value) => `¥${Number(value).toLocaleString()}`,
+      backgroundColor: 'transparent',
+      borderColor: '#e8e8e8',
+      textStyle: { color: '#242424', fontFamily: CHART_TEXT.fontFamily },
+      valueFormatter: (value) => `¥${formatNumber(value)}`,
     },
     grid: { left: '10%', right: '5%', bottom: '15%', top: '12%' },
     xAxis: {
       type: 'category',
       data: values.map((item) => item.date),
-      axisLine: { lineStyle: { color: 'var(--color-border)' } },
-      axisLabel: { color: 'var(--color-text-tertiary)', fontSize: 10 },
+      axisLine: { lineStyle: { color: '#e8e8e8' } },
+      axisLabel: { color: '#777777', fontSize: CHART_TEXT.label },
     },
     yAxis: {
       type: 'value',
       name: '资金 (元)',
       axisLine: { show: false },
       axisLabel: {
-        color: 'var(--color-text-tertiary)',
-        fontSize: 10,
+        color: '#777777',
+        fontSize: CHART_TEXT.label,
         formatter: (value: number) => `¥${(value / 10000).toFixed(1)}万`,
       },
-      splitLine: { lineStyle: { color: 'var(--color-border-light)', type: 'dashed' } },
+      splitLine: { lineStyle: { color: '#eeeeee', type: 'dashed' } },
     },
     dataZoom: [
       { type: 'inside', start: 0, end: 100 },
-      { show: true, type: 'slider', bottom: 8, start: 0, end: 100, height: 18 },
+      {
+        show: true,
+        type: 'slider',
+        bottom: 8,
+        start: 0,
+        end: 100,
+        height: 24,
+        moveHandleSize: 0,
+        borderColor: '#eeeeee',
+        backgroundColor: '#f7f7f7',
+        fillerColor: 'rgba(150, 150, 150, 0.12)',
+        dataBackground: {
+          lineStyle: { color: '#bbbbbb' },
+          areaStyle: { color: '#eeeeee' },
+        },
+        selectedDataBackground: {
+          lineStyle: { color: '#aaaaaa' },
+          areaStyle: { color: '#dddddd' },
+        },
+      },
     ],
     series: [
       {
         name: '组合价值',
         type: 'line',
-        smooth: true,
+        smooth: false,
         symbol: 'none',
         data: values.map((item) => item.total_value),
-        lineStyle: { color: '#0071e3', width: 2 },
-        areaStyle: { color: 'rgba(0, 113, 227, 0.12)' },
+        lineStyle: { color: '#1677ff', width: 2 },
       },
     ],
   }

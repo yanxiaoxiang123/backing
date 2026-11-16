@@ -60,14 +60,6 @@ class ConflictError(AppError):
     error_code = "conflict"
 
 
-class ServiceError(AppError):
-    """Backward-compatible alias: external service failure (502)."""
-
-    status_code = status.HTTP_502_BAD_GATEWAY
-    detail = "External service error"
-    error_code = "service_error"
-
-
 class ExternalServiceError(AppError):
     """Base class for failures caused by an external dependency.
 
@@ -83,17 +75,26 @@ class ExternalServiceError(AppError):
 
     def __init__(
         self,
-        detail: str | None = None,
+        detail_or_code: str | None = None,
+        message_or_code: str | None = None,
         *,
         provider: str | None = None,
         error_code: str | None = None,
+        detail: str | None = None,
         retryable: bool | None = None,
         headers: dict[str, str] | None = None,
         extra: dict[str, Any] | None = None,
     ) -> None:
+        if message_or_code is not None:
+            actual_code = error_code or detail_or_code
+            actual_detail = detail or message_or_code
+        else:
+            actual_detail = detail or detail_or_code
+            actual_code = error_code
+
         super().__init__(
-            detail=detail,
-            error_code=error_code,
+            detail=actual_detail,
+            error_code=actual_code,
             headers=headers,
             retryable=retryable,
             extra=extra,

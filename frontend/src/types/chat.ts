@@ -5,7 +5,8 @@ export type ChatTurnStatus =
 
 export interface ChatThread {
   thread_id: string
-  title: string
+  title: string | null
+  title_pending?: boolean
   status: string
   last_run_id: string | null
   archived: boolean
@@ -30,6 +31,7 @@ export type ChatEventType =
   | 'tool_call'
   | 'tool_result'
   | 'run.linked'
+  | 'stock.selected'
   | 'turn.done'
   | 'error'
 

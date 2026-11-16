@@ -43,7 +43,7 @@ class AgentChatThread(Base):
     thread_id = Column(String(64), unique=True, nullable=False, index=True)
     # Harness 侧 session_id（D5：thread_id ↔ session_id 映射可查可恢复）。
     session_id = Column(String(64), unique=True, nullable=True, index=True)
-    title = Column(String(255), nullable=True)  # 默认取首条用户消息前 36 字符
+    title = Column(String(255), nullable=True)  # 后台 AI 概括首条消息，失败时保存摘要
     status = Column(String(20), nullable=False, default="idle")
     # 最近一次量化 run（右栏跟随 attach；引用 agent_runs.run_id，不加 FK，
     # 避免 run 清理与会话生命周期耦合——D4 仅要求 turns/events 外键）。

@@ -1,0 +1,44 @@
+[
+  {
+    "cut_frame": 180,
+    "source_beat_seconds": 5.990748299319728,
+    "rendered_beat_frame": 180.99244897959184,
+    "error_frames": -0.9924489795918419
+  },
+  {
+    "cut_frame": 416,
+    "source_beat_seconds": 13.862312925170068,
+    "rendered_beat_frame": 417.139387755102,
+    "error_frames": -1.1393877551020068
+  },
+  {
+    "cut_frame": 667,
+    "source_beat_seconds": 22.221496598639455,
+    "rendered_beat_frame": 667.9148979591836,
+    "error_frames": -0.9148979591835769
+  },
+  {
+    "cut_frame": 903,
+    "source_beat_seconds": 30.093061224489794,
+    "rendered_beat_frame": 904.0618367346938,
+    "error_frames": -1.0618367346937703
+  },
+  {
+    "cut_frame": 1197,
+    "source_beat_seconds": 39.91510204081633,
+    "rendered_beat_frame": 1198.7230612244898,
+    "error_frames": -1.7230612244898111
+  },
+  {
+    "cut_frame": 1464,
+    "source_beat_seconds": 48.78512471655329,
+    "rendered_beat_frame": 1464.8237414965988,
+    "error_frames": -0.8237414965988137
+  },
+  {
+    "cut_frame": 1626,
+    "source_beat_seconds": 54.19537414965986,
+    "rendered_beat_frame": 1627.1312244897958,
+    "error_frames": -1.1312244897958408
+  }
+]

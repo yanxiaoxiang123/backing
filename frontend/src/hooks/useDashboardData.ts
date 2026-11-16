@@ -1,17 +1,17 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { getDashboardSummary } from '../services/api'
+import { useQuery } from '@tanstack/react-query'
+import { getAnalysisHistory } from '../services/api'
 import {
   getRealtimeBars,
   getRealtimeIndices,
   getRealtimeQuotes,
 } from '../services/market'
 import { getWatchlist } from '../services/watchlist'
-import { dashboardKeys } from '../services/queryKeys'
+import { agentKeys, dashboardKeys } from '../services/queryKeys'
 
 export { dashboardKeys }
 
-function getMarketPollingInterval(): number {
-  const now = new Date()
+export function getMarketPollingInterval(date?: Date): number {
+  const now = date instanceof Date ? date : new Date()
   const day = now.getDay()
   if (day === 0 || day === 6) {
     return 60_000 // 周末降频至 60 秒
@@ -36,7 +36,7 @@ export function useDashboardIndices() {
     queryKey: dashboardKeys.indices(),
     queryFn: getRealtimeIndices,
     staleTime: interval,
-    refetchInterval: interval,
+    refetchInterval: () => getMarketPollingInterval(),
   })
 }
 
@@ -47,7 +47,7 @@ export function useDashboardQuotes(codes: string[]) {
     queryFn: () => getRealtimeQuotes(codes),
     enabled: codes.length > 0,
     staleTime: interval,
-    refetchInterval: interval,
+    refetchInterval: () => getMarketPollingInterval(),
   })
 }
 
@@ -59,16 +59,12 @@ export function useDashboardTrend(code: string | undefined) {
   })
 }
 
-export function useDashboardBriefing() {
+/** The day's AI research note: the newest analysis records. */
+export function useLatestAnalyses(limit = 5) {
   return useQuery({
-    queryKey: dashboardKeys.briefing(),
-    queryFn: getDashboardSummary,
+    queryKey: agentKeys.history(0, limit),
+    queryFn: () => getAnalysisHistory(undefined, 0, limit),
     retry: false,
     staleTime: 60_000,
   })
-}
-
-export function useRefreshDashboard() {
-  const queryClient = useQueryClient()
-  return () => queryClient.invalidateQueries({ queryKey: dashboardKeys.all })
 }

@@ -2,8 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { getRealtimeBars } from '../services/api'
 import type { RealtimeFreshness } from '../services/api'
 import type { KlineIndicator } from '../types'
-
-type PeriodType = 'daily' | 'weekly' | 'monthly'
+import type { KlinePeriod } from '../utils/klinePeriods'
 
 interface RealtimeBar {
   date: string
@@ -46,7 +45,7 @@ export function mergeRealtimeBars(current: KlineIndicator[], updates: RealtimeBa
   return [...byDate.values()].sort((a, b) => a.date.localeCompare(b.date))
 }
 
-export function useRealtimeKline(code: string | undefined, period: PeriodType) {
+export function useRealtimeKline(code: string | undefined, period: KlinePeriod) {
   const [data, setData] = useState<KlineIndicator[]>([])
   const [loading, setLoading] = useState(Boolean(code))
   const [error, setError] = useState<string | null>(null)
@@ -145,9 +144,13 @@ export function useRealtimeKline(code: string | undefined, period: PeriodType) {
         socketRef.current = null
         setConnected(false)
         if (!cancelled) {
-          const delay = Math.min(30_000, 2_000 * 2 ** retryCountRef.current)
-          retryCountRef.current += 1
-          reconnectRef.current = setTimeout(connect, delay)
+          if (retryCountRef.current < 10) {
+            const delay = Math.min(30_000, 2_000 * 2 ** retryCountRef.current)
+            retryCountRef.current += 1
+            reconnectRef.current = setTimeout(connect, delay)
+          } else {
+            setError('实时连接已断开，已停止自动重试（可在页面刷新以重连）')
+          }
         }
       }
     }

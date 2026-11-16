@@ -27,6 +27,17 @@ describe('ChatInput', () => {
     expect((textarea as HTMLTextAreaElement).value).toContain('第一行')
   })
 
+  it('中文输入法确认候选词时不发送消息', async () => {
+    const user = userEvent.setup()
+    const onSend = vi.fn()
+    render(<ChatInput running={false} onSend={onSend} onStop={vi.fn()} />)
+    const textarea = screen.getByLabelText('聊天输入')
+    await user.type(textarea, '研究浦发银行')
+    fireEvent.keyDown(textarea, { key: 'Enter', isComposing: true })
+    expect(onSend).not.toHaveBeenCalled()
+    expect(textarea).toHaveValue('研究浦发银行')
+  })
+
   it('空内容发送按钮禁用', () => {
     render(<ChatInput running={false} onSend={vi.fn()} onStop={vi.fn()} />)
     expect(screen.getByRole('button', { name: /发送/ })).toBeDisabled()

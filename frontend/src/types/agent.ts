@@ -96,10 +96,39 @@ export interface RiskPanelData {
     action: string
     weight: number
     confidence: number
+    reason?: string
   }>
   constraints?: Array<{ rule: string; passed: boolean; detail: string }>
   rejected?: boolean
   rejection_reasons?: string[]
+}
+
+export interface PortfolioRiskIntent {
+  targets: Array<{
+    stock_code: string
+    target_weight: number
+    stop_loss_pct?: number | null
+    reason: string
+  }>
+}
+
+export interface PortfolioRiskAssessment {
+  proposal: RiskPanelData
+  account_id: string
+  equity: number
+  projected_cash: number
+  estimated_fees: number
+  evidence_sha256: string
+  artifact_id: number
+  as_of: string
+  orders: Array<{
+    stock_code: string
+    side: 'buy' | 'sell'
+    quantity: number
+    reference_price: number
+    estimated_fees: number
+    sizing_reasons: string[]
+  }>
 }
 
 export interface ApprovalRequest {

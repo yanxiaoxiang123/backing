@@ -60,7 +60,7 @@ describe('ChatConversation', () => {
     expect(screen.queryByText('推理内容')).not.toBeInTheDocument()
   })
 
-  it('工具行可折叠并展示 run 标签', async () => {
+  it('工具调用默认收起，展开后展示工具和 run 标签', async () => {
     const user = userEvent.setup()
     const messages: ChatMessage[] = [
       message({
@@ -76,6 +76,9 @@ describe('ChatConversation', () => {
         error={null}
       />,
     )
+    expect(screen.queryByText('quant_run_analysis')).not.toBeInTheDocument()
+    expect(screen.queryByText('run-77')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /展开工具调用/ }))
     expect(screen.getByText('quant_run_analysis')).toBeInTheDocument()
     expect(screen.getByText('run-77')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: /折叠工具调用/ }))

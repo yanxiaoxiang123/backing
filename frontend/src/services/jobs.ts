@@ -1,2 +1,3 @@
 /** 长任务领域 API。 */
-export { getJobStatus, cancelJob } from './api'
+export { getJobStatus, cancelJob, getJobMetrics } from './api'
+export type { JobMetricCounter, JobMetrics } from './api'

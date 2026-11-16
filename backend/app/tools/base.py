@@ -31,6 +31,7 @@ class ToolContext:
     as_of: datetime | None = None
     granted_permissions: set[str] = field(default_factory=lambda: {"read"})
     vendor: str = "backend"
+    actor: str | None = None
 
 
 @dataclass(frozen=True)

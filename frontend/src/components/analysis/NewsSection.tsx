@@ -1,5 +1,6 @@
 import { Card } from 'antd'
 import type { AgentNewsItem } from '../../types'
+import { safeHttpUrl } from '../../utils/safeHtml'
 
 interface NewsSectionProps {
   newsItems?: AgentNewsItem[]
@@ -36,9 +37,9 @@ export function NewsSection({ newsItems }: NewsSectionProps) {
             }}
           >
             <a
-              href={item.url}
+              href={safeHttpUrl(item.url) || '#'}
               target="_blank"
-              rel="noreferrer"
+              rel="noopener noreferrer"
               style={{
                 display: 'block',
                 fontWeight: 600,

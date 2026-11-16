@@ -46,6 +46,9 @@ class Bar:
     high: float
     low: float
     close: float
+    volume: float | None = None
+    suspended: bool = False
+    is_st: bool | None = None
 
 
 @dataclass(frozen=True)
@@ -124,6 +127,8 @@ def match_order(
     - 一字板（开=高=低=涨跌停价）：买盘在涨停不成交、卖盘在跌停不成交
     - 限价约束：买单开盘价 ≤ 限价；卖单开盘价 ≥ 限价
     """
+    if bar.suspended or bar.volume == 0:
+        return MatchDecision(fill=False, reason="停牌或无成交量，禁止成交")
     limit_up = round(prev_close * (1 + limit_pct), 4)
     limit_down = round(prev_close * (1 - limit_pct), 4)
     one_word = bar.open == bar.high == bar.low

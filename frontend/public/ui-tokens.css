@@ -1,0 +1,46 @@
+/* Shared by the application, welcome page and legal pages. */
+:root {
+  --ui-sidebar: #f0f0f0;
+  --ui-main: #f6f6f6;
+  --ui-panel: #fcfcfc;
+  --ui-ink: #242424;
+  --ui-muted: #6b6b6b;
+  --ui-line: #e8e8e8;
+  --ui-action: #222222;
+  --ui-brand: #1b6e66;
+  --ui-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --ui-fast: 120ms;
+  --ui-normal: 160ms;
+  --ui-overlay: 180ms;
+}
+
+html {
+  font-variant-numeric: tabular-nums lining-nums;
+}
+
+:where(button, input, textarea, select) {
+  font-variant-numeric: inherit;
+}
+
+:where(h1, h2, h3, h4, h5, h6) {
+  text-wrap: balance;
+}
+
+:where(p, li, dd, .page-subtitle) {
+  text-wrap: pretty;
+}
+
+.prose-tail {
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --ui-fast: 0ms;
+    --ui-normal: 0ms;
+    --ui-overlay: 0ms;
+  }
+  html {
+    scroll-behavior: auto !important;
+  }
+}

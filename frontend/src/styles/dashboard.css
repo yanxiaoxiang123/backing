@@ -1,0 +1,1496 @@
+/* A viewport sheet: market + research + a 58/42 analysis grid + footnote.
+   At 1513 × 1039: 250 sidebar + 48 gutters + 1215 usable canvas pixels.
+   Height is allocated to rows; ECharts observes the remaining chart space. */
+.shell--dashboard {
+  --dash-gap: clamp(8px, 1.5dvh, 16px);
+  --dash-inset: clamp(12px, 1.3vw, 20px);
+  --dash-heading-h: clamp(30px, 3.5dvh, 38px);
+  --dash-font: var(--fs-body);
+  height: 100dvh;
+  min-height: 0;
+  background: var(--ui-panel);
+}
+
+.shell--dashboard .shell-main {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.shell--dashboard .shell-canvas {
+  flex: 1;
+  min-height: 0;
+  padding: 12px 24px;
+}
+
+.shell--dashboard .shell-canvas > .fade-in {
+  height: 100%;
+  min-height: 0;
+}
+
+.shell--dashboard .dash {
+  display: grid;
+  height: 100%;
+  min-height: 0;
+  grid-template-rows:
+    clamp(62px, 8dvh, 84px)
+    clamp(112px, 16.2dvh, 170px)
+    clamp(122px, 15dvh, 158px)
+    minmax(0, 1fr)
+    24px;
+  gap: var(--dash-gap);
+  color: #242424;
+  font-size: var(--dash-font);
+  font-variant-numeric: tabular-nums lining-nums;
+}
+
+.shell--dashboard .dash > .page-header {
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  align-items: start;
+}
+
+.shell--dashboard .dash .eyebrow {
+  margin-bottom: 0;
+  color: #666;
+  font-size: var(--fs-meta);
+  line-height: 18px;
+  letter-spacing: 0.14em;
+}
+
+.shell--dashboard .dash .page-title {
+  margin: 0;
+  font-size: var(--fs-title);
+  line-height: 1.2;
+  font-weight: 650;
+}
+
+.shell--dashboard .dash .page-subtitle {
+  margin-top: 2px;
+  font-size: var(--dash-font);
+  line-height: 20px;
+}
+
+.shell--dashboard .dash .page-actions {
+  padding-top: 6px;
+}
+
+.shell--dashboard .dash .ant-btn {
+  height: 32px;
+  padding-inline: 12px;
+  border-radius: 6px;
+  font-size: var(--dash-font);
+  white-space: nowrap;
+}
+
+.dash-panel {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  background: var(--ui-panel);
+}
+
+.dash-panel-head {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 14px;
+  min-height: var(--dash-heading-h);
+  padding: 3px var(--dash-inset);
+  border-bottom: 1px solid #ededed;
+  border-radius: 12px 12px 0 0;
+  background: var(--ui-main);
+}
+
+.dash-panel-title,
+.dash-title {
+  display: flex;
+  align-items: baseline;
+  flex: none;
+  gap: 8px;
+  margin: 0;
+  color: #242424;
+  font-size: var(--fs-title);
+  font-weight: 650;
+  line-height: 1.4;
+}
+
+.dash-panel-count,
+.dash-panel-meta,
+.dash-meta {
+  color: #707070;
+  font-size: var(--dash-font);
+  font-weight: 400;
+}
+
+.dash-panel-head > .dash-panel-meta,
+.dash-panel-head > .dash-panel-link,
+.dash-unread-count {
+  margin-left: auto;
+}
+
+.dash-panel-link,
+.dash-text-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 28px;
+  border: 0;
+  background: transparent;
+  color: #242424;
+  font: inherit;
+  font-size: var(--dash-font);
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.dash-panel-link:hover,
+.dash-text-action:hover {
+  color: #242424;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* Neutral index figures; only market changes carry red and green. */
+.dash-index-grid {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  flex: 1;
+  align-items: center;
+  min-height: 0;
+  padding: 6px var(--dash-inset);
+}
+
+.dash-index-cell {
+  min-width: 0;
+  padding-inline: clamp(8px, 1.8vw, 28px);
+  border-left: 1px solid #ededed;
+}
+
+.dash-index-cell:first-child {
+  padding-left: 4px;
+  border-left: 0;
+}
+
+.dash-index-cell:last-child {
+  padding-right: 0;
+}
+
+.dash-index-name {
+  color: #707070;
+  font-size: var(--fs-meta);
+  white-space: nowrap;
+  line-height: 1.25;
+}
+
+.dash-index-value {
+  color: #242424;
+  font-size: var(--fs-metric);
+  font-weight: 500;
+  line-height: 1.2;
+}
+
+/* Five index columns need the title tier once the viewport gets tight. */
+@media (max-width: 1440px), (max-height: 820px) {
+  .dash-index-value {
+    font-size: var(--fs-title);
+  }
+}
+
+.dash-index-change {
+  margin-top: 1px;
+  font-size: var(--fs-meta);
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.dash-breadth {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 12px;
+  min-height: 28px;
+  padding: 0 var(--dash-inset) 5px;
+  color: #707070;
+  font-size: var(--fs-meta);
+}
+
+.dash-breadth-bar {
+  display: flex;
+  flex: 1;
+  gap: 2px;
+  height: 4px;
+  min-width: 0;
+}
+
+.dash-breadth-bar > span {
+  flex-basis: 0;
+  border-radius: 2px;
+}
+
+.dash-breadth-bar .is-up {
+  background: #ed2434;
+}
+
+.dash-breadth-bar .is-down {
+  background: #079454;
+}
+
+.dash-breadth-bar .is-flat,
+.dash-breadth-bar .is-empty {
+  flex-grow: 1;
+  background: #d5d5d5;
+}
+
+.dash-breadth-legend {
+  display: flex;
+  gap: 10px;
+  white-space: nowrap;
+}
+
+.is-up {
+  color: var(--price-up);
+}
+
+.is-down {
+  color: var(--price-down);
+}
+
+.is-flat {
+  color: var(--price-flat);
+}
+
+/* One research surface with an inline result, rather than a separate stat tile. */
+.dash-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.dash-meta-sep {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: #b6b6b6;
+}
+
+.dash-hero-content {
+  display: grid;
+  flex: 1;
+  grid-template-columns: minmax(0, 1fr) minmax(180px, 28%);
+  align-items: center;
+  min-height: 0;
+  padding: 6px var(--dash-inset) 7px;
+}
+
+.dash-hero-main {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  padding-right: 20px;
+}
+
+.dash-note {
+  display: -webkit-box;
+  margin: 0;
+  overflow: hidden;
+  color: #242424;
+  font-size: var(--fs-body);
+  font-weight: 600;
+  line-height: 1.4;
+  text-wrap: pretty;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 1;
+}
+
+.dash-note--muted {
+  color: #777;
+  font-size: var(--dash-font);
+  font-weight: 400;
+}
+
+.dash-research-caption,
+.dash-side-time {
+  margin: 0;
+  color: #777;
+  font-size: var(--dash-font);
+  line-height: 1.5;
+}
+
+.dash-research-caption {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dash-side-time {
+  font-size: var(--fs-meta);
+}
+
+.dash-hero-actions {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  margin-top: 2px;
+}
+
+.dash-hero-side {
+  display: flex;
+  flex-direction: column;
+  align-items: start;
+  justify-content: center;
+  gap: 3px;
+  min-width: 0;
+  height: 100%;
+  padding-left: clamp(18px, 2vw, 30px);
+  border-left: 1px solid #e8e8e8;
+}
+
+.dash-hero-side-label {
+  font-size: var(--dash-font);
+  font-weight: 600;
+}
+
+.dash-hero-confidence {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.dash-confidence {
+  font-size: var(--fs-metric);
+  font-weight: 600;
+  line-height: 1.05;
+}
+
+.dash-confidence > span {
+  font-size: var(--fs-body);
+  font-weight: 400;
+}
+
+.dash-confidence-label {
+  color: #777;
+  font-size: var(--dash-font);
+  white-space: nowrap;
+}
+
+/* Both columns share their chart/list row edges. The bottom row always holds four stocks. */
+.dash-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) clamp(172px, 20.8dvh, 216px);
+  grid-template-areas: 'chart alerts' 'watchlist history';
+  min-height: 0;
+  gap: var(--dash-gap);
+}
+
+.dash-chart {
+  grid-area: chart;
+}
+
+.dash-watchlist {
+  grid-area: watchlist;
+}
+
+.dash-alerts {
+  grid-area: alerts;
+}
+
+.dash-history {
+  grid-area: history;
+}
+
+.dash-chart .dash-panel-head {
+  gap: 10px;
+}
+
+.dash-chart-controls {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+}
+
+.dash-chart-select {
+  width: 198px;
+  max-width: 100%;
+}
+
+.shell--dashboard .dash .dash-chart-select.ant-select {
+  height: 28px;
+  font-size: var(--dash-font);
+}
+
+.shell--dashboard .dash .dash-chart-select .ant-select-selector {
+  padding-inline: 9px;
+  border-radius: 6px;
+}
+
+.dash-range-switch,
+.dash-view-switch {
+  display: flex;
+  flex: none;
+  align-items: center;
+  padding: 2px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: var(--ui-panel);
+}
+
+.dash-range-switch button,
+.dash-view-switch button {
+  height: 24px;
+  min-width: 38px;
+  padding-inline: 8px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: #666;
+  font: inherit;
+  font-size: var(--dash-font);
+  cursor: pointer;
+}
+
+.dash-range-switch button[aria-pressed='true'],
+.dash-view-switch button[aria-pressed='true'] {
+  background: var(--ui-sidebar);
+  color: #242424;
+}
+
+.dash-chart-quote {
+  display: flex;
+  flex: none;
+  align-items: baseline;
+  gap: 10px;
+  min-height: 30px;
+  padding: 2px var(--dash-inset) 0;
+}
+
+.dash-chart-quote > strong {
+  font-size: var(--fs-metric);
+  font-weight: 650;
+  line-height: 1.3;
+}
+
+.dash-chart-quote small {
+  margin-left: 5px;
+  color: #777;
+  font-size: var(--fs-meta);
+}
+
+.dash-chart-source {
+  margin-left: auto;
+  color: #777;
+  font-size: var(--fs-meta);
+}
+
+.dash-chart-card {
+  flex: 1;
+  min-height: 0;
+  margin: 0;
+  padding: 0 var(--dash-inset);
+}
+
+.dash-chart-foot {
+  display: flex;
+  flex: none;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 var(--dash-inset) 5px;
+  color: #777;
+  font-size: var(--fs-meta);
+  line-height: 16px;
+}
+
+.dash-table-wrap {
+  min-width: 0;
+  min-height: 0;
+  padding: 0 var(--dash-inset) 2px;
+}
+
+.dash-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--dash-font);
+}
+
+.dash-table th {
+  height: clamp(18px, 2.8dvh, 26px);
+  padding: 0 8px;
+  border-bottom: 1px solid #e8e8e8;
+  color: #777;
+  font-size: var(--fs-meta);
+  font-weight: 400;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.dash-table td {
+  height: clamp(29px, 3.45dvh, 34px);
+  padding: 0 8px;
+  border-bottom: 1px solid #ededed;
+}
+
+.dash-table tr:last-child td {
+  border-bottom: 0;
+}
+
+.dash-table tbody tr {
+  cursor: pointer;
+}
+
+.dash-table tbody tr:hover,
+.dash-history-row:hover,
+.dash-alert:hover {
+  background: var(--ui-main);
+}
+
+.dash-table .num {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.dash-stock-link,
+.dash-history-stock {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  color: #242424;
+  line-height: 1.1;
+  text-decoration: none;
+}
+
+.dash-stock-name {
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dash-stock-code,
+.dash-volume {
+  color: #777;
+  font-size: var(--fs-meta);
+}
+
+.dash-mobile-volume {
+  display: none;
+}
+
+.dash-unread-count {
+  padding: 0 8px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  background: var(--ui-panel);
+  color: #555;
+  line-height: 24px;
+  white-space: nowrap;
+}
+
+.dash-status-line {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 5px;
+  margin: 0 var(--dash-inset);
+  padding: 6px 0;
+  border-bottom: 1px solid #ededed;
+  font-size: var(--dash-font);
+  line-height: 1.3;
+}
+
+.dash-status-line strong {
+  font-weight: 600;
+}
+
+.dash-status-line .anticon {
+  margin-right: 3px;
+}
+
+.dash-alert-list {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  justify-content: space-evenly;
+  min-height: 0;
+  padding: 0 var(--dash-inset);
+}
+
+.dash-alert {
+  display: grid;
+  grid-template-columns: 5px minmax(0, 1fr);
+  align-items: start;
+  gap: 9px;
+  width: 100%;
+  padding: 3px 0;
+  border: 0;
+  background: var(--ui-panel);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.dash-alert-dot {
+  width: 5px;
+  height: 5px;
+  margin-top: 6px;
+  border-radius: 50%;
+  background: #777;
+}
+
+.dash-alert-dot.is-warning {
+  background: #d18a13;
+}
+
+.dash-alert-dot.is-error,
+.dash-alert-dot.is-critical {
+  background: #cf3443;
+}
+
+.dash-alert-dot.is-read {
+  background: #b8b8b8;
+}
+
+.dash-alert-body {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.dash-alert-message {
+  overflow: hidden;
+  font-size: var(--fs-meta);
+  font-weight: 500;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dash-alert-time {
+  color: #777;
+  font-size: var(--fs-meta);
+  line-height: 1.4;
+}
+
+.dash-alert-actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px var(--dash-inset) 8px;
+}
+
+.shell--dashboard .dash-alert-actions .ant-btn {
+  height: 28px;
+  padding-inline: 10px;
+}
+
+.dash-history-list {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  padding-inline: var(--dash-inset);
+}
+
+.dash-history-row {
+  display: grid;
+  flex: 1;
+  grid-template-columns: minmax(0, 1fr) auto minmax(80px, 35%);
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 0;
+  padding-block: 4px;
+  border: 0;
+  border-bottom: 1px solid #ededed;
+  background: var(--ui-panel);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.dash-history-stock {
+  gap: 4px;
+}
+
+.dash-history-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: end;
+  gap: 3px;
+  color: #777;
+  font-size: var(--fs-meta);
+  white-space: nowrap;
+}
+
+.dash-history-meta strong {
+  color: #555;
+  font-size: var(--dash-font);
+  font-weight: 500;
+}
+
+.dash-history-note {
+  flex: none;
+  margin: 0;
+  padding: 6px var(--dash-inset) 8px;
+  color: #777;
+  font-size: var(--fs-meta);
+  line-height: 1.4;
+}
+
+.dash-signal {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 20px;
+  padding: 0 12px;
+  border-radius: 999px;
+  font-size: var(--fs-meta);
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.dash-signal--buy {
+  background: var(--pill-buy-bg);
+  color: var(--pill-buy-ink);
+}
+
+.dash-signal--sell {
+  background: var(--pill-sell-bg);
+  color: var(--pill-sell-ink);
+}
+
+.dash-signal--hold {
+  background: var(--ui-sidebar);
+  color: #555;
+}
+
+.dash-inline-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 0;
+  margin: auto 0;
+  padding: 6px var(--dash-inset);
+  color: #777;
+  font-size: var(--dash-font);
+}
+
+.dash-inline-error > span {
+  display: -webkit-box;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.dash-inline-error button {
+  flex: none;
+  border: 0;
+  background: transparent;
+  color: #242424;
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.dash-hero-main .dash-inline-error {
+  padding: 0;
+}
+
+.dash-empty {
+  margin: auto 0;
+  padding: 10px var(--dash-inset);
+  color: #777;
+  font-size: var(--dash-font);
+}
+
+.dash-empty a {
+  color: #242424;
+  text-decoration: underline;
+}
+
+.dash-empty-chart {
+  position: relative;
+  display: grid;
+  flex: 1;
+  place-items: center;
+  min-height: 0;
+  margin-inline: var(--dash-inset);
+  color: #777;
+}
+
+.dash-empty-chart svg {
+  position: absolute;
+  inset: 8px;
+  width: calc(100% - 16px);
+  height: calc(100% - 16px);
+}
+
+.dash-empty-chart line {
+  stroke: #eee;
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.dash-empty-chart > span {
+  position: relative;
+  padding-inline: 6px;
+  background: var(--ui-panel);
+}
+
+.dash-skeleton {
+  height: 12px;
+  margin: 4px 0;
+  border-radius: 4px;
+  background: var(--ui-main);
+}
+
+.dash-skeleton--row {
+  height: 26px;
+  margin-inline: var(--dash-inset);
+}
+
+.dash-skeleton--title,
+.dash-skeleton--index {
+  width: 50%;
+  height: 20px;
+}
+
+.dash-hero-main > .dash-skeleton--title {
+  height: 20px;
+  margin: 0;
+}
+
+.dash-skeleton--line.short {
+  width: 60%;
+}
+
+.dash-skeleton--side {
+  width: 80px;
+  height: 16px;
+}
+
+.dash-skeleton--chart {
+  flex: 1;
+  min-height: 0;
+  margin: 4px var(--dash-inset);
+}
+
+.dash-footer {
+  align-self: end;
+  padding-top: 7px;
+  border-top: 1px solid #e8e8e8;
+  color: #777;
+  font-size: var(--fs-meta);
+  line-height: 16px;
+}
+
+.dash-view-switch {
+  display: none;
+}
+
+@media (min-width: 741px) and (max-height: 980px) {
+  .dash-hero-side {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    align-content: center;
+    align-items: center;
+    gap: 6px 12px;
+  }
+
+  .dash-hero-side .dash-signal {
+    justify-self: start;
+  }
+
+  .dash-hero-confidence {
+    grid-column: 1 / -1;
+  }
+
+  .dash-side-time {
+    display: none;
+  }
+}
+
+@media (min-width: 1024px) and (max-height: 960px) {
+  .shell--dashboard .shell-brand {
+    margin-bottom: 12px;
+  }
+
+  .shell--dashboard .shell-search {
+    margin-bottom: 14px;
+  }
+
+  .shell--dashboard .shell-nav-group {
+    gap: 0;
+    margin-top: 10px;
+  }
+
+  .shell--dashboard .shell-nav-label {
+    margin-bottom: 4px;
+    font-size: var(--fs-meta);
+  }
+
+  .shell--dashboard .shell-nav-item {
+    min-height: 30px;
+  }
+
+  .shell--dashboard .shell-sidebar-bottom {
+    padding-top: 8px;
+  }
+
+  .shell--dashboard .shell-status {
+    padding: 6px 10px;
+    margin-bottom: 6px;
+  }
+
+  .shell--dashboard .shell-status-row {
+    min-height: 20px;
+    font-size: var(--fs-meta);
+  }
+
+  .shell--dashboard .shell-user {
+    padding-top: 6px;
+  }
+}
+
+@media (max-width: 1370px) {
+  .shell--dashboard .shell-canvas {
+    padding-inline: 20px;
+  }
+
+  .dash-chart-select {
+    width: 150px;
+  }
+
+  .dash-chart .dash-panel-head {
+    gap: 7px;
+  }
+
+  .dash-range-switch button {
+    min-width: 30px;
+    padding-inline: 5px;
+  }
+
+  .dash-index-cell {
+    padding-inline: 12px;
+  }
+}
+
+@media (max-width: 1120px) {
+  .dash-chart .dash-panel-head {
+    flex-wrap: wrap;
+  }
+
+  .dash-chart .dash-range-switch {
+    margin-left: auto;
+  }
+
+  .dash-chart-select {
+    width: 140px;
+  }
+
+  .dash-grid {
+    grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+  }
+
+  .dash-index-cell {
+    padding-inline: 8px;
+  }
+
+  .dash-index-change {
+    font-size: var(--fs-meta);
+  }
+}
+
+@media (max-width: 1023px) {
+  .shell--dashboard .shell-mobilebar {
+    flex: none;
+  }
+
+  .shell--dashboard .shell-main {
+    height: 100dvh;
+  }
+}
+
+@media (min-width: 741px) and (max-width: 1023px) {
+  .dash-alert-body {
+    flex-direction: row;
+    align-items: center;
+  }
+
+  .dash-alert-message {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .dash-alert-time {
+    flex: none;
+    margin-left: 6px;
+    font-size: var(--fs-meta);
+  }
+
+  .dash-alert {
+    padding-block: 2px;
+  }
+}
+
+/* Short desktops compact the same content instead of scaling the whole page. */
+@media (min-width: 741px) and (min-height: 641px) and (max-height: 800px) {
+  .shell--dashboard {
+    --dash-heading-h: 30px;
+    --dash-gap: 8px;
+  }
+
+  .shell--dashboard .shell-canvas {
+    padding-block: 8px;
+  }
+
+  .dash-grid {
+    grid-template-rows: minmax(0, 1fr) 176px;
+  }
+
+  .dash-hero-content {
+    padding-block: 3px;
+  }
+
+  .dash-index-grid {
+    padding-block: 0;
+  }
+
+  .dash-index-value {
+    line-height: 1.1;
+  }
+
+  .dash-index-change {
+    margin-top: 0;
+    line-height: 1.2;
+  }
+
+  .dash-breadth {
+    min-height: 24px;
+  }
+
+  .dash-hero-side {
+    gap: 3px;
+  }
+
+  .dash-side-time {
+    font-size: var(--fs-meta);
+  }
+
+  .dash-alert-time {
+    flex: none;
+    margin-left: 6px;
+    font-size: var(--fs-meta);
+  }
+
+  .dash-alert-body {
+    flex-direction: row;
+    align-items: center;
+    white-space: nowrap;
+  }
+
+  .dash-alert-message {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .dash-alert {
+    padding-block: 2px;
+  }
+
+  .dash-alert-actions {
+    padding-block: 2px 4px;
+  }
+
+  .dash-status-line {
+    padding-block: 4px;
+  }
+
+  .dash-chart-quote {
+    min-height: 26px;
+  }
+}
+
+/* A phone or very short window uses an explicit section switcher.
+   All four sections remain operable without a long page or tiny scaled text. */
+@media (max-width: 740px), (max-height: 640px) {
+  .shell--dashboard .shell-canvas {
+    padding: 8px 16px;
+  }
+
+  .shell--dashboard .dash {
+    grid-template-rows: 62px 172px 136px 32px minmax(0, 1fr) 24px;
+    gap: 8px;
+  }
+
+  .shell--dashboard .dash > .page-header {
+    flex-direction: row;
+    gap: 8px;
+  }
+
+  .shell--dashboard .dash .page-title {
+    font-size: var(--fs-title);
+  }
+
+  .shell--dashboard .dash .eyebrow {
+    font-size: var(--fs-meta);
+    line-height: 15px;
+  }
+
+  .shell--dashboard .dash .page-subtitle {
+    font-size: var(--fs-meta);
+    line-height: 16px;
+  }
+
+  .shell--dashboard .dash .page-actions {
+    width: auto;
+    flex: none;
+    padding-top: 0;
+  }
+
+  .shell--dashboard .dash .page-actions .ant-btn {
+    padding-inline: 8px;
+    font-size: var(--fs-meta);
+  }
+
+  .dash-index-grid {
+    grid-auto-flow: row;
+    grid-auto-columns: auto;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 4px 0;
+    padding-block: 0;
+  }
+
+  .dash-index-cell:nth-child(3n + 1) {
+    padding-left: 4px;
+    border-left: 0;
+  }
+
+  .dash-index-name,
+  .dash-index-change,
+  .dash-breadth {
+    font-size: var(--fs-meta);
+  }
+
+  .dash-index-value {
+    font-size: var(--fs-title);
+  }
+
+  .dash-index-change {
+    margin-top: 0;
+  }
+
+  .dash-breadth {
+    gap: 7px;
+    min-height: 22px;
+    padding-bottom: 2px;
+  }
+
+  .dash-breadth-legend {
+    gap: 6px;
+  }
+
+  .dash-hero .dash-panel-head {
+    flex-wrap: wrap;
+    gap: 0 8px;
+    padding-block: 2px;
+  }
+
+  .dash-meta {
+    gap: 4px;
+    font-size: var(--fs-meta);
+  }
+
+  .dash-hero-content {
+    grid-template-columns: minmax(0, 1fr) 88px;
+    padding-block: 4px;
+  }
+
+  .dash-hero-main {
+    gap: 3px;
+    padding-right: 10px;
+  }
+
+  .dash-note {
+    font-size: var(--fs-body);
+  }
+
+  .dash-research-caption {
+    font-size: var(--fs-meta);
+    line-height: 1.4;
+  }
+
+  .dash-hero-actions {
+    gap: 10px;
+  }
+
+  .shell--dashboard .dash-hero-actions .ant-btn {
+    height: 28px;
+    padding-inline: 8px;
+    font-size: var(--fs-meta);
+  }
+
+  .dash-text-action {
+    font-size: var(--fs-meta);
+  }
+
+  .dash-hero-side {
+    display: flex;
+    align-items: flex-start;
+    gap: 4px;
+    padding-left: 12px;
+  }
+
+  .dash-hero-confidence {
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .dash-confidence {
+    font-size: var(--fs-metric);
+  }
+
+  .dash-confidence-label {
+    font-size: var(--fs-meta);
+  }
+
+  .dash-side-time {
+    display: none;
+  }
+
+  .dash-view-switch {
+    display: flex;
+    align-self: stretch;
+    justify-content: space-between;
+  }
+
+  .dash-view-switch button {
+    flex: 1;
+    min-height: 26px;
+  }
+
+  .dash-grid {
+    grid-template: minmax(0, 1fr) / minmax(0, 1fr);
+    gap: 0;
+  }
+
+  .dash-grid > .dash-panel {
+    display: none;
+    grid-area: 1 / 1;
+  }
+
+  .dash-grid[data-view='chart'] > .dash-chart,
+  .dash-grid[data-view='watchlist'] > .dash-watchlist,
+  .dash-grid[data-view='alerts'] > .dash-alerts,
+  .dash-grid[data-view='history'] > .dash-history {
+    display: flex;
+  }
+
+  .dash-chart-select {
+    width: 145px;
+  }
+
+  .dash-chart .dash-panel-head {
+    flex-wrap: wrap;
+    gap: 3px 8px;
+  }
+
+  .dash-chart .dash-range-switch {
+    margin-left: 0;
+  }
+
+  .dash-history-row {
+    flex: 0 1 66px;
+  }
+
+  .dash-alert-list {
+    justify-content: start;
+    gap: 8px;
+    padding-top: 8px;
+  }
+
+  .dash-table td {
+    height: 30px;
+  }
+
+  .dash-stock-link {
+    line-height: 1.1;
+  }
+
+  .dash-table td,
+  .dash-table th {
+    padding-inline: 3px;
+  }
+
+  .dash-footer {
+    padding-top: 4px;
+    font-size: var(--fs-meta);
+  }
+}
+
+@media (max-height: 640px) and (min-width: 741px) {
+  .shell--dashboard {
+    display: block;
+  }
+
+  .shell--dashboard .shell-sidebar {
+    display: none;
+  }
+
+  .shell--dashboard .shell-mobilebar {
+    display: flex;
+    flex: none;
+  }
+
+  .shell--dashboard .shell-main {
+    height: 100dvh;
+  }
+
+  .shell--dashboard .dash {
+    grid-template-rows: 54px 116px 110px 30px minmax(0, 1fr) 24px;
+    gap: 5px;
+  }
+
+  .dash-index-grid {
+    grid-auto-flow: column;
+    grid-template-columns: none;
+    grid-auto-columns: 1fr;
+  }
+
+  .dash-hero-confidence {
+    flex-direction: row;
+    gap: 4px;
+  }
+
+  .dash-confidence {
+    font-size: var(--fs-metric);
+  }
+
+  .dash-table td {
+    height: 30px;
+  }
+
+  .dash-alert-list {
+    gap: 4px;
+    padding-top: 4px;
+  }
+
+  .dash-alert-body {
+    flex-direction: row;
+    align-items: center;
+  }
+
+  .dash-alert-message {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .dash-alert-time {
+    flex: none;
+    margin-left: 6px;
+  }
+
+  .dash-alert {
+    padding-block: 2px;
+  }
+}
+
+@media (max-width: 740px) and (max-height: 740px) {
+  .shell--dashboard .dash {
+    grid-template-rows: 54px 172px 112px 30px minmax(0, 1fr) 24px;
+    gap: 5px;
+  }
+
+  .dash-hero-confidence {
+    flex-direction: row;
+    gap: 4px;
+  }
+
+  .dash-confidence {
+    font-size: var(--fs-metric);
+  }
+
+  .dash-table td {
+    height: 32px;
+  }
+
+  .dash-alert-list {
+    gap: 4px;
+    padding-top: 4px;
+  }
+
+  .dash-alert-body {
+    flex-direction: row;
+    align-items: center;
+  }
+
+  .dash-alert-message {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .dash-alert-time {
+    flex: none;
+    margin-left: 6px;
+  }
+
+  .dash-alert {
+    padding-block: 2px;
+  }
+}
+
+@media (max-width: 360px) and (max-height: 740px) {
+  .shell--dashboard .dash {
+    grid-template-rows: 54px 172px 124px 30px minmax(0, 1fr) 24px;
+  }
+}
+
+/* The phone hero keeps the conclusion and its action; the header already
+   carries the stock and timestamp, so the duplicate caption goes. */
+@media (max-width: 740px) {
+  .dash-research-caption,
+  .dash-hero-side-label {
+    display: none;
+  }
+}
+
+@media (max-width: 740px), (max-height: 640px) {
+  .dash-hero-main,
+  .dash-hero-side {
+    gap: 2px;
+  }
+
+  .dash-confidence {
+    font-size: var(--fs-title);
+  }
+}
+
+@media (min-width: 741px) and (max-height: 640px) {
+  .dash-hero-side-label {
+    display: none;
+  }
+}
+
+/* Short desktop: three alert rows share a single compact list. */
+@media (max-height: 640px) and (min-width: 741px) {
+  .dash-alert-list {
+    gap: 2px;
+    padding-top: 0;
+  }
+
+  .dash-alert {
+    padding-block: 0;
+  }
+}

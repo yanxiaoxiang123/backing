@@ -18,6 +18,8 @@ from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import func
 
 from app.agent_runtime.paper.rules import validate_order
+from app.agent_runtime.paper.locking import paper_mutation_lock
+from app.services.paper_order_risk import validate_order_risk
 from app.models.agent_runtime import ApprovalRecord
 from app.models.models import Stock
 from app.models.paper_trading import (
@@ -43,6 +45,7 @@ class ProposeOrderParams(BaseModel):
     )
     side: PaperSide
     quantity: int = Field(..., gt=0)
+    risk_artifact_id: int = Field(..., gt=0, description="当前运行下已通过的风险评估产物 ID")
     limit_price: float | None = Field(default=None, gt=0)
     trigger_note: str | None = Field(default=None, max_length=500)
 
@@ -50,6 +53,11 @@ class ProposeOrderParams(BaseModel):
 def _propose_order(params: ProposeOrderParams, context: ToolContext) -> dict:
     if context.db is None:
         raise ValueError("缺少数据库会话")
+    with paper_mutation_lock(context.db):
+        return _propose_order_locked(params, context)
+
+
+def _propose_order_locked(params: ProposeOrderParams, context: ToolContext) -> dict:
     if context.run_id is None:
         raise ValueError("缺少 run 上下文（模拟盘订单必须关联 run）")
     err = validate_order(params.side, params.quantity)
@@ -62,6 +70,11 @@ def _propose_order(params: ProposeOrderParams, context: ToolContext) -> dict:
     )
     if stock is None:
         raise ValueError(f"未找到股票 {params.stock_code}")
+    proof = validate_order_risk(
+        context.db, run_id=context.run_id, risk_artifact_id=params.risk_artifact_id,
+        stock_code=params.stock_code, side=params.side, quantity=params.quantity,
+        limit_price=params.limit_price, at=_now(), stage="propose",
+    )
 
     order_id = f"po-{uuid4().hex[:12]}"
     order = PaperOrder(
@@ -70,6 +83,7 @@ def _propose_order(params: ProposeOrderParams, context: ToolContext) -> dict:
         stock_code=params.stock_code,
         side=params.side,
         quantity=params.quantity,
+        risk_artifact_id=params.risk_artifact_id,
         limit_price=params.limit_price,
         status="pending_approval",
         trigger_note=params.trigger_note,
@@ -81,7 +95,8 @@ def _propose_order(params: ProposeOrderParams, context: ToolContext) -> dict:
         action="paper.order",
         summary=f"{params.side} {params.quantity} 股 {params.stock_code}",
         direction=params.side,
-        risk_summary="模拟盘订单：批准后下一交易日开盘价撮合，一次性窗口，用后失效",
+        target_position_pct=proof["assessment"]["projected_weights"].get(params.stock_code, 0),
+        risk_summary="风险复核通过；获批后在下一交易日日线核验完成时，以开盘价模拟记账，成交前再次复核",
         status="pending",
     )
     context.db.add(approval)
@@ -97,6 +112,8 @@ def _propose_order(params: ProposeOrderParams, context: ToolContext) -> dict:
                 "quantity": params.quantity,
                 "limit_price": params.limit_price,
                 "stock_code": params.stock_code,
+                "risk_check": proof,
+                "proposed_by": context.actor or "internal",
             },
         )
     )
@@ -112,6 +129,7 @@ def _propose_order(params: ProposeOrderParams, context: ToolContext) -> dict:
         "side": params.side,
         "quantity": params.quantity,
         "limit_price": params.limit_price,
+        "risk_artifact_id": params.risk_artifact_id,
         "note": "订单已入模拟盘，等待人工审批；审批后下一交易日开盘价撮合",
     }
 
@@ -125,6 +143,11 @@ class CancelOrderParams(BaseModel):
 def _cancel_order(params: CancelOrderParams, context: ToolContext) -> dict:
     if context.db is None:
         raise ValueError("缺少数据库会话")
+    with paper_mutation_lock(context.db):
+        return _cancel_order_locked(params, context)
+
+
+def _cancel_order_locked(params: CancelOrderParams, context: ToolContext) -> dict:
     order = (
         context.db.query(PaperOrder)
         .filter(PaperOrder.order_id == params.order_id)

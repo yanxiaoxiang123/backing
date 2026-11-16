@@ -4,6 +4,8 @@
 """
 
 import pytest
+from datetime import datetime, timezone
+from paper_evidence import seed_paper_evidence, risk_assessment
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -37,6 +39,7 @@ def _seed_run_and_stock(db, run_id="run-paper-1"):
     db.add(Stock(code="sh.600519", name="贵州茅台", market="sh"))
     db.add(PaperAccount(account_id="default", cash=1_000_000.0, initial_cash=1_000_000.0))
     db.commit()
+    seed_paper_evidence(db, datetime.now(timezone.utc), code="sh.600519")
     return run_id
 
 
@@ -47,7 +50,9 @@ def _ctx(db, run_id, permissions=("read", "approval")):
 
 
 def _propose(db, run_id, **overrides):
-    params = {"stock_code": "sh.600519", "side": "buy", "quantity": 100}
+    report = risk_assessment(db, datetime.now(timezone.utc), run_id=run_id, code="sh.600519")
+    params = {"stock_code": "sh.600519", "side": "buy", "quantity": 100,
+              "risk_artifact_id": report["artifact_id"]}
     params.update(overrides)
     result = DEFAULT_REGISTRY.invoke(
         "execution.paper.propose_order", params, _ctx(db, run_id)
@@ -85,7 +90,7 @@ class TestPropose:
         run_id = _seed_run_and_stock(db)
         result = DEFAULT_REGISTRY.invoke(
             "execution.paper.propose_order",
-            {"stock_code": "sh.999999", "side": "buy", "quantity": 100},
+            {"stock_code": "sh.999999", "side": "buy", "quantity": 100, "risk_artifact_id": 999},
             _ctx(db, run_id),
         )
         assert result["ok"] is False
@@ -96,7 +101,7 @@ class TestPropose:
         ctx = ToolContext(granted_permissions={"read", "approval"}, db=db)
         result = DEFAULT_REGISTRY.invoke(
             "execution.paper.propose_order",
-            {"stock_code": "sh.600519", "side": "buy", "quantity": 100},
+            {"stock_code": "sh.600519", "side": "buy", "quantity": 100, "risk_artifact_id": 999},
             ctx,
         )
         assert result["ok"] is False

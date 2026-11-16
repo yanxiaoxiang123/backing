@@ -1,0 +1,47 @@
+{
+  "provider": "freesound",
+  "query": "mouse click single",
+  "license_policy": "cc0",
+  "ordering": "relevance; popularity is supporting evidence only",
+  "results": [
+    {
+      "id": "fs:534103",
+      "title": "mouse-click-single-00.flac",
+      "author": "pbimal",
+      "duration_seconds": 0.303832,
+      "preview_url": "https://cdn.freesound.org/previews/534/534103_11830391-hq.mp3",
+      "downloads": 8963,
+      "page_url": "https://freesound.org/people/pbimal/sounds/534103/",
+      "license_label": "Creative Commons 0",
+      "description": "Single mouse click recorded",
+      "rating": 4.6,
+      "rating_count": 157
+    },
+    {
+      "id": "fs:383212",
+      "title": "Sci-Fi Click",
+      "author": "Jofae",
+      "duration_seconds": 0.28678,
+      "preview_url": "https://cdn.freesound.org/previews/383/383212_6512973-hq.mp3",
+      "downloads": 2664,
+      "page_url": "https://freesound.org/people/Jofae/sounds/383212/",
+      "license_label": "Creative Commons 0",
+      "description": "The second version of this sound effect: http://www.freesound.org/people/josepharaoh99/sounds/382574/ This version has only one part in the click sound effect, while the other has two. It does sound like a sci-fi sound effect, but should still work for many other uses, too. Enjoy! P.S. I request that all my sound effects only be used for clean, appropriate media and projects. Thanks!",
+      "rating": 4.6,
+      "rating_count": 27
+    },
+    {
+      "id": "fs:215387",
+      "title": "mouse click once.wav",
+      "author": "Reitanna",
+      "duration_seconds": 0.371519,
+      "preview_url": "https://cdn.freesound.org/previews/215/215387_950925-hq.mp3",
+      "downloads": 271,
+      "page_url": "https://freesound.org/people/Reitanna/sounds/215387/",
+      "license_label": "Creative Commons 0",
+      "description": "single mouse click",
+      "rating": 2.6,
+      "rating_count": 9
+    }
+  ]
+}

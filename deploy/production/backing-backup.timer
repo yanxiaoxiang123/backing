@@ -1,0 +1,10 @@
+[Unit]
+Description=Backing daily backup, retaining fourteen days
+
+[Timer]
+OnCalendar=*-*-* 03:30:00 Asia/Shanghai
+Persistent=true
+Unit=backing-backup.service
+
+[Install]
+WantedBy=timers.target

@@ -6,6 +6,8 @@ import zhCN from 'antd/locale/zh_CN'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import App from './App'
 import './index.css'
+import { ui } from './styles/uiTheme'
+import { FONT_FAMILY, FONT_SIZE } from './styles/typography'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -20,24 +22,77 @@ const queryClient = new QueryClient({
 
 const antdTheme = {
   token: {
-    colorPrimary: '#141413',
-    colorInfo: '#141413',
-    colorSuccess: '#16803c',
-    colorError: '#c7352b',
-    colorWarning: '#a66a00',
-    colorBgBase: '#f3f0ee',
-    colorBgContainer: '#fcfbfa',
-    colorTextBase: '#141413',
-    colorBorder: 'rgba(20, 20, 19, 0.12)',
+    colorPrimary: ui.action,
+    colorInfo: '#1b6e66',
+    colorLink: '#1b6e66',
+    colorSuccess: '#2e7d32',
+    colorError: '#b42318',
+    colorWarning: '#92400e',
+    colorBgBase: ui.panel,
+    colorBgContainer: ui.panel,
+    colorBgLayout: ui.main,
+    colorBgElevated: ui.panel,
+    colorTextBase: ui.ink,
+    colorTextSecondary: ui.muted,
+    colorTextDisabled: ui.muted,
+    colorTextPlaceholder: ui.muted,
+    colorBorder: ui.line,
+    colorBorderSecondary: ui.line,
+    boxShadow: 'none',
+    boxShadowSecondary: 'none',
+    motionDurationFast: ui.fast,
+    motionDurationMid: ui.normal,
+    motionDurationSlow: ui.overlay,
+    motionEaseInOut: ui.ease,
+    motionEaseOut: ui.ease,
+    motionEaseOutBack: ui.ease,
     borderRadius: 10,
-    fontFamily:
-      "'Sofia Sans', -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif",
+    borderRadiusLG: 22,
+    fontSize: FONT_SIZE.body,
+    fontSizeLG: FONT_SIZE.title,
+    fontSizeSM: FONT_SIZE.meta,
+    fontSizeHeading1: FONT_SIZE.title,
+    fontSizeHeading2: FONT_SIZE.title,
+    fontSizeHeading3: FONT_SIZE.title,
+    fontSizeHeading4: FONT_SIZE.title,
+    fontSizeHeading5: FONT_SIZE.title,
+    controlHeight: 36,
+    fontFamily: FONT_FAMILY,
   },
   components: {
-    Button: { controlHeight: 36, borderRadius: 999 },
-    Input: { controlHeight: 38, borderRadius: 10 },
-    Select: { controlHeight: 38, borderRadius: 10 },
-    Card: { borderRadiusLG: 18 },
+    Button: {
+      controlHeight: 36,
+      borderRadius: 999,
+      primaryShadow: 'none',
+      defaultShadow: 'none',
+      dangerShadow: 'none',
+    },
+    Input: { controlHeight: 36, borderRadius: 10 },
+    Select: { controlHeight: 36, borderRadius: 10 },
+    Card: { borderRadiusLG: 22 },
+    Table: {
+      headerBg: 'transparent',
+      headerSplitColor: 'transparent',
+      headerColor: ui.muted,
+      rowHoverBg: ui.main,
+      borderColor: ui.line,
+      fontSize: FONT_SIZE.body,
+    },
+    Tabs: {
+      itemSelectedColor: ui.ink,
+      itemColor: ui.muted,
+      inkBarColor: '#1b6e66',
+    },
+    Tag: {
+      defaultBg: ui.main,
+      defaultColor: '#3d3d3a',
+      borderRadiusSM: 999,
+    },
+    Tooltip: {
+      colorBgSpotlight: ui.panel,
+      colorTextLightSolid: ui.ink,
+      borderRadius: 6,
+    },
   },
 }
 

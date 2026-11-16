@@ -10,6 +10,7 @@ import {
 import { sameStock } from '../utils/stockIdentity'
 
 interface StockSearchProps {
+  id?: string
   value?: string
   onChange?: (code: string, option: StockOption) => void
   placeholder?: string
@@ -17,9 +18,11 @@ interface StockSearchProps {
   watchlistCodes?: string[]
   disabled?: boolean
   autoFocus?: boolean
+  allowClear?: boolean
 }
 
 export default function StockSearch({
+  id,
   value,
   onChange,
   placeholder = '搜索股票（代码/名称）',
@@ -27,6 +30,7 @@ export default function StockSearch({
   watchlistCodes,
   disabled,
   autoFocus,
+  allowClear = false,
 }: StockSearchProps) {
   const { query, setQuery, loading, error, search, trackSelection, reload } =
     useStockSearch()
@@ -55,7 +59,9 @@ export default function StockSearch({
 
   return (
     <Select
+      id={id}
       showSearch
+      allowClear={allowClear}
       value={value}
       placeholder={placeholder}
       style={{ width: '100%', ...style }}

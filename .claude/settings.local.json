@@ -61,7 +61,9 @@
       "Bash(/c/Users/yanxx/miniconda3/envs/stockbacking/bin/python -c \"from app.api.screener_agent import router; print\\('OK'\\)\")",
       "Bash(where python *)",
       "Bash(/d/anaconda3/envs/stockbacking/python -c \"from app.api.screener_agent import router; print\\('OK'\\)\")",
-      "Bash(/d/anaconda3/python -c \"import sys; sys.path.insert\\(0, '.'\\); from app.api.screener_agent import router; print\\('OK'\\)\")"
+      "Bash(/d/anaconda3/python -c \"import sys; sys.path.insert\\(0, '.'\\); from app.api.screener_agent import router; print\\('OK'\\)\")",
+      "Bash(/d/anaconda3/envs/backing/python.exe -m pytest tests/test_tencent_realtime.py -q)",
+      "mcp__codegraph__codegraph_context"
     ],
     "additionalDirectories": [
       "e:\\Y\\Y2\\backing_test\\backing\\frontend\\src\\pages",

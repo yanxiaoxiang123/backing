@@ -1,103 +1,51 @@
-import { Card, Tag, Row, Col } from 'antd'
+import { Card, Tag } from 'antd'
 import type { AgentAnalyzeResponse } from '../../types'
+import { Prose } from '../Prose'
+import {
+  formatNumber,
+  formatPercent,
+  isFiniteNumber,
+  tradeAction,
+} from '../../utils/dataFormat'
 
-interface DecisionCardProps {
-  result: AgentAnalyzeResponse
-}
-
-function getSignalColor(signal: string) {
-  switch (signal) {
-    case 'buy':
-      return 'green'
-    case 'sell':
-      return 'red'
-    default:
-      return 'default'
-  }
-}
-
-function getSignalLabel(signal: string) {
-  switch (signal) {
-    case 'buy':
-      return '买入'
-    case 'sell':
-      return '卖出'
-    default:
-      return '持有'
-  }
-}
-
-export function DecisionCard({ result }: DecisionCardProps) {
-  const signalColor =
-    result.final_signal === 'buy'
-      ? 'var(--color-success)'
-      : result.final_signal === 'sell'
-        ? 'var(--color-danger)'
-        : 'var(--color-text-secondary)'
-
+export function DecisionCard({ result }: { result: AgentAnalyzeResponse }) {
+  const signal =
+    result.final_signal === 'hold'
+      ? { label: '持有', className: 'price-flat' }
+      : tradeAction(result.final_signal)
   return (
-    <Card
-      style={{ marginBottom: 'var(--space-lg)' }}
-      styles={{
-        body: { padding: 'var(--space-lg)' },
-      }}
-    >
-      <Row gutter={16} align="middle">
-        <Col>
-          <div
-            style={{
-              fontSize: 48,
-              fontWeight: 700,
-              color: signalColor,
-              lineHeight: 1,
-            }}
-          >
-            {result.final_signal === 'buy'
-              ? '↑'
-              : result.final_signal === 'sell'
-                ? '↓'
-                : '→'}
-          </div>
-        </Col>
-        <Col flex="auto">
-          <div
-            style={{ fontSize: 24, fontWeight: 600, marginBottom: 'var(--space-xs)' }}
-          >
-            {getSignalLabel(result.final_signal)}
-          </div>
-          <div
-            style={{
-              color: 'var(--color-text-secondary)',
-              fontSize: 'var(--font-size-sm)',
-            }}
-          >
-            置信度: {Math.round(result.final_confidence * 100)}% | 耗时:{' '}
-            {result.duration_s.toFixed(1)}s
-          </div>
-        </Col>
-        <Col>
-          <Tag
-            color={getSignalColor(result.final_signal)}
-            style={{ fontSize: 'var(--font-size-sm)', padding: '4px 12px' }}
-          >
-            {result.mode}
-          </Tag>
-        </Col>
-      </Row>
-      {result.final_reason && (
-        <div
-          style={{
-            marginTop: 'var(--space-lg)',
-            padding: 'var(--space-lg)',
-            background: 'var(--color-bg-secondary)',
-            borderRadius: 'var(--radius-btn)',
-            fontSize: 'var(--font-size-sm)',
-            lineHeight: 1.8,
-          }}
-        >
-          {result.final_reason}
+    <Card style={{ marginBottom: 'var(--space-lg)' }}>
+      <section className="analysis-decision" aria-label="分析结论">
+        <div className="analysis-decision-heading">
+          <Prose as="h2" className={signal.className}>
+            {signal.label}
+          </Prose>
+          <Tag>{result.mode}</Tag>
         </div>
-      )}
+        <div className="analysis-decision-meta">
+          <span>
+            {result.stock_name || result.stock_code} · {result.stock_code}
+          </span>
+          <span>
+            置信度{' '}
+            {formatPercent(
+              isFiniteNumber(result.final_confidence)
+                ? result.final_confidence * 100
+                : null,
+              0,
+            )}
+          </span>
+          <span>耗时 {formatNumber(result.duration_s, 1)} 秒</span>
+        </div>
+        {result.final_reason && (
+          <div className="analysis-decision-reason">
+            <Prose as="p">{result.final_reason}</Prose>
+          </div>
+        )}
+        <Prose as="p" className="research-data-context">
+          结论依据见下方分析阶段与情报来源；置信度为模型输出，仅供研究参考。
+        </Prose>
+      </section>
     </Card>
   )
 }

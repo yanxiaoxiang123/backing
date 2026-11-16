@@ -1,4 +1,5 @@
-import { Button, Empty, Tooltip } from 'antd'
+import { Prose } from '../Prose'
+import { Button, Tooltip } from 'antd'
 import {
   DeleteOutlined,
   MenuFoldOutlined,
@@ -26,6 +27,17 @@ function formatTime(value: string | null): string {
   return sameDay
     ? d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     : d.toLocaleDateString([], { month: '2-digit', day: '2-digit' })
+}
+
+function ThreadTitle({ title }: { title: string }) {
+  const tail = title.length > 6 ? title.match(/[\p{Script=Han}]{2}[\p{P}]*$/u) : null
+  if (!tail) return title
+  return (
+    <>
+      {title.slice(0, -tail[0].length)}
+      <span className="chat-nowrap-tail">{tail[0]}</span>
+    </>
+  )
 }
 
 export function ChatSidebar({
@@ -63,10 +75,7 @@ export function ChatSidebar({
   return (
     <div className="chat-sidebar" aria-label="会话列表">
       <div className="chat-sidebar-heading">
-        <div>
-          <span className="chat-sidebar-kicker">CONVERSATIONS</span>
-          <strong>会话</strong>
-        </div>
+        <Prose as="h2">研究会话</Prose>
         <Button
           type="text"
           icon={<MenuFoldOutlined />}
@@ -77,7 +86,7 @@ export function ChatSidebar({
         />
       </div>
       <Button
-        type="primary"
+        type="default"
         block
         icon={<PlusOutlined />}
         onClick={onNew}
@@ -85,13 +94,12 @@ export function ChatSidebar({
       >
         新对话
       </Button>
+      <div className="chat-sidebar-list-label">最近会话</div>
       <div className="chat-sidebar-list">
         {threads.length === 0 ? (
-          <Empty
-            image={Empty.PRESENTED_IMAGE_SIMPLE}
-            description="暂无会话"
-            className="chat-sidebar-empty"
-          />
+          <Prose as="p" className="chat-sidebar-empty">
+            暂无会话，开始一次新的研究。
+          </Prose>
         ) : (
           threads.map((thread) => {
             const active = thread.thread_id === currentThreadId
@@ -99,43 +107,55 @@ export function ChatSidebar({
             return (
               <div
                 key={thread.thread_id}
-                role="button"
-                tabIndex={0}
                 className={`chat-sidebar-item${active ? ' active' : ''}`}
-                onClick={() => onSelect(thread.thread_id)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') onSelect(thread.thread_id)
-                }}
               >
-                <div className="chat-sidebar-item-head">
-                  {running ? (
-                    <span className="chat-sidebar-dot" aria-label="运行中" />
-                  ) : null}
-                  <span className="chat-sidebar-title">
-                    {thread.title || '未命名会话'}
+                <button
+                  type="button"
+                  className="chat-sidebar-select"
+                  aria-current={active ? 'page' : undefined}
+                  onClick={() => onSelect(thread.thread_id)}
+                >
+                  <span className="chat-sidebar-item-head">
+                    {running ? (
+                      <span className="chat-sidebar-dot" aria-label="运行中" />
+                    ) : null}
+                    <span className="chat-sidebar-title">
+                      <ThreadTitle
+                        title={
+                          thread.title ||
+                          (thread.title_pending ? '正在生成标题…' : '新研究会话')
+                        }
+                      />
+                    </span>
                   </span>
-                </div>
-                <div className="chat-sidebar-item-meta">
-                  <span>{formatTime(thread.updated_at)}</span>
-                  <Tooltip title="归档会话">
-                    <Button
-                      type="text"
-                      size="small"
-                      icon={<DeleteOutlined />}
-                      className="chat-sidebar-archive"
-                      aria-label={`归档 ${thread.title || thread.thread_id}`}
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        onArchive(thread.thread_id)
-                      }}
-                    />
-                  </Tooltip>
-                </div>
+                  <time
+                    className="chat-sidebar-item-meta"
+                    dateTime={thread.updated_at ?? undefined}
+                  >
+                    {formatTime(thread.updated_at)}
+                  </time>
+                </button>
+                <Tooltip title="归档会话">
+                  <Button
+                    type="text"
+                    size="small"
+                    icon={<DeleteOutlined />}
+                    className="chat-sidebar-archive"
+                    aria-label={`归档 ${thread.title || thread.thread_id}`}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onArchive(thread.thread_id)
+                    }}
+                  />
+                </Tooltip>
               </div>
             )
           })
         )}
       </div>
+      <Prose as="p" className="chat-sidebar-note">
+        研究记录随会话保存
+      </Prose>
     </div>
   )
 }

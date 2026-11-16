@@ -75,6 +75,28 @@ def test_fresh_upgrade_reaches_head(db_url):
     assert {fk["referred_table"] for fk in fks} == {"stocks", "users"}
 
 
+def test_order_risk_migration_preserves_existing_orders_fills_and_events(db_url):
+    cfg = _alembic_config(db_url)
+    command.upgrade(cfg, "20261030_05")
+    engine = create_engine(db_url)
+    with engine.begin() as connection:
+        connection.exec_driver_sql("INSERT INTO agent_runs (run_id,objective,status) VALUES ('old-run','history','completed')")
+        connection.exec_driver_sql("INSERT INTO paper_orders (order_id,run_id,stock_code,side,quantity,status) VALUES ('old-order','old-run','sh.600000','buy',100,'filled')")
+        connection.exec_driver_sql("INSERT INTO paper_fills (order_id,fill_seq,trade_date,price,quantity,commission,stamp_tax,transfer_fee) VALUES ('old-order',1,'2024-01-02',10,100,5,0,0.01)")
+        connection.exec_driver_sql("INSERT INTO paper_order_events (order_id,seq,event_type) VALUES ('old-order',1,'filled')")
+        connection.exec_driver_sql("INSERT INTO paper_cash_events (seq,event_type,amount,order_id) VALUES (1,'buy',-1005,'old-order')")
+    for revision in ("head", "20261030_05", "head"):
+        if revision == "head":
+            command.upgrade(cfg, revision)
+        else:
+            command.downgrade(cfg, revision)
+        with engine.connect() as connection:
+            for table in ("paper_orders", "paper_fills", "paper_order_events", "paper_cash_events"):
+                assert connection.exec_driver_sql(f"SELECT count(*) FROM {table}").scalar() == 1
+            assert connection.exec_driver_sql("PRAGMA foreign_key_check").all() == []
+    engine.dispose()
+
+
 def test_upgrade_downgrade_upgrade_roundtrip(db_url):
     """upgrade -> downgrade base -> upgrade must all succeed and leave a
     clean base (no leftover tables) in between.
@@ -191,3 +213,33 @@ def test_upgrade_repairs_drifted_watchlist_and_jobs(db_url):
     finally:
         engine.dispose()
     assert diff == [], f"Schema drift after drift repair: {diff}"
+
+
+def test_paper_trading_missing_indexes_migration(db_url):
+    """Verify 20261014_01 adds approval_id and order_id indexes and downgrades cleanly."""
+    cfg = _alembic_config(db_url)
+    command.upgrade(cfg, "20261014_01")
+
+    engine = create_engine(db_url)
+    try:
+        insp = inspect(engine)
+        order_indexes = {i["name"] for i in insp.get_indexes("paper_orders")}
+        assert "ix_paper_orders_approval_id" in order_indexes
+
+        cash_indexes = {i["name"] for i in insp.get_indexes("paper_cash_events")}
+        assert "ix_paper_cash_events_order_id" in cash_indexes
+    finally:
+        engine.dispose()
+
+    command.downgrade(cfg, "20260910_01")
+
+    engine = create_engine(db_url)
+    try:
+        insp = inspect(engine)
+        order_indexes = {i["name"] for i in insp.get_indexes("paper_orders")}
+        assert "ix_paper_orders_approval_id" not in order_indexes
+
+        cash_indexes = {i["name"] for i in insp.get_indexes("paper_cash_events")}
+        assert "ix_paper_cash_events_order_id" not in cash_indexes
+    finally:
+        engine.dispose()

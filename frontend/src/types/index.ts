@@ -8,7 +8,9 @@ export interface Stock {
 }
 
 export interface DailyKline {
-  id: number
+  id?: number | null
+  adjustment?: 'raw' | 'qfq' | 'hfq' | 'legacy_unknown'
+  versioned?: boolean
   stock_code: string
   date: string
   open: number
@@ -61,22 +63,6 @@ export interface BacktestListItem {
   parameters?: Record<string, number | string | boolean> | null
   portfolio_values?: PortfolioValue[] | null
   created_at: string
-}
-
-export interface SyncResponse {
-  success: boolean
-  message: string
-  stocks_synced: number
-  klines_synced: number
-}
-
-export interface BacktestRequest {
-  stock_code: string
-  strategy_type: string
-  start_date: string
-  end_date: string
-  initial_capital: number
-  parameters?: Record<string, number | string | boolean>
 }
 
 export interface KlineIndicator {
@@ -172,6 +158,7 @@ export interface BacktestTradeItem {
   price: number
   quantity: number
   amount: number
+  fees?: number
 }
 
 export interface BacktestMetrics {
@@ -190,6 +177,14 @@ export interface PortfolioValue {
   cash: number
   position_value: number
   position: number
+  receivable?: number
+  pending_shares?: number
+}
+
+export interface ResearchExecutionOptions {
+  price_source?: 'auto' | 'raw' | 'legacy'
+  corporate_action_mode?: 'price_only' | 'verified'
+  dividend_tax_rate?: number
 }
 
 export interface StrategyBacktestResponse {
@@ -205,6 +200,14 @@ export interface StrategyBacktestResponse {
   metrics: BacktestMetrics
   portfolio_values?: PortfolioValue[]
   parameters?: Record<string, number | string | boolean> | null
+  execution_metadata?: {
+    engine_version?: string
+    corporate_action_mode?: 'price_only' | 'verified'
+    dividend_tax_rate?: number
+    data_provenance?: { source?: string; adjustment?: string }
+    limitations?: string[]
+    snapshot_sha256?: string
+  }
 }
 
 export interface OptimizeResultItem {
@@ -307,60 +310,6 @@ export interface AnalysisRecord {
   created_at: string
 }
 
-// 大盘分析类型
-export interface IndexInfo {
-  code: string
-  name: string
-}
-
-export interface IndexResult {
-  code: string
-  name: string
-  success: boolean
-  signal: 'buy' | 'sell' | 'hold'
-  confidence: number
-  reason: string
-  error?: string
-}
-
-export interface MarketAnalyzeRequest {
-  index_codes?: string[]
-  mode?: string
-}
-
-export interface MarketAnalyzeResponse {
-  success: boolean
-  indices: IndexResult[]
-  overall_signal: 'buy' | 'sell' | 'hold'
-  overall_confidence: number
-  overall_reason: string
-  duration_s: number
-  error?: string
-}
-
-export interface DashboardMover {
-  id: number
-  code: string
-  name: string
-  current_price: number
-  change: number
-  change_percent: number
-}
-
-export interface DashboardIndex {
-  code: string
-  name: string
-  value: number
-  change: number
-  change_percent: number
-}
-
-export interface DashboardTrend {
-  name: string
-  dates: string[]
-  values: number[]
-}
-
 export interface DashboardStock {
   id: number
   code: string
@@ -373,42 +322,10 @@ export interface DashboardStock {
   change_percent: number
 }
 
-export interface DashboardSummary {
-  as_of?: string
-  market_stats: {
-    up: number
-    down: number
-    flat: number
-    total: number
-  }
-  indices: DashboardIndex[]
-  trend: DashboardTrend
-  watchlist: DashboardStock[]
-  research_queue?: ResearchQueueItem[]
-  recent_activity?: ResearchActivity[]
-  alerts?: ResearchAlert[]
-}
-
-export interface ResearchQueueItem {
-  code: string
-  name: string
-  reason: string
-  change_percent?: number
-  href?: string
-}
-
 export interface ResearchActivity {
   id: string
   title: string
   kind: 'screener' | 'analysis' | 'backtest' | 'chat' | 'alert' | string
-  created_at?: string | null
-  href?: string
-}
-
-export interface ResearchAlert {
-  id: string | number
-  title: string
-  severity?: 'info' | 'warning' | 'error'
   created_at?: string | null
   href?: string
 }
@@ -438,45 +355,9 @@ export interface WatchlistResponse {
   total: number
 }
 
-// ==================== Screener Types ====================
-
-export interface ScreenerCondition {
-  indicator: string
-  operator: string
-  value: number
-  params?: Record<string, number>
-}
-
-export interface ScreenerRequest {
-  conditions: ScreenerCondition[]
-  logic: 'AND' | 'OR'
-  market?: string
-  max_results: number
-}
-
-export interface ScreenerResultItem {
-  stock_code: string
-  stock_name: string
-  close: number
-  volume: number
-  change_pct: number | null
-  indicators: Record<string, number | null>
-  matched_conditions: string[]
-}
-
-export interface ScreenerResponse {
-  success: boolean
-  total_stocks_scanned: number
-  total_matched: number
-  conditions_used: string[]
-  logic: string
-  results: ScreenerResultItem[]
-  execution_time_s: number
-}
-
 // ==================== Strategy Comparison Types ====================
 
-export interface CompareRequest {
+export interface CompareRequest extends ResearchExecutionOptions {
   stock_code: string
   start_date: string
   end_date: string

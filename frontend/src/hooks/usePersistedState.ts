@@ -5,13 +5,17 @@ const PREFIX = 'backing_'
 export function usePersistedState<T>(
   key: string,
   defaultValue: T,
+  validate?: (value: unknown) => boolean,
 ): [T, (value: T | ((prev: T) => T)) => void] {
   const storageKey = PREFIX + key
 
   const [state, setState] = useState<T>(() => {
     try {
       const raw = sessionStorage.getItem(storageKey)
-      if (raw !== null) return JSON.parse(raw) as T
+      if (raw !== null) {
+        const value: unknown = JSON.parse(raw)
+        if (!validate || validate(value)) return value as T
+      }
     } catch {
       /* ignore */
     }

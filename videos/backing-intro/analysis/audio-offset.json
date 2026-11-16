@@ -1,0 +1,8 @@
+{
+  "pipeline": "Remotion 4.0.484 / AAC / 48000Hz / MP4",
+  "probe": "fs:812748",
+  "expected_start_seconds": 0.9333333333333333,
+  "observed_start_seconds": 0.9756666666666667,
+  "output_offset_frames": 1.27,
+  "correlation": 0.9997446537017822
+}

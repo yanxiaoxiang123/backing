@@ -150,7 +150,11 @@ async def validation_error_handler(
     request: Request, exc: RequestValidationError
 ) -> JSONResponse:
     """Handle Pydantic request validation errors (422)."""
-    errors = exc.errors()
+    # Pydantic custom validators include the actual ValueError in ctx. Request
+    # input can also contain NaN or secrets. Return only the public field path,
+    # type and message, which are sufficient for form feedback and valid JSON.
+    errors = [{key: value for key, value in error.items() if key in {"type", "loc", "msg"}}
+              for error in exc.errors()]
     first_msg = errors[0]["msg"] if errors else "Request validation failed"
     _log_warning(request, 422, first_msg, code="validation_error")
     return JSONResponse(

@@ -1,0 +1,3227 @@
+{
+  "mode": "workspace",
+  "base_commit": "043e9747341337235d34eddcf5bd0dbdbc2c2667",
+  "scope": "Original OCR preview, before review fixes and report artifacts",
+  "total_files": 533,
+  "reviewed_files": 80,
+  "skipped_files": 453,
+  "coverage_rate": "15.01%",
+  "ocr_reviewable_scope": {
+    "total_files": 80,
+    "reviewed_files": 80,
+    "skipped_files": 0,
+    "coverage_rate": "100%"
+  },
+  "excluded_reasons": {
+    "binary": 398,
+    "unsupported_ext": 36,
+    "default_path": 19
+  },
+  "additional_fix_or_validation_files": [
+    "deploy/production/nginx.conf",
+    "backend/tests/test_production_backup.py",
+    "backend/tests/test_production_serve.py",
+    "frontend/src/components/research/ResearchCopilot.test.tsx",
+    "videos/backing-intro/tests/test_media_scripts.py"
+  ],
+  "files": [
+    {
+      "path": "README.md",
+      "git_status": "modified",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: unsupported_ext"
+    },
+    {
+      "path": "backend/.env.example",
+      "git_status": "modified",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: unsupported_ext"
+    },
+    {
+      "path": "backend/app/agent/config.py",
+      "git_status": "modified",
+      "review_status": "reviewed",
+      "reason": "Reviewed source or changed lines against the OCR checklist"
+    },
+    {
+      "path": "backend/app/config.py",
+      "git_status": "modified",
+      "review_status": "reviewed",
+      "reason": "Reviewed source or changed lines against the OCR checklist"
+    },
+    {
+      "path": "backend/app/services/ai_settings.py",
+      "git_status": "modified",
+      "review_status": "reviewed",
+      "reason": "Reviewed source or changed lines against the OCR checklist"
+    },
+    {
+      "path": "backend/app/services/mootdx_discovery.py",
+      "git_status": "modified",
+      "review_status": "reviewed",
+      "reason": "Reviewed source or changed lines against the OCR checklist"
+    },
+    {
+      "path": "backend/tests/test_ai_settings.py",
+      "git_status": "modified",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: default_path"
+    },
+    {
+      "path": "frontend/src/App.tsx",
+      "git_status": "modified",
+      "review_status": "reviewed",
+      "reason": "Reviewed source or changed lines against the OCR checklist"
+    },
+    {
+      "path": "frontend/src/components/StockSearch.tsx",
+      "git_status": "modified",
+      "review_status": "reviewed",
+      "reason": "Reviewed source or changed lines against the OCR checklist"
+    },
+    {
+      "path": "frontend/src/components/agent/AlertsPanel.tsx",
+      "git_status": "modified",
+      "review_status": "reviewed",
+      "reason": "Reviewed source or changed lines against the OCR checklist"
+    },
+    {
+      "path": "frontend/src/components/chat/ChatInput.tsx",
+      "git_status": "modified",
+      "review_status": "reviewed",
+      "reason": "Reviewed source or changed lines against the OCR checklist"
+    },
+    {
+      "path": "frontend/src/components/research/ResearchCopilot.tsx",
+      "git_status": "modified",
+      "review_status": "reviewed",
+      "reason": "Reviewed source or changed lines against the OCR checklist"
+    },
+    {
+      "path": "frontend/src/components/strategies/StrategyConfig.tsx",
+      "git_status": "modified",
+      "review_status": "reviewed",
+      "reason": "Reviewed source or changed lines against the OCR checklist"
+    },
+    {
+      "path": "frontend/src/components/strategies/StrategyResults.test.tsx",
+      "git_status": "modified",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: default_path"
+    },
+    {
+      "path": "frontend/src/components/strategies/StrategyResults.tsx",
+      "git_status": "modified",
+      "review_status": "reviewed",
+      "reason": "Reviewed source or changed lines against the OCR checklist"
+    },
+    {
+      "path": "frontend/src/hooks/useAgentChat.test.ts",
+      "git_status": "modified",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: default_path"
+    },
+    {
+      "path": "frontend/src/hooks/useAgentChat.ts",
+      "git_status": "modified",
+      "review_status": "reviewed",
+      "reason": "Reviewed source or changed lines against the OCR checklist"
+    },
+    {
+      "path": "frontend/src/hooks/useAgentRun.ts",
+      "git_status": "modified",
+      "review_status": "reviewed",
+      "reason": "Reviewed source or changed lines against the OCR checklist"
+    },
+    {
+      "path": "frontend/src/hooks/usePersistedState.ts",
+      "git_status": "modified",
+      "review_status": "reviewed",
+      "reason": "Reviewed source or changed lines against the OCR checklist"
+    },
+    {
+      "path": "frontend/src/pages/AgentAnalysis.tsx",
+      "git_status": "modified",
+      "review_status": "reviewed",
+      "reason": "Reviewed source or changed lines against the OCR checklist"
+    },
+    {
+      "path": "frontend/src/pages/AgentWorkspace.tsx",
+      "git_status": "modified",
+      "review_status": "reviewed",
+      "reason": "Reviewed source or changed lines against the OCR checklist"
+    },
+    {
+      "path": "frontend/src/pages/Dashboard.tsx",
+      "git_status": "modified",
+      "review_status": "reviewed",
+      "reason": "Reviewed source or changed lines against the OCR checklist"
+    },
+    {
+      "path": "frontend/src/pages/Strategies.tsx",
+      "git_status": "modified",
+      "review_status": "reviewed",
+      "reason": "Reviewed source or changed lines against the OCR checklist"
+    },
+    {
+      "path": "frontend/src/pages/__tests__/AgentWorkspace.test.tsx",
+      "git_status": "modified",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: default_path"
+    },
+    {
+      "path": "frontend/src/styles/agent.css",
+      "git_status": "modified",
+      "review_status": "reviewed",
+      "reason": "Reviewed source or changed lines against the OCR checklist"
+    },
+    {
+      "path": "frontend/src/styles/research-refinement.css",
+      "git_status": "modified",
+      "review_status": "reviewed",
+      "reason": "Reviewed source or changed lines against the OCR checklist"
+    },
+    {
+      "path": "frontend/src/styles/surfaces.css",
+      "git_status": "modified",
+      "review_status": "reviewed",
+      "reason": "Reviewed source or changed lines against the OCR checklist"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/VERSION",
+      "git_status": "added",
+      "review_status": "reviewed",
+      "reason": "Reviewed source or changed lines against the OCR checklist"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/ABOUT",
+      "git_status": "added",
+      "review_status": "reviewed",
+      "reason": "Reviewed source or changed lines against the OCR checklist"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/LICENSE.headless_shell",
+      "git_status": "added",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: unsupported_ext"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/PrivacySandboxAttestationsPreloaded/manifest.json",
+      "git_status": "added",
+      "review_status": "reviewed",
+      "reason": "Reviewed source or changed lines against the OCR checklist"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/PrivacySandboxAttestationsPreloaded/privacy-sandbox-attestations.dat",
+      "git_status": "added",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: unsupported_ext"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/chrome-headless-shell.exe",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/headless_command_resources.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/headless_lib_data.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/headless_lib_strings.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/hyphen-data/hyph-af.hyb",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/hyphen-data/hyph-as.hyb",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/hyphen-data/hyph-be.hyb",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/hyphen-data/hyph-bg.hyb",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/hyphen-data/hyph-bn.hyb",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/hyphen-data/hyph-cs.hyb",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/hyphen-data/hyph-cu.hyb",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/hyphen-data/hyph-cy.hyb",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/hyphen-data/hyph-da.hyb",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/hyphen-data/hyph-de-1901.hyb",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/hyphen-data/hyph-de-1996.hyb",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/hyphen-data/hyph-de-ch-1901.hyb",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/hyphen-data/hyph-el.hyb",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/hyphen-data/hyph-en-gb.hyb",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/hyphen-data/hyph-en-us.hyb",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/hyphen-data/hyph-es.hyb",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/hyphen-data/hyph-et.hyb",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/hyphen-data/hyph-eu.hyb",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/hyphen-data/hyph-fr.hyb",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/hyphen-data/hyph-ga.hyb",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/hyphen-data/hyph-gl.hyb",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/hyphen-data/hyph-gu.hyb",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/hyphen-data/hyph-hi.hyb",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/hyphen-data/hyph-hr.hyb",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/hyphen-data/hyph-hu.hyb",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/hyphen-data/hyph-hy.hyb",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/hyphen-data/hyph-it.hyb",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/hyphen-data/hyph-ka.hyb",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/hyphen-data/hyph-kn.hyb",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/hyphen-data/hyph-la.hyb",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/hyphen-data/hyph-lt.hyb",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/hyphen-data/hyph-lv.hyb",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/hyphen-data/hyph-ml.hyb",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/hyphen-data/hyph-mn-cyrl.hyb",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/hyphen-data/hyph-mr.hyb",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/hyphen-data/hyph-mul-ethi.hyb",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/hyphen-data/hyph-nb.hyb",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/hyphen-data/hyph-nl.hyb",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/hyphen-data/hyph-nn.hyb",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/hyphen-data/hyph-or.hyb",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/hyphen-data/hyph-pa.hyb",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/hyphen-data/hyph-pt.hyb",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/hyphen-data/hyph-ru.hyb",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/hyphen-data/hyph-sk.hyb",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/hyphen-data/hyph-sl.hyb",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/hyphen-data/hyph-sq.hyb",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/hyphen-data/hyph-sv.hyb",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/hyphen-data/hyph-ta.hyb",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/hyphen-data/hyph-te.hyb",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/hyphen-data/hyph-tk.hyb",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/hyphen-data/hyph-uk.hyb",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/hyphen-data/hyph-und-ethi.hyb",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/icudtl.dat",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/libEGL.dll",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/libGLESv2.dll",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/af.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/af_FEMININE.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/af_MASCULINE.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/af_NEUTER.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/am.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/am_FEMININE.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/am_MASCULINE.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/am_NEUTER.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/ar.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/ar_FEMININE.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/ar_MASCULINE.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/ar_NEUTER.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/bg.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/bg_FEMININE.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/bg_MASCULINE.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/bg_NEUTER.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/bn.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/bn_FEMININE.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/bn_MASCULINE.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/bn_NEUTER.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/ca.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/ca_FEMININE.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/ca_MASCULINE.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/ca_NEUTER.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/cs.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/cs_FEMININE.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/cs_MASCULINE.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/cs_NEUTER.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/da.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/da_FEMININE.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/da_MASCULINE.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/da_NEUTER.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/de.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/de_FEMININE.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/de_MASCULINE.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/de_NEUTER.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/el.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/el_FEMININE.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/el_MASCULINE.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/el_NEUTER.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/en-GB.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/en-GB_FEMININE.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/en-GB_MASCULINE.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/en-GB_NEUTER.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/en-US.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/en-US_FEMININE.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/en-US_MASCULINE.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/en-US_NEUTER.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/es-419.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/es-419_FEMININE.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/es-419_MASCULINE.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/es-419_NEUTER.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/es.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/es_FEMININE.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/es_MASCULINE.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/es_NEUTER.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/et.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/et_FEMININE.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/et_MASCULINE.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/et_NEUTER.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/fa.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/fa_FEMININE.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/fa_MASCULINE.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/fa_NEUTER.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/fi.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/fi_FEMININE.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/fi_MASCULINE.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/fi_NEUTER.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/fil.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/fil_FEMININE.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/fil_MASCULINE.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/fil_NEUTER.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/fr.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/fr_FEMININE.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/fr_MASCULINE.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/fr_NEUTER.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/gu.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/gu_FEMININE.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/gu_MASCULINE.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/gu_NEUTER.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/he.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/he_FEMININE.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/he_MASCULINE.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/he_NEUTER.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/hi.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/hi_FEMININE.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/hi_MASCULINE.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/hi_NEUTER.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/hr.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/hr_FEMININE.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/hr_MASCULINE.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/hr_NEUTER.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/hu.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/hu_FEMININE.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/hu_MASCULINE.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/hu_NEUTER.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/id.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/id_FEMININE.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/id_MASCULINE.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/id_NEUTER.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/it.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/it_FEMININE.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/it_MASCULINE.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/it_NEUTER.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/ja.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/ja_FEMININE.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/ja_MASCULINE.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/ja_NEUTER.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/kn.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/kn_FEMININE.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/kn_MASCULINE.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/kn_NEUTER.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/ko.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/ko_FEMININE.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/ko_MASCULINE.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/ko_NEUTER.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/lt.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/lt_FEMININE.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/lt_MASCULINE.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/lt_NEUTER.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/lv.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/lv_FEMININE.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/lv_MASCULINE.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/lv_NEUTER.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/ml.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/ml_FEMININE.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/ml_MASCULINE.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/ml_NEUTER.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/mr.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/mr_FEMININE.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/mr_MASCULINE.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/mr_NEUTER.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/ms.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/ms_FEMININE.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/ms_MASCULINE.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/ms_NEUTER.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/nb.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/nb_FEMININE.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/nb_MASCULINE.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/nb_NEUTER.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/nl.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/nl_FEMININE.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/nl_MASCULINE.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/nl_NEUTER.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/pl.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/pl_FEMININE.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/pl_MASCULINE.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/pl_NEUTER.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/pt-BR.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/pt-BR_FEMININE.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/pt-BR_MASCULINE.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/pt-BR_NEUTER.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/pt-PT.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/pt-PT_FEMININE.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/pt-PT_MASCULINE.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/pt-PT_NEUTER.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/ro.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/ro_FEMININE.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/ro_MASCULINE.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/ro_NEUTER.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/ru.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/ru_FEMININE.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/ru_MASCULINE.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/ru_NEUTER.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/sk.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/sk_FEMININE.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/sk_MASCULINE.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/sk_NEUTER.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/sl.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/sl_FEMININE.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/sl_MASCULINE.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/sl_NEUTER.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/sr.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/sr_FEMININE.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/sr_MASCULINE.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/sr_NEUTER.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/sv.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/sv_FEMININE.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/sv_MASCULINE.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/sv_NEUTER.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/sw.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/sw_FEMININE.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/sw_MASCULINE.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/sw_NEUTER.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/ta.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/ta_FEMININE.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/ta_MASCULINE.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/ta_NEUTER.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/te.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/te_FEMININE.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/te_MASCULINE.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/te_NEUTER.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/th.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/th_FEMININE.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/th_MASCULINE.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/th_NEUTER.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/tr.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/tr_FEMININE.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/tr_MASCULINE.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/tr_NEUTER.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/uk.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/uk_FEMININE.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/uk_MASCULINE.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/uk_NEUTER.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/ur.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/ur_FEMININE.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/ur_MASCULINE.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/ur_NEUTER.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/vi.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/vi_FEMININE.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/vi_MASCULINE.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/vi_NEUTER.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/zh-CN.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/zh-CN_FEMININE.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/zh-CN_MASCULINE.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/zh-CN_NEUTER.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/zh-TW.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/zh-TW_FEMININE.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/zh-TW_MASCULINE.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/locales/zh-TW_NEUTER.pak",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/resources/accessibility/reading_mode_gdocs_helper/content.js",
+      "git_status": "added",
+      "review_status": "reviewed",
+      "reason": "Reviewed source or changed lines against the OCR checklist"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/resources/accessibility/reading_mode_gdocs_helper/gdocs_script.js",
+      "git_status": "added",
+      "review_status": "reviewed",
+      "reason": "Reviewed source or changed lines against the OCR checklist"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/resources/accessibility/reading_mode_gdocs_helper_manifest.json",
+      "git_status": "added",
+      "review_status": "reviewed",
+      "reason": "Reviewed source or changed lines against the OCR checklist"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/v8_context_snapshot.bin",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/vk_swiftshader.dll",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/vk_swiftshader_icd.json",
+      "git_status": "added",
+      "review_status": "reviewed",
+      "reason": "Reviewed source or changed lines against the OCR checklist"
+    },
+    {
+      "path": ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/vulkan-1.dll",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "backend/app/runtime_env.py",
+      "git_status": "added",
+      "review_status": "reviewed",
+      "reason": "Reviewed source or changed lines against the OCR checklist"
+    },
+    {
+      "path": "backend/tests/test_production_backup.py",
+      "git_status": "added",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: default_path"
+    },
+    {
+      "path": "backend/tests/test_production_serve.py",
+      "git_status": "added",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: default_path"
+    },
+    {
+      "path": "backend/tests/test_runtime_env.py",
+      "git_status": "added",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: default_path"
+    },
+    {
+      "path": "deploy/production/README.md",
+      "git_status": "added",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: unsupported_ext"
+    },
+    {
+      "path": "deploy/production/activate-timers.sh",
+      "git_status": "added",
+      "review_status": "reviewed",
+      "reason": "Reviewed source or changed lines against the OCR checklist"
+    },
+    {
+      "path": "deploy/production/backend.Dockerfile",
+      "git_status": "added",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: unsupported_ext"
+    },
+    {
+      "path": "deploy/production/backing-backup.service",
+      "git_status": "added",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: unsupported_ext"
+    },
+    {
+      "path": "deploy/production/backing-backup.timer",
+      "git_status": "added",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: unsupported_ext"
+    },
+    {
+      "path": "deploy/production/backing-sync.service",
+      "git_status": "added",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: unsupported_ext"
+    },
+    {
+      "path": "deploy/production/backing-sync.timer",
+      "git_status": "added",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: unsupported_ext"
+    },
+    {
+      "path": "deploy/production/compose.yaml",
+      "git_status": "added",
+      "review_status": "reviewed",
+      "reason": "Reviewed source or changed lines against the OCR checklist"
+    },
+    {
+      "path": "deploy/production/context.dockerignore",
+      "git_status": "added",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: unsupported_ext"
+    },
+    {
+      "path": "deploy/production/daily-sync.sh",
+      "git_status": "added",
+      "review_status": "reviewed",
+      "reason": "Reviewed source or changed lines against the OCR checklist"
+    },
+    {
+      "path": "deploy/production/deployment.env.example",
+      "git_status": "added",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: unsupported_ext"
+    },
+    {
+      "path": "deploy/production/logrotate.conf",
+      "git_status": "added",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: unsupported_ext"
+    },
+    {
+      "path": "deploy/production/nginx.conf",
+      "git_status": "added",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: unsupported_ext"
+    },
+    {
+      "path": "deploy/production/operations.py",
+      "git_status": "added",
+      "review_status": "reviewed",
+      "reason": "Reviewed source or changed lines against the OCR checklist"
+    },
+    {
+      "path": "deploy/production/predictor.Dockerfile",
+      "git_status": "added",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: unsupported_ext"
+    },
+    {
+      "path": "deploy/production/prepare-wheels.sh",
+      "git_status": "added",
+      "review_status": "reviewed",
+      "reason": "Reviewed source or changed lines against the OCR checklist"
+    },
+    {
+      "path": "deploy/production/provision_models.py",
+      "git_status": "added",
+      "review_status": "reviewed",
+      "reason": "Reviewed source or changed lines against the OCR checklist"
+    },
+    {
+      "path": "deploy/production/serve.py",
+      "git_status": "added",
+      "review_status": "reviewed",
+      "reason": "Reviewed source or changed lines against the OCR checklist"
+    },
+    {
+      "path": "docs/2026-11-10-production-deployment.md",
+      "git_status": "added",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: unsupported_ext"
+    },
+    {
+      "path": "docs/reviews/2026-11-14-product-experience-audit.md",
+      "git_status": "added",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: unsupported_ext"
+    },
+    {
+      "path": "docs/reviews/2026-11-14-research-continuity-verification.md",
+      "git_status": "added",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: unsupported_ext"
+    },
+    {
+      "path": "docs/reviews/2026-11-14-research-drafts-verification.md",
+      "git_status": "added",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: unsupported_ext"
+    },
+    {
+      "path": "docs/reviews/2026-11-14-research-entry-verification.md",
+      "git_status": "added",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: unsupported_ext"
+    },
+    {
+      "path": "docs/reviews/2026-11-14-select-popup-verification.md",
+      "git_status": "added",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: unsupported_ext"
+    },
+    {
+      "path": "docs/reviews/assets/2026-11-14-continuity-desktop.png",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "docs/reviews/assets/2026-11-14-continuity-mobile.png",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "docs/reviews/assets/2026-11-14-entry-desktop.png",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "docs/reviews/assets/2026-11-14-entry-mobile.png",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "docs/reviews/assets/2026-11-14-ux-dashboard.png",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "docs/reviews/assets/2026-11-14-ux-reports.png",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "docs/reviews/assets/2026-11-14-ux-strategy-initial.png",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-11-14-research-continuity.md",
+      "git_status": "added",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: unsupported_ext"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-11-14-research-drafts.md",
+      "git_status": "added",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: unsupported_ext"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-11-14-research-entry.md",
+      "git_status": "added",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: unsupported_ext"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-11-14-research-continuity-design.md",
+      "git_status": "added",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: unsupported_ext"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-11-14-research-drafts-design.md",
+      "git_status": "added",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: unsupported_ext"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-11-14-research-entry-design.md",
+      "git_status": "added",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: unsupported_ext"
+    },
+    {
+      "path": "frontend/e2e/fixtures/researchEntry.ts",
+      "git_status": "added",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: default_path"
+    },
+    {
+      "path": "frontend/e2e/report-navigation.spec.ts",
+      "git_status": "added",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: default_path"
+    },
+    {
+      "path": "frontend/e2e/research-continuity.spec.ts",
+      "git_status": "added",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: default_path"
+    },
+    {
+      "path": "frontend/e2e/research-drafts.spec.ts",
+      "git_status": "added",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: default_path"
+    },
+    {
+      "path": "frontend/e2e/research-entry.spec.ts",
+      "git_status": "added",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: default_path"
+    },
+    {
+      "path": "frontend/e2e/select-popup.spec.ts",
+      "git_status": "added",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: default_path"
+    },
+    {
+      "path": "frontend/src/components/chat/ChatInput.test.tsx",
+      "git_status": "added",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: default_path"
+    },
+    {
+      "path": "frontend/src/components/chat/ResearchChatInput.test.tsx",
+      "git_status": "added",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: default_path"
+    },
+    {
+      "path": "frontend/src/components/chat/ResearchChatInput.tsx",
+      "git_status": "added",
+      "review_status": "reviewed",
+      "reason": "Reviewed source or changed lines against the OCR checklist"
+    },
+    {
+      "path": "frontend/src/utils/chatDrafts.test.ts",
+      "git_status": "added",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: default_path"
+    },
+    {
+      "path": "frontend/src/utils/chatDrafts.ts",
+      "git_status": "added",
+      "review_status": "reviewed",
+      "reason": "Reviewed source or changed lines against the OCR checklist"
+    },
+    {
+      "path": "frontend/src/utils/researchNavigation.test.ts",
+      "git_status": "added",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: default_path"
+    },
+    {
+      "path": "frontend/src/utils/researchNavigation.ts",
+      "git_status": "added",
+      "review_status": "reviewed",
+      "reason": "Reviewed source or changed lines against the OCR checklist"
+    },
+    {
+      "path": "frontend/src/utils/strategyWorkspace.test.ts",
+      "git_status": "added",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: default_path"
+    },
+    {
+      "path": "frontend/src/utils/strategyWorkspace.ts",
+      "git_status": "added",
+      "review_status": "reviewed",
+      "reason": "Reviewed source or changed lines against the OCR checklist"
+    },
+    {
+      "path": "generated-images/app-about.png",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "generated-images/app-backing.png",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "generated-images/app-journey.png",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "generated-images/app-logistics.png",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "generated-images/app-patent.png",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "generated-images/app-projects.png",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "generated-images/app-research.png",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "generated-images/app-sayhi.png",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "generated-images/badge-ai.png",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "generated-images/badge-detail.png",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "generated-images/badge-system.png",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "generated-images/cloud-bank.png",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "generated-images/cloud-small.png",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "generated-images/hills.png",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "generated-images/pk-bull-2.png",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "generated-images/pk-bull.png",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "generated-images/pk-coins.png",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "generated-images/pk-doc.png",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "generated-images/pk-magnifier.png",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "generated-images/pk-route.png",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "generated-images/pk-truck.png",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "generated-images/plane.png",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "generated-images/proj-backing.png",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "generated-images/proj-logistics.png",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "generated-images/proj-patent.png",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "generated-images/ref-folder.png",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "generated-images/repo-aistock.png",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "generated-images/repo-daily.png",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "generated-images/repo-love.png",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "generated-images/repo-pet.png",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "generated-images/repo-portfolio.png",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "generated-images/repo-repro.png",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "generated-images/repo-shop.png",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "generated-images/repo-skills.png",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "generated-images/repo-stocklstm.png",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "generated-images/repo-todo.png",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "generated-images/repo-trademark.png",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "generated-images/st-arrow.png",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "generated-images/st-clip.png",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "generated-images/st-coffee.png",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "generated-images/st-flower.png",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "generated-images/st-heart.png",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "generated-images/st-marker.png",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "generated-images/st-plane.png",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "generated-images/st-star.png",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "generated-images/st-tape.png",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "generated-images/sticker-green.png",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "motion/hero/source/folded.png",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "public/images/backing.png",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "public/images/hero-device-2.png",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "public/images/hero-device.png",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "public/images/logistics.png",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "public/images/patent.png",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "public/images/sticker.png",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "public/images/work-backing-2.png",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "public/images/work-backing.png",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "public/images/work-logistics-2.png",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "public/images/work-logistics.png",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "public/images/work-patent-2.png",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "public/images/work-patent.png",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "src/assets/images/backing.png",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "src/assets/images/logistics.png",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "src/assets/images/patent.png",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "src/assets/images/study.png",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "videos/backing-intro/.gitignore",
+      "git_status": "added",
+      "review_status": "reviewed",
+      "reason": "Reviewed source or changed lines against the OCR checklist"
+    },
+    {
+      "path": "videos/backing-intro/DESIGN.md",
+      "git_status": "added",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: unsupported_ext"
+    },
+    {
+      "path": "videos/backing-intro/INDEPENDENT-REVIEW.md",
+      "git_status": "added",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: unsupported_ext"
+    },
+    {
+      "path": "videos/backing-intro/QA.md",
+      "git_status": "added",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: unsupported_ext"
+    },
+    {
+      "path": "videos/backing-intro/README.md",
+      "git_status": "added",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: unsupported_ext"
+    },
+    {
+      "path": "videos/backing-intro/analysis/audio-offset.json",
+      "git_status": "added",
+      "review_status": "reviewed",
+      "reason": "Reviewed source or changed lines against the OCR checklist"
+    },
+    {
+      "path": "videos/backing-intro/analysis/backing-intro-loudness.txt",
+      "git_status": "added",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: unsupported_ext"
+    },
+    {
+      "path": "videos/backing-intro/analysis/backing-intro-nobgm-loudness.txt",
+      "git_status": "added",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: unsupported_ext"
+    },
+    {
+      "path": "videos/backing-intro/analysis/beat_data.json",
+      "git_status": "added",
+      "review_status": "reviewed",
+      "reason": "Reviewed source or changed lines against the OCR checklist"
+    },
+    {
+      "path": "videos/backing-intro/analysis/bundle-url.txt",
+      "git_status": "added",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: unsupported_ext"
+    },
+    {
+      "path": "videos/backing-intro/analysis/capture-errors.json",
+      "git_status": "added",
+      "review_status": "reviewed",
+      "reason": "Reviewed source or changed lines against the OCR checklist"
+    },
+    {
+      "path": "videos/backing-intro/analysis/click-audio.json",
+      "git_status": "added",
+      "review_status": "reviewed",
+      "reason": "Reviewed source or changed lines against the OCR checklist"
+    },
+    {
+      "path": "videos/backing-intro/analysis/delivery-media.json",
+      "git_status": "added",
+      "review_status": "reviewed",
+      "reason": "Reviewed source or changed lines against the OCR checklist"
+    },
+    {
+      "path": "videos/backing-intro/analysis/final-audio-sync.json",
+      "git_status": "added",
+      "review_status": "reviewed",
+      "reason": "Reviewed source or changed lines against the OCR checklist"
+    },
+    {
+      "path": "videos/backing-intro/analysis/final-beat-errors.json",
+      "git_status": "added",
+      "review_status": "reviewed",
+      "reason": "Reviewed source or changed lines against the OCR checklist"
+    },
+    {
+      "path": "videos/backing-intro/analysis/gallery-selection.json",
+      "git_status": "added",
+      "review_status": "reviewed",
+      "reason": "Reviewed source or changed lines against the OCR checklist"
+    },
+    {
+      "path": "videos/backing-intro/analysis/references/brand-ink-open.mp4",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "videos/backing-intro/analysis/references/document-typewriter-reveal.mp4",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "videos/backing-intro/analysis/references/outro-group-photo-launch.mp4",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "videos/backing-intro/analysis/references/row-embed.mp4",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "videos/backing-intro/analysis/references/type-and-filter.mp4",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "videos/backing-intro/analysis/sfx-click-search.json",
+      "git_status": "added",
+      "review_status": "reviewed",
+      "reason": "Reviewed source or changed lines against the OCR checklist"
+    },
+    {
+      "path": "videos/backing-intro/analysis/sfx-impact.json",
+      "git_status": "added",
+      "review_status": "reviewed",
+      "reason": "Reviewed source or changed lines against the OCR checklist"
+    },
+    {
+      "path": "videos/backing-intro/analysis/sfx-keyboard.json",
+      "git_status": "added",
+      "review_status": "reviewed",
+      "reason": "Reviewed source or changed lines against the OCR checklist"
+    },
+    {
+      "path": "videos/backing-intro/analysis/sfx-whoosh.json",
+      "git_status": "added",
+      "review_status": "reviewed",
+      "reason": "Reviewed source or changed lines against the OCR checklist"
+    },
+    {
+      "path": "videos/backing-intro/analysis/two-version-video-hashes.json",
+      "git_status": "added",
+      "review_status": "reviewed",
+      "reason": "Reviewed source or changed lines against the OCR checklist"
+    },
+    {
+      "path": "videos/backing-intro/analysis/typing-audio.json",
+      "git_status": "added",
+      "review_status": "reviewed",
+      "reason": "Reviewed source or changed lines against the OCR checklist"
+    },
+    {
+      "path": "videos/backing-intro/analysis/workbench-parity.json",
+      "git_status": "added",
+      "review_status": "reviewed",
+      "reason": "Reviewed source or changed lines against the OCR checklist"
+    },
+    {
+      "path": "videos/backing-intro/package-lock.json",
+      "git_status": "added",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: default_path"
+    },
+    {
+      "path": "videos/backing-intro/package.json",
+      "git_status": "added",
+      "review_status": "reviewed",
+      "reason": "Reviewed source or changed lines against the OCR checklist"
+    },
+    {
+      "path": "videos/backing-intro/props-nobgm.json",
+      "git_status": "added",
+      "review_status": "reviewed",
+      "reason": "Reviewed source or changed lines against the OCR checklist"
+    },
+    {
+      "path": "videos/backing-intro/public/audio/BGM-CREDITS.md",
+      "git_status": "added",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: unsupported_ext"
+    },
+    {
+      "path": "videos/backing-intro/public/audio/bgm.mp3",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "videos/backing-intro/public/audio/bgm.wav",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "videos/backing-intro/public/audio/sfx/FREESOUND-CREDITS.md",
+      "git_status": "added",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: unsupported_ext"
+    },
+    {
+      "path": "videos/backing-intro/public/audio/sfx/audio-manifest.json",
+      "git_status": "added",
+      "review_status": "reviewed",
+      "reason": "Reviewed source or changed lines against the OCR checklist"
+    },
+    {
+      "path": "videos/backing-intro/public/audio/sfx/click.wav",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "videos/backing-intro/public/audio/sfx/fs-485279.mp3",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "videos/backing-intro/public/audio/sfx/fs-534103.mp3",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "videos/backing-intro/public/audio/sfx/fs-538521.mp3",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "videos/backing-intro/public/audio/sfx/fs-812748.mp3",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "videos/backing-intro/public/audio/sfx/typing.wav",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "videos/backing-intro/public/textures/ai-conversation.png",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "videos/backing-intro/public/textures/ai-evidence.png",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "videos/backing-intro/public/textures/ai-full.png",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "videos/backing-intro/public/textures/ai-reply.png",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "videos/backing-intro/public/textures/ai-sidebar.png",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "videos/backing-intro/public/textures/dashboard-full.png",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "videos/backing-intro/public/textures/dashboard-hero.png",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "videos/backing-intro/public/textures/dashboard-market.png",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "videos/backing-intro/public/textures/dashboard-trend.png",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "videos/backing-intro/public/textures/dashboard-watchlist.png",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "videos/backing-intro/public/textures/detail-drawer.png",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "videos/backing-intro/public/textures/detail-equity.png",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "videos/backing-intro/public/textures/detail-full.png",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "videos/backing-intro/public/textures/detail-metrics.png",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "videos/backing-intro/public/textures/dl-chart.png",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "videos/backing-intro/public/textures/dl-config.png",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "videos/backing-intro/public/textures/dl-full.png",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "videos/backing-intro/public/textures/dl-result.png",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "videos/backing-intro/public/textures/history-full.png",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "videos/backing-intro/public/textures/history-summary.png",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "videos/backing-intro/public/textures/history-table.png",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "videos/backing-intro/public/textures/stocks-full.png",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "videos/backing-intro/public/textures/stocks-panel.png",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "videos/backing-intro/public/textures/stocks-search.png",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "videos/backing-intro/public/textures/stocks-table.png",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "videos/backing-intro/public/textures/stocksFiltered-action.png",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "videos/backing-intro/public/textures/stocksFiltered-full.png",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "videos/backing-intro/public/textures/stocksFiltered-search.png",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "videos/backing-intro/public/textures/stocksFiltered-table.png",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "videos/backing-intro/public/textures/strategy-chart.png",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "videos/backing-intro/public/textures/strategy-full.png",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "videos/backing-intro/public/textures/strategy-results.png",
+      "git_status": "binary",
+      "review_status": "skipped",
+      "reason": "Excluded by OCR preview: binary"
+    },
+    {
+      "path": "videos/backing-intro/remotion.config.ts",
+      "git_status": "added",
+      "review_status": "reviewed",
+      "reason": "Reviewed source or changed lines against the OCR checklist"
+    },
+    {
+      "path": "videos/backing-intro/scripts/analyze-bgm.py",
+      "git_status": "added",
+      "review_status": "reviewed",
+      "reason": "Reviewed source or changed lines against the OCR checklist"
+    },
+    {
+      "path": "videos/backing-intro/scripts/audio-qa.py",
+      "git_status": "added",
+      "review_status": "reviewed",
+      "reason": "Reviewed source or changed lines against the OCR checklist"
+    },
+    {
+      "path": "videos/backing-intro/scripts/capture-hires.mjs",
+      "git_status": "added",
+      "review_status": "reviewed",
+      "reason": "Reviewed source or changed lines against the OCR checklist"
+    },
+    {
+      "path": "videos/backing-intro/scripts/capture.mjs",
+      "git_status": "added",
+      "review_status": "reviewed",
+      "reason": "Reviewed source or changed lines against the OCR checklist"
+    },
+    {
+      "path": "videos/backing-intro/scripts/compare-versions.py",
+      "git_status": "added",
+      "review_status": "reviewed",
+      "reason": "Reviewed source or changed lines against the OCR checklist"
+    },
+    {
+      "path": "videos/backing-intro/scripts/extract-qa.py",
+      "git_status": "added",
+      "review_status": "reviewed",
+      "reason": "Reviewed source or changed lines against the OCR checklist"
+    },
+    {
+      "path": "videos/backing-intro/scripts/finalize.py",
+      "git_status": "added",
+      "review_status": "reviewed",
+      "reason": "Reviewed source or changed lines against the OCR checklist"
+    },
+    {
+      "path": "videos/backing-intro/scripts/reference.mjs",
+      "git_status": "added",
+      "review_status": "reviewed",
+      "reason": "Reviewed source or changed lines against the OCR checklist"
+    },
+    {
+      "path": "videos/backing-intro/scripts/stills.mjs",
+      "git_status": "added",
+      "review_status": "reviewed",
+      "reason": "Reviewed source or changed lines against the OCR checklist"
+    },
+    {
+      "path": "videos/backing-intro/scripts/styleframes.mjs",
+      "git_status": "added",
+      "review_status": "reviewed",
+      "reason": "Reviewed source or changed lines against the OCR checklist"
+    },
+    {
+      "path": "videos/backing-intro/scripts/workbench-qa.mjs",
+      "git_status": "added",
+      "review_status": "reviewed",
+      "reason": "Reviewed source or changed lines against the OCR checklist"
+    },
+    {
+      "path": "videos/backing-intro/src/Main.tsx",
+      "git_status": "added",
+      "review_status": "reviewed",
+      "reason": "Reviewed source or changed lines against the OCR checklist"
+    },
+    {
+      "path": "videos/backing-intro/src/Root.tsx",
+      "git_status": "added",
+      "review_status": "reviewed",
+      "reason": "Reviewed source or changed lines against the OCR checklist"
+    },
+    {
+      "path": "videos/backing-intro/src/index.ts",
+      "git_status": "added",
+      "review_status": "reviewed",
+      "reason": "Reviewed source or changed lines against the OCR checklist"
+    },
+    {
+      "path": "videos/backing-intro/src/layout.json",
+      "git_status": "added",
+      "review_status": "reviewed",
+      "reason": "Reviewed source or changed lines against the OCR checklist"
+    },
+    {
+      "path": "videos/backing-intro/src/lib/PageCam.tsx",
+      "git_status": "added",
+      "review_status": "reviewed",
+      "reason": "Reviewed source or changed lines against the OCR checklist"
+    },
+    {
+      "path": "videos/backing-intro/src/timeline.ts",
+      "git_status": "added",
+      "review_status": "reviewed",
+      "reason": "Reviewed source or changed lines against the OCR checklist"
+    },
+    {
+      "path": "videos/backing-intro/src/workbench.ts",
+      "git_status": "added",
+      "review_status": "reviewed",
+      "reason": "Reviewed source or changed lines against the OCR checklist"
+    },
+    {
+      "path": "videos/backing-intro/styleframes.html",
+      "git_status": "added",
+      "review_status": "reviewed",
+      "reason": "Reviewed source or changed lines against the OCR checklist"
+    },
+    {
+      "path": "videos/backing-intro/tsconfig.json",
+      "git_status": "added",
+      "review_status": "reviewed",
+      "reason": "Reviewed source or changed lines against the OCR checklist"
+    }
+  ]
+}

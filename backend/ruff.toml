@@ -4,6 +4,10 @@
 extend-exclude = ["vendor"]
 
 [lint]
+# Keep the rule set explicit. Newer Ruff releases expanded the default set,
+# which made CI flag legacy code that is clean under the project's rules.
+select = ["E4", "E7", "E9", "F"]
+
 # 项目风格约定（存量代码广泛使用，规则与代码惯例冲突时以代码惯例为准）：
 # - UP006/UP007/UP035/UP045/UP009：沿用 typing.List/Dict/Optional 与现代
 #   "X | None" 混用的现有风格，不做强制现代化

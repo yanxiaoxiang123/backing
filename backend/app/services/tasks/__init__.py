@@ -55,9 +55,3 @@ def get_task_executor() -> TaskExecutor:
 
             _executor = ThreadTaskExecutor(max_workers=settings.TASK_MAX_WORKERS)
     return _executor
-
-
-def reset_task_executor() -> None:
-    """Drop the cached executor (used by tests)."""
-    global _executor
-    _executor = None

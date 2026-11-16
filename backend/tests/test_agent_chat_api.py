@@ -19,6 +19,7 @@ from app.agent_chat.seam import FakeHarnessChatSeam
 from app.agent_chat.service import HarnessChatService
 from app.auth import get_current_api_key
 from app.config import Base, get_db
+from tests.test_agent_chat_service import wait_until
 
 
 class BlockingSeam:
@@ -45,7 +46,7 @@ class BlockingSeam:
 
 
 @pytest.fixture()
-def api(tmp_path):
+def api(tmp_path, request):
     # 临时文件库：worker 线程与请求线程各自独立连接（StaticPool 共享连接会在
     # 并发写时触发 session.refresh 竞态，详见 T4 修复记录）。
     engine = create_engine(
@@ -67,7 +68,9 @@ def api(tmp_path):
     gate = threading.Event()
     gate.set()  # 默认不阻塞；取消测试先 clear
     seam = BlockingSeam(FakeHarnessChatSeam(TestingSession), gate)
-    service = HarnessChatService(TestingSession, seam)
+    service = HarnessChatService(
+        TestingSession, seam, title_generator=getattr(request, "param", None)
+    )
     service.startup()
     app.state.harness_chat_service = service
 
@@ -137,6 +140,7 @@ def test_create_list_get(api):
     thread = client.get(f"/api/v1/agent-chats/{tid}").json()["thread"]
     assert thread["status"] == "idle"
     assert thread["archived"] is False
+    assert thread["title_pending"] is False
 
     listing = client.get("/api/v1/agent-chats").json()
     assert listing["total"] == 1
@@ -145,6 +149,32 @@ def test_create_list_get(api):
     detail = client.get(f"/api/v1/agent-chats/{tid}").json()
     assert detail["thread"]["thread_id"] == tid
     assert detail["turns"] == []
+
+
+@pytest.mark.parametrize("api", [lambda text: "银行股估值比较"], indirect=True)
+def test_list_backfills_unnamed_history_without_waiting_for_turn(api):
+    client, service, seam, gate = api
+    tid = _create_thread(client)
+    service.shutdown()
+    service.submit_turn(tid, "比较银行股估值与风险")
+    gate.clear()
+    service.startup()
+    try:
+        assert seam.entered.wait(2)
+        listing = client.get("/api/v1/agent-chats").json()
+        assert listing["threads"][0]["title_pending"] is True
+
+        def named():
+            detail = client.get(f"/api/v1/agent-chats/{tid}").json()
+            return (
+                detail["thread"]["title"] == "银行股估值比较"
+                and detail["thread"]["title_pending"] is False
+            )
+
+        assert wait_until(named)
+        assert client.get("/api/v1/agent-chats").json()["threads"][0]["title"] == "银行股估值比较"
+    finally:
+        gate.set()
 
 
 def test_submit_turn_and_sse_events(api):

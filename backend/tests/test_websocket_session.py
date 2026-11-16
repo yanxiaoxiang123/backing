@@ -8,7 +8,7 @@
 from unittest.mock import patch
 
 import pytest
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.testclient import TestClient
 from starlette.websockets import WebSocketDisconnect
 
@@ -104,6 +104,76 @@ class TestWebSocketAuth:
                 # 周K：frequency=5, offset=104
                 call = mock_bars.call_args_list[0]
                 assert call.args == ("600036", "weekly")
+
+    def test_session_cookie_auth_without_api_key_in_url(self):
+        from starlette.middleware.sessions import SessionMiddleware
+
+        app = FastAPI()
+        app.add_middleware(
+            SessionMiddleware, secret_key="session-secret-for-test-123456789"
+        )
+        app.include_router(realtime_router, prefix="/api/v1", tags=["realtime"])
+
+        @app.get("/login")
+        def mock_login(request: Request):
+            request.session["authenticated"] = True
+            return {"ok": True}
+
+        test_client = TestClient(app, raise_server_exceptions=False)
+        test_client.get("/login")
+
+        with patch(
+            "app.api.realtime.realtime_service.fetch_bars",
+            return_value=_ok_result(),
+        ):
+            # No api_key query param at all in URL
+            with test_client.websocket_connect("/api/v1/ws/realtime/600036") as ws:
+                message = ws.receive_json()
+                assert message["type"] == "init"
+                assert message["status"] == "ok"
+
+    def test_header_api_key_auth(self, client):
+        with patch("app.auth.settings") as mock_settings, patch(
+            "app.api.realtime.realtime_service.fetch_bars",
+            return_value=_ok_result(),
+        ):
+            mock_settings.API_KEY = "test-secret"
+            # No api_key in URL, transmitted in X-API-Key header
+            with client.websocket_connect(
+                "/api/v1/ws/realtime/600036",
+                headers={"X-API-Key": "test-secret"},
+            ) as ws:
+                message = ws.receive_json()
+                assert message["type"] == "init"
+                assert message["status"] == "ok"
+
+    def test_handshake_message_auth_success(self, client):
+        with patch("app.auth.settings") as mock_settings, patch(
+            "app.api.realtime.realtime_service.fetch_bars",
+            return_value=_ok_result(),
+        ):
+            mock_settings.API_KEY = "test-secret"
+            # No secret in URL, auth=handshake instructs server to expect first message
+            with client.websocket_connect(
+                "/api/v1/ws/realtime/600036?auth=handshake"
+            ) as ws:
+                ws.send_json({"api_key": "test-secret"})
+                message = ws.receive_json()
+                assert message["type"] == "init"
+                assert message["status"] == "ok"
+
+    def test_handshake_message_auth_wrong_key_rejected_with_4008(self, client):
+        with patch("app.auth.settings") as mock_settings, patch(
+            "app.api.realtime.realtime_service.fetch_bars",
+            return_value=_ok_result(),
+        ), pytest.raises(WebSocketDisconnect) as exc_info:
+            mock_settings.API_KEY = "test-secret"
+            with client.websocket_connect(
+                "/api/v1/ws/realtime/600036?auth=handshake"
+            ) as ws:
+                ws.send_json({"api_key": "wrong-secret"})
+                ws.receive_json()
+            assert exc_info.value.code == 4008
 
 
 class TestWebSocketRateLimit:

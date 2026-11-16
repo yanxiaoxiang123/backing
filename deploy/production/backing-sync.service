@@ -1,0 +1,15 @@
+[Unit]
+Description=Backing watchlist market data synchronization
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+User=yanxx
+Group=yanxx
+UMask=0077
+WorkingDirectory=/home/yanxx/backing
+ExecStart=/bin/bash /home/yanxx/backing/source/deploy/production/daily-sync.sh
+TimeoutStartSec=4h
+StandardOutput=append:/home/yanxx/backing/ops/sync.log
+StandardError=append:/home/yanxx/backing/ops/sync.log

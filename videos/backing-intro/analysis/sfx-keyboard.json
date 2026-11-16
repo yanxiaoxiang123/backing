@@ -1,0 +1,47 @@
+{
+  "provider": "freesound",
+  "query": "keyboard typing",
+  "license_policy": "cc0",
+  "ordering": "relevance; popularity is supporting evidence only",
+  "results": [
+    {
+      "id": "fs:422712",
+      "title": "typing on keyboard.wav",
+      "author": "niamhd00145229",
+      "duration_seconds": 4.77694,
+      "preview_url": "https://cdn.freesound.org/previews/422/422712_8457618-hq.mp3",
+      "downloads": 99,
+      "page_url": "https://freesound.org/people/niamhd00145229/sounds/422712/",
+      "license_label": "Creative Commons 0",
+      "description": "Sound of someone typing fast on a keyboard.",
+      "rating": 1.7,
+      "rating_count": 6
+    },
+    {
+      "id": "fs:587777",
+      "title": "Typing on Keyboard and Confirming an Action.wav",
+      "author": "collieryouthservices",
+      "duration_seconds": 4.12215,
+      "preview_url": "https://cdn.freesound.org/previews/587/587777_4275266-hq.mp3",
+      "downloads": 92,
+      "page_url": "https://freesound.org/people/collieryouthservices/sounds/587777/",
+      "license_label": "Creative Commons 0",
+      "description": "one of my students typing on a keyboard. recorded in collier middle school.",
+      "rating": 2.8,
+      "rating_count": 4
+    },
+    {
+      "id": "fs:538521",
+      "title": "Keyboard Typing",
+      "author": "SAHILAMBERKAR",
+      "duration_seconds": 4.06349,
+      "preview_url": "https://cdn.freesound.org/previews/538/538521_11686367-hq.mp3",
+      "downloads": 132,
+      "page_url": "https://freesound.org/people/SAHILAMBERKAR/sounds/538521/",
+      "license_label": "Creative Commons 0",
+      "description": "I just recorded random keyboard typing .",
+      "rating": null,
+      "rating_count": null
+    }
+  ]
+}

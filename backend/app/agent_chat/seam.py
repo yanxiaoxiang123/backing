@@ -24,6 +24,7 @@ ASSISTANT_CHUNK = "assistant_chunk"
 TOOL_CALL = "tool_call"
 TOOL_RESULT = "tool_result"
 RUN_LINKED = "run.linked"
+STOCK_SELECTED = "stock.selected"
 TURN_DONE = "turn.done"
 ERROR = "error"
 

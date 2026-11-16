@@ -39,6 +39,10 @@ class ChatThreadStore(Protocol):
 
     def update_thread(self, thread_id: str, **fields: Any) -> bool: ...
 
+    def set_generated_title(
+        self, thread_id: str, title: str, *, expected_title: str | None
+    ) -> bool: ...
+
     def list_threads(
         self, *, limit: int = 50, offset: int = 0
     ) -> list[dict[str, Any]]: ...
@@ -56,6 +60,8 @@ class ChatTurnStore(Protocol):
     def get_turn(self, turn_id: str) -> dict[str, Any] | None: ...
 
     def get_turn_by_idempotency(self, idempotency_key: str) -> dict[str, Any] | None: ...
+
+    def first_turn(self, thread_id: str) -> dict[str, Any] | None: ...
 
     def list_turns(
         self, thread_id: str, *, limit: int | None = None, offset: int = 0
@@ -134,6 +140,29 @@ class SqlChatThreadStore:
         )
         return [_row_to_dict(r) for r in rows]
 
+    def set_generated_title(
+        self, thread_id: str, title: str, *, expected_title: str | None
+    ) -> bool:
+        # Compare-and-set protects a title edited while the model was running.
+        # Renaming historical chats must not reorder their recent activity.
+        changed = (
+            self.session.query(AgentChatThread)
+            .filter(
+                AgentChatThread.thread_id == thread_id,
+                AgentChatThread.title == expected_title,
+                AgentChatThread.archived.is_(False),
+            )
+            .update(
+                {
+                    AgentChatThread.title: title,
+                    AgentChatThread.updated_at: AgentChatThread.updated_at,
+                },
+                synchronize_session=False,
+            )
+        )
+        self.session.commit()
+        return bool(changed)
+
     def count_threads(self) -> int:
         return (
             self.session.query(AgentChatThread)
@@ -196,6 +225,15 @@ class SqlChatTurnStore:
             )
             rows.reverse()
         return [_row_to_dict(r) for r in rows]
+
+    def first_turn(self, thread_id: str) -> dict[str, Any] | None:
+        row = (
+            self.session.query(AgentChatTurn)
+            .filter(AgentChatTurn.thread_id == thread_id)
+            .order_by(AgentChatTurn.id.asc())
+            .first()
+        )
+        return _row_to_dict(row) if row else None
 
     def has_active_turns(self, thread_id: str) -> bool:
         return (

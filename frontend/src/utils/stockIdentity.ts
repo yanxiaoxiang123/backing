@@ -7,8 +7,6 @@ export interface StockIdentity {
   raw: string
 }
 
-export type StockAliasSet = ReadonlySet<string>
-
 const MARKET_CODE_RULES: Array<[StockMarket, RegExp]> = [
   ['sh', /^(?:600|601|603|605|688|689)\d{3}$/],
   ['sz', /^(?:000|001|002|003|300|301)\d{3}$/],
@@ -29,10 +27,12 @@ export function normalizeStockCode(value: string | null | undefined): string | n
     .toLowerCase()
   if (!raw) return null
 
-  const dotted = raw.match(/^(sh|sz|bj)\.?([0-9]{6})$/)
-  if (dotted) {
-    const [, market, code] = dotted
-    if (!inferMarket(code) || inferMarket(code) !== market) return null
+  const prefix = raw.match(/^(sh|sz|bj)\.?([0-9]{6})$/)
+  const suffix = raw.match(/^([0-9]{6})\.(sh|sz|bj)$/)
+  if (prefix || suffix) {
+    const market = prefix ? prefix[1] : suffix![2]
+    const code = prefix ? prefix[2] : suffix![1]
+    if (!inferMarket(code)) return null
     return `${market}.${code}`
   }
 
@@ -45,7 +45,9 @@ export function normalizeStockCode(value: string | null | undefined): string | n
 }
 
 export function extractStockCode(value: string | null | undefined): string | null {
-  const match = String(value ?? '').match(/(?:sh|sz|bj)\.?\d{6}|\b\d{6}\b/i)
+  const match = String(value ?? '').match(
+    /(?<![A-Za-z0-9_.])(?:(?:sh|sz|bj)\.?[0-9]{6}|[0-9]{6}\.(?:sh|sz|bj)|[0-9]{6})(?![A-Za-z0-9_]|\.[A-Za-z0-9_])/i,
+  )
   return match ? normalizeStockCode(match[0]) : null
 }
 

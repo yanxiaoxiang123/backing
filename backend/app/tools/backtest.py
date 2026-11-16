@@ -26,6 +26,8 @@ class BacktestRunParams(BaseModel):
 
 
 def _backtest_run(params: BacktestRunParams, context: ToolContext) -> dict:
+    if context.as_of and date.fromisoformat(params.end_date) > context.as_of.date():
+        raise ValueError("Backtest end date is later than run as_of")
     if context.db is None:
         raise ValueError("缺少数据库会话，无法执行回测")
     result = BacktestExecutor(context.db).execute(

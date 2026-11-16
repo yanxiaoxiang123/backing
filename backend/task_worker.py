@@ -31,6 +31,8 @@ for _runner_module in (
     "app.api.routes",
     "app.api.screener_agent",
     "app.api.strategies.routes",
+    "app.services.market_data_jobs",
+    "app.services.dl_prediction.experiments",
 ):
     importlib.import_module(_runner_module)
 

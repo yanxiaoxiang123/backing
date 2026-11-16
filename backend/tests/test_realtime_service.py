@@ -9,14 +9,20 @@ from app.services.tasks.metrics import task_metrics
 
 
 @pytest.fixture
-def fresh_service():
+def fresh_service(monkeypatch):
+    monkeypatch.setattr(settings, "REALTIME_SNAPSHOT_PROVIDER", "mootdx")
+    monkeypatch.setattr(settings, "REALTIME_BARS_PROVIDER", "mootdx")
     original_servers = settings.MOOTDX_SERVERS
     original_timeout = settings.MOOTDX_TIMEOUT_S
+    original_discover = getattr(settings, "MOOTDX_AUTO_DISCOVER", True)
     settings.MOOTDX_SERVERS = "10.0.0.1:7709,10.0.0.2:7709"
     settings.MOOTDX_TIMEOUT_S = 0.25
+    settings.MOOTDX_AUTO_DISCOVER = False
     RealtimeService._selected_server = None
     RealtimeService._unhealthy_until.clear()
     RealtimeService._discard_client(unhealthy=False)
+    RealtimeService._discovered_servers.clear()
+    RealtimeService._last_discovery_time = 0.0
     RealtimeService._bars_cache.clear()
     RealtimeService._snapshot_cache.clear()
     RealtimeService._failover_count = 0
@@ -27,6 +33,8 @@ def fresh_service():
     RealtimeService._discard_client(unhealthy=False)
     RealtimeService._selected_server = None
     RealtimeService._unhealthy_until.clear()
+    RealtimeService._discovered_servers.clear()
+    RealtimeService._last_discovery_time = 0.0
     RealtimeService._bars_cache.clear()
     RealtimeService._snapshot_cache.clear()
     RealtimeService._failover_count = 0
@@ -35,6 +43,7 @@ def fresh_service():
     task_metrics._counters.clear()
     settings.MOOTDX_SERVERS = original_servers
     settings.MOOTDX_TIMEOUT_S = original_timeout
+    settings.MOOTDX_AUTO_DISCOVER = original_discover
 
 
 def frame(close: float = 10.0) -> pd.DataFrame:
@@ -89,6 +98,28 @@ class TestRealtimeClientSelection:
             "mootdx.quotes.Quotes.factory", side_effect=TimeoutError("timed out")
         ):
             assert fresh_service.get_client() is None
+
+    def test_auto_discovery_fallback_when_all_configured_fail(self, fresh_service):
+        discovered_client = MagicMock()
+        discovered_client.bars.return_value = frame()
+
+        from app.services.mootdx_discovery import DiscoveredServer
+
+        mock_discovered = [
+            DiscoveredServer(host="1.2.3.4", port=7709, latency_ms=50.0, site="mock1"),
+            DiscoveredServer(host="5.6.7.8", port=7709, latency_ms=80.0, site="mock2"),
+        ]
+
+        settings.MOOTDX_AUTO_DISCOVER = True
+
+        with patch("app.services.mootdx_discovery.discover_best_servers", return_value=mock_discovered) as mock_disc:
+            with patch("mootdx.quotes.Quotes.factory", side_effect=[TimeoutError("dead1"), TimeoutError("dead2"), discovered_client]):
+                client = fresh_service.get_client()
+
+        assert client is discovered_client
+        assert mock_disc.call_count == 1
+        assert RealtimeService._selected_server == ("1.2.3.4", 7709)
+        assert ("1.2.3.4", 7709) in RealtimeService._discovered_servers
 
 
 class TestRealtimeBars:

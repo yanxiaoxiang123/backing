@@ -2,7 +2,7 @@
 
 The canonical form used by the database and deterministic tools is
 ``sh.600000`` (exchange, dot, six digits).  User-facing boundaries also accept
-compact and bare forms such as ``SH600000`` and ``600000``.
+compact, suffix and bare forms such as ``SH600000``, ``600000.sh`` and ``600000``.
 """
 
 from __future__ import annotations
@@ -26,9 +26,11 @@ class StockReference:
 
 
 _EXPLICIT_CODE = re.compile(r"^(sh|sz|bj)\.?([0-9]{6})$", re.IGNORECASE)
+_SUFFIX_CODE = re.compile(r"^([0-9]{6})\.(sh|sz|bj)$", re.IGNORECASE)
 _BARE_CODE = re.compile(r"^[0-9]{6}$")
 _TEXT_CODE = re.compile(
-    r"(?<![A-Za-z0-9_])(?:(?:sh|sz|bj)\.?[0-9]{6}|[0-9]{6})(?![0-9])",
+    r"(?<![A-Za-z0-9_.])(?:(?:sh|sz|bj)\.?[0-9]{6}|[0-9]{6}\.(?:sh|sz|bj)|[0-9]{6})"
+    r"(?![A-Za-z0-9_]|\.[A-Za-z0-9_])",
     re.IGNORECASE,
 )
 
@@ -71,15 +73,31 @@ def normalize_stock_code(value: str, *, db: Any | None = None) -> str:
     explicit = _EXPLICIT_CODE.fullmatch(raw)
     if explicit:
         return f"{explicit.group(1).lower()}.{explicit.group(2)}"
+    suffix = _SUFFIX_CODE.fullmatch(raw)
+    if suffix:
+        return f"{suffix.group(2).lower()}.{suffix.group(1)}"
     if not _BARE_CODE.fullmatch(raw):
         raise StockCodeError(
-            f"无法解析股票代码 {value!r}，请使用 sh.600000、sh600000 或 600000"
+            f"无法解析股票代码 {value!r}，请使用 sh.600000、600000.sh、sh600000 或 600000"
         )
 
     database_code = _database_match(raw, db)
     if database_code:
         return database_code
     return f"{_infer_exchange(raw)}.{raw}"
+
+
+def find_stock_references(text: str, *, db: Any | None = None) -> list[StockReference]:
+    """Return complete A-share references in occurrence order, preserving spans."""
+
+    return [
+        StockReference(
+            code=normalize_stock_code(match.group(0), db=db),
+            start=match.start(),
+            end=match.end(),
+        )
+        for match in _TEXT_CODE.finditer(text or "")
+    ]
 
 
 def find_stock_reference(text: str, *, db: Any | None = None) -> StockReference | None:

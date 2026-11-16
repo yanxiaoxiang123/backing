@@ -20,6 +20,13 @@ import sys
 from datetime import date
 from pathlib import Path
 
+if hasattr(sys.stdout, "reconfigure"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 from app.logging_config import setup_logging
 from app.services import maintenance
 
@@ -40,6 +47,9 @@ def _build_parser() -> argparse.ArgumentParser:
     sub.add_parser("backtests", help="清理过期回测结果").add_argument(
         "--days", type=int, default=maintenance.DEFAULT_BACKTEST_RETENTION_DAYS
     )
+    sub.add_parser("alerts", help="清理过期告警记录").add_argument(
+        "--days", type=int, default=maintenance.DEFAULT_ALERT_RETENTION_DAYS
+    )
     p = sub.add_parser("archive-klines", help="归档指定日期之前的日 K 线")
     p.add_argument("--before", type=date.fromisoformat, required=True)
 
@@ -58,6 +68,13 @@ def _build_parser() -> argparse.ArgumentParser:
         default=None,
         help="可选：同时归档该日期之前的 K 线",
     )
+
+    p_tdx = sub.add_parser("update-mootdx", help="并发测速并自动更新 MOOTDX_SERVERS 服务器列表")
+    p_tdx.add_argument("--limit", type=int, default=5, help="保留的最优服务器数量（默认 5）")
+    p_tdx.add_argument("--timeout", type=float, default=1.0, help="单服务器探测超时时间（秒，默认 1.0）")
+    p_tdx.add_argument("--env-file", type=Path, default=None, help="目标 .env 文件路径（默认自动定位）")
+    p_tdx.add_argument("--dry-run", action="store_true", help="仅显示测速结果，不写回 .env 文件")
+
     return parser
 
 
@@ -71,6 +88,8 @@ def main(argv=None) -> int:
         print({"analysis_purged": maintenance.purge_old_analysis(days=args.days)})
     elif args.command == "backtests":
         print({"backtests_purged": maintenance.purge_old_backtests(days=args.days)})
+    elif args.command == "alerts":
+        print({"alerts_purged": maintenance.purge_old_alerts(days=args.days)})
     elif args.command == "archive-klines":
         print(maintenance.archive_klines(args.before))
     elif args.command == "backup":
@@ -84,6 +103,31 @@ def main(argv=None) -> int:
         print({"backup": str(maintenance.backup_database(out))})
     elif args.command == "all":
         print(maintenance.run_all(archive_klines_before=args.archive_klines_before))
+    elif args.command == "update-mootdx":
+        res = maintenance.update_mootdx_servers(
+            limit=args.limit,
+            timeout_s=args.timeout,
+            env_file=args.env_file,
+            dry_run=args.dry_run,
+        )
+        print("\n[MOOTDX] 通达信行情服务器测速完成：")
+        print("--------------------------------------------------------------------------------")
+        print(f"{'排名':<6}{'IP 地址':<18}{'端口':<8}{'延迟':<12}{'有效股票数':<12}{'状态'}")
+        print("--------------------------------------------------------------------------------")
+        for idx, s in enumerate(res["servers"], 1):
+            ip_str = s["host"]
+            port_str = str(s["port"])
+            lat_str = f"{s['latency_ms']:.1f} ms"
+            sec_str = str(s["security_count"])
+            print(f"{idx:<6}{ip_str:<18}{port_str:<8}{lat_str:<12}{sec_str:<12}[PASS] 可用")
+        print("--------------------------------------------------------------------------------")
+        if res.get("dry_run"):
+            print("[Dry Run] 未修改配置文件。推荐配置行：")
+            server_str = ",".join(f"{s['host']}:{s['port']}" for s in res["servers"])
+            print(f"MOOTDX_SERVERS={server_str}\n")
+        else:
+            print(f"[OK] 已成功更新配置文件：{res['env_file']}")
+            print(f"MOOTDX_SERVERS={res['mootdx_servers']}\n")
     return 0
 
 

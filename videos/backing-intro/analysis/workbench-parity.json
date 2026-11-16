@@ -1,0 +1,28 @@
+{
+  "frames": [
+    120,
+    494,
+    681,
+    825,
+    1080,
+    1208,
+    1235,
+    1510,
+    1750
+  ],
+  "width": 1920,
+  "height": 1080,
+  "different_pixels_per_frame": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+  ],
+  "max_channel_difference": 0,
+  "command": "npm run parity -- --frames 120,494,681,825,1080,1208,1235,1510,1750"
+}

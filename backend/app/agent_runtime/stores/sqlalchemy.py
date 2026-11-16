@@ -144,6 +144,12 @@ class SqlAlchemyRunStore:
         rows = query.order_by(AgentRun.created_at.desc()).limit(limit).offset(offset).all()
         return [_row_to_dict(row) for row in rows]
 
+    def count_runs(self, *, status: str | None = None) -> int:
+        query = self.session.query(AgentRun)
+        if status is not None:
+            query = query.filter(AgentRun.status == status)
+        return query.count()
+
 
 class SqlAlchemyStepStore:
     def __init__(self, session: Session):
@@ -210,13 +216,16 @@ class SqlAlchemyStepStore:
         self.session.commit()
         return True
 
-    def list_steps(self, run_id: str) -> list[dict[str, Any]]:
-        rows = (
+    def list_steps(
+        self, run_id: str, *, after_seq: int | None = None
+    ) -> list[dict[str, Any]]:
+        query = (
             self.session.query(AgentStep)
             .filter(AgentStep.run_id == run_id)
-            .order_by(AgentStep.seq.asc())
-            .all()
         )
+        if after_seq is not None:
+            query = query.filter(AgentStep.seq > after_seq)
+        rows = query.order_by(AgentStep.seq.asc()).all()
         return [_row_to_dict(row) for row in rows]
 
 
@@ -245,11 +254,17 @@ class SqlAlchemyToolCallStore:
         self.session.refresh(row)
         return _row_to_dict(row)
 
-    def list_tool_calls(self, run_id: str, *, limit: int = 200) -> list[dict[str, Any]]:
-        rows = (
+    def list_tool_calls(
+        self, run_id: str, *, after_id: int | None = None, limit: int = 200
+    ) -> list[dict[str, Any]]:
+        query = (
             self.session.query(ToolCallRecord)
             .filter(ToolCallRecord.run_id == run_id)
-            .order_by(ToolCallRecord.created_at.asc())
+        )
+        if after_id is not None:
+            query = query.filter(ToolCallRecord.id > after_id)
+        rows = (
+            query.order_by(ToolCallRecord.created_at.asc(), ToolCallRecord.id.asc())
             .limit(limit)
             .all()
         )

@@ -300,3 +300,66 @@ def test_thread_status_flow(session_factory):
         assert t["final_reply"]
     finally:
         service.shutdown()
+
+
+def test_concurrent_threads_non_blocking(session_factory):
+    """跨会话并发执行：Thread 1 阻塞时，Thread 2 不受影响仍可并发执行完成。"""
+    gate = threading.Event()
+
+    class SelectiveBlockingSeam:
+        def __init__(self, inner, blocked_session_id, gate):
+            self._inner = inner
+            self._blocked = blocked_session_id
+            self._gate = gate
+            self.t1_entered = threading.Event()
+
+        def run_turn(self, session_id, user_message, *, turn_id, emit):
+            if session_id == self._blocked:
+                self.t1_entered.set()
+                if not self._gate.wait(timeout=5):
+                    raise TimeoutError("gate not released")
+            return self._inner.run_turn(
+                session_id, user_message, turn_id=turn_id, emit=emit
+            )
+
+        def stop(self, session_id):
+            self._inner.stop(session_id)
+
+        def shutdown(self):
+            self._inner.shutdown()
+
+    service = HarnessChatService(
+        session_factory, FakeHarnessChatSeam(session_factory), max_workers=4
+    )
+    thread1 = service.create_thread(title="会话1")
+    thread2 = service.create_thread(title="会话2")
+
+    seam = SelectiveBlockingSeam(
+        FakeHarnessChatSeam(session_factory), thread1["thread_id"], gate
+    )
+    service._seam = seam
+    service.startup()
+    try:
+        service.submit_turn(thread1["thread_id"], "慢请求")
+        assert seam.t1_entered.wait(2), "thread 1 未进入 run_turn"
+
+        # 此时 thread 1 仍在阻塞中，提交 thread 2
+        service.submit_turn(thread2["thread_id"], "快请求")
+
+        def t2_done():
+            ts = turns_of(session_factory, thread2["thread_id"])
+            return ts and ts[0]["status"] == "completed"
+
+        # 验证 thread 2 立即并发执行完成，无需等待 thread 1 释放 gate！
+        assert wait_until(t2_done, timeout=3), "thread 2 被 thread 1 阻塞，未能并发完成"
+
+        # 释放 gate，thread 1 完成
+        gate.set()
+
+        def t1_done():
+            ts = turns_of(session_factory, thread1["thread_id"])
+            return ts and ts[0]["status"] == "completed"
+
+        assert wait_until(t1_done, timeout=3)
+    finally:
+        service.shutdown()

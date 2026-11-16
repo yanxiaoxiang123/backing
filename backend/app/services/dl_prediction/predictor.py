@@ -16,6 +16,17 @@ from app.services.dl_prediction.model_loader import DLModelLoader
 logger = logging.getLogger(__name__)
 
 
+def _next_business_dates(last_date: Any, days: int) -> List[str]:
+    """Return the next weekday dates sequentially after ``last_date``."""
+    current_date = pd.Timestamp(last_date)
+    dates: List[str] = []
+    while len(dates) < days:
+        current_date += timedelta(days=1)
+        if current_date.dayofweek < 5:
+            dates.append(current_date.strftime("%Y-%m-%d"))
+    return dates
+
+
 class TechnicalIndicatorPredictor:
     """基于技术指标的预测器 - 当PyTorch模型不可用时的备选方案"""
 
@@ -201,6 +212,7 @@ class DLPredictor:
             features = df_with_features[feature_cols].values[-time_steps:]
 
             # 模型预测
+            prediction_backend = "lstm_finance_llama"
             try:
                 predicted_prices = self.model_loader.predict(features)
             except Exception as e:
@@ -209,20 +221,15 @@ class DLPredictor:
                 predicted_prices = TechnicalIndicatorPredictor.predict(
                     df, days=settings.DL_OUTPUT_SIZE
                 )
+                prediction_backend = "technical_indicator"
 
             # 获取当前价格和最后日期
             current_price = float(df["close"].iloc[-1])
             last_date = df["trade_date"].iloc[-1]
 
-            # 生成预测日期
-            prediction_dates = []
-            current_date = pd.Timestamp(last_date)
-            for i in range(settings.DL_OUTPUT_SIZE):
-                next_date = current_date + timedelta(days=i + 1)
-                # 跳过周末
-                while next_date.dayofweek >= 5:
-                    next_date = next_date + timedelta(days=1)
-                prediction_dates.append(next_date.strftime("%Y-%m-%d"))
+            prediction_dates = _next_business_dates(
+                last_date, settings.DL_OUTPUT_SIZE
+            )
 
             # 返回预测结果
             result = {
@@ -232,6 +239,7 @@ class DLPredictor:
                 "prediction_dates": prediction_dates,
                 "predicted_prices": [float(p) for p in predicted_prices],
                 "kline_data": self._format_kline_data(df),
+                "prediction_backend": prediction_backend,
             }
 
             logger.info(f"预测完成: {stock_code}, 预测价格: {predicted_prices}")

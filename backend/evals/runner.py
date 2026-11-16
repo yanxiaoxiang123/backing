@@ -107,7 +107,7 @@ def run_evaluation(
 
 
 def default_llm(case: dict[str, Any]) -> dict[str, Any] | None:
-    """占位 LLM：不真实调用。live 集成时替换为 pipeline 适配器。"""
+    """默认不发起外部调用；真实评测通过 run_evaluation 的 llm_fn 注入。"""
     return None
 
 

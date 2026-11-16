@@ -1,7 +1,7 @@
 from datetime import date, datetime
-from typing import List, Optional
+from typing import List, Literal, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
 
 
 # Stock schemas
@@ -11,17 +11,12 @@ class StockBase(BaseModel):
     market: str
 
 
-class StockCreate(StockBase):
-    pass
-
-
 class StockResponse(StockBase):
     id: int
     list_date: Optional[date] = None
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # Daily Kline schemas
@@ -37,30 +32,11 @@ class DailyKlineBase(BaseModel):
 
 
 class DailyKlineResponse(DailyKlineBase):
-    id: int
+    id: int | None = None
+    adjustment: str = "legacy_unknown"
+    versioned: bool = False
 
-    class Config:
-        from_attributes = True
-
-
-# Strategy schemas
-class StrategyBase(BaseModel):
-    name: str
-    description: Optional[str] = None
-    strategy_type: str
-    parameters: Optional[dict] = None  # JSON 对象（schema v1）
-
-
-class StrategyCreate(StrategyBase):
-    pass
-
-
-class StrategyResponse(StrategyBase):
-    id: int
-    created_at: datetime
-
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # Backtest schemas
@@ -71,6 +47,9 @@ class BacktestRequest(BaseModel):
     end_date: date
     initial_capital: float = 100000
     parameters: Optional[dict] = None
+    price_source: Literal["auto", "raw", "legacy"] = "auto"
+    corporate_action_mode: Literal["price_only", "verified"] = "price_only"
+    dividend_tax_rate: float = Field(0.0, ge=0, le=1, allow_inf_nan=False)
 
 
 class BacktestTradeResponse(BaseModel):
@@ -81,8 +60,7 @@ class BacktestTradeResponse(BaseModel):
     quantity: int
     amount: float
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class BacktestResultResponse(BaseModel):
@@ -102,11 +80,11 @@ class BacktestResultResponse(BaseModel):
     total_trades: int
     parameters: Optional[dict] = None
     portfolio_values: Optional[list[dict]] = None
+    execution_metadata: Optional[dict] = None
     created_at: datetime
     trades: List[BacktestTradeResponse] = []
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class BacktestListResponse(BaseModel):
@@ -121,8 +99,7 @@ class BacktestListResponse(BaseModel):
     portfolio_values: Optional[list[dict]] = None
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # Sync status
@@ -144,8 +121,7 @@ class WatchlistItemResponse(BaseModel):
     stock_name: Optional[str] = None
     added_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class WatchlistListResponse(BaseModel):
@@ -171,33 +147,4 @@ class JobRecordSchema(BaseModel):
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        from_attributes = True
-
-
-# Screener schemas
-class ScreenerStockResult(BaseModel):
-    stock_code: str
-    stock_name: str
-    close: float
-    volume: float
-    change_pct: float
-    ma5: float
-    ma10: float
-    ma20: float
-    macd_dif: float
-    macd_dea: float
-    macd_hist: float
-    rsi: float
-    volume_ratio: float
-    composite_score: float
-    ai_signal: Optional[str] = None
-    ai_confidence: Optional[float] = None
-    ai_reason: Optional[str] = None
-
-
-class ScreenerAgentResponse(BaseModel):
-    success: bool
-    total_scanned: int
-    results: List[ScreenerStockResult] = []
-    execution_time_s: float = 0.0
+    model_config = ConfigDict(from_attributes=True)

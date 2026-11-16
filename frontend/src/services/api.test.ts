@@ -1,6 +1,7 @@
-import { describe, expect, it } from 'vitest'
-import { AxiosError } from 'axios'
-import { getApiErrorMessage } from './api'
+import { describe, expect, it, vi } from 'vitest'
+import { AxiosError, CanceledError } from 'axios'
+import api, { getApiErrorMessage } from './api'
+import { toast } from '../utils/toast'
 
 function makeAxiosError(response: unknown): AxiosError {
   return new AxiosError(
@@ -40,4 +41,16 @@ describe('getApiErrorMessage', () => {
     expect(getApiErrorMessage('oops')).toBe('请求失败，请稍后重试')
     expect(getApiErrorMessage(null)).toBe('请求失败，请稍后重试')
   })
+})
+
+it('does not report a deliberate polling abort as a network error', async () => {
+  const showError = vi.spyOn(toast, 'error')
+  const cancelled = new CanceledError('page disposed')
+  await expect(
+    api.get('/jobs/cancelled', {
+      adapter: () => Promise.reject(cancelled),
+    }),
+  ).rejects.toBe(cancelled)
+  expect(showError).not.toHaveBeenCalled()
+  showError.mockRestore()
 })

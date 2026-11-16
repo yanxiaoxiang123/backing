@@ -67,6 +67,11 @@ class PaperOrder(Base):
         Integer,
         ForeignKey("approvals.id", name="fk_paper_orders_approval_id", ondelete="SET NULL"),
         nullable=True,
+        index=True,
+    )
+    risk_artifact_id = Column(
+        Integer, ForeignKey("artifacts.id", name="fk_paper_order_risk_artifact", ondelete="SET NULL"),
+        nullable=True, index=True,
     )
     stock_code = Column(String(32), nullable=False, index=True)
     side = Column(String(10), nullable=False)
@@ -145,7 +150,7 @@ class PaperCashEvent(Base):
     seq = Column(Integer, nullable=False)
     event_type = Column(String(20), nullable=False)
     amount = Column(Float, nullable=False)
-    order_id = Column(String(64), nullable=True)
+    order_id = Column(String(64), nullable=True, index=True)
     detail_json = Column(JSON, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
 

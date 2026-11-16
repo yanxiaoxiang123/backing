@@ -20,13 +20,13 @@ from app.agent_chat.policy import (
     ToolAdmission,
     ToolScope,
     TurnToolPolicy,
-    stock_reference,
 )
 from app.agent_chat.seam import (
     ASSISTANT_CHUNK,
     ERROR,
     REASONING,
     RUN_LINKED,
+    STOCK_SELECTED,
     TOOL_CALL,
     TOOL_RESULT,
     ChatEvent,
@@ -34,9 +34,15 @@ from app.agent_chat.seam import (
     TurnOutcome,
 )
 from app.agent_chat.stores import create_chat_stores
+from app.agent_chat.targets import is_lookup_message, resolve_target
 from app.agent_runtime.runtime import CancelToken, RunExecutor
 from app.agent_runtime.stores import create_stores
-from app.domain.stock_codes import canonicalize_stock_code_in_text, stock_code_from_text
+from app.domain.stock_codes import (
+    StockCodeError,
+    canonicalize_stock_code_in_text,
+    normalize_stock_code,
+    stock_code_from_text,
+)
 from app.tools.base import ToolContext
 from app.tools.registry import DEFAULT_REGISTRY
 
@@ -48,12 +54,18 @@ _HISTORY_MAX_EVENTS_PER_TURN = 64
 
 MAX_MODEL_RESULT_BYTES = 32_000
 READ_TOOL_NAMES = {
+    "market.search",
+    "event.news",
+    "event.announcement",
     "market.kline",
     "market.snapshot",
     "fundamental.stock_info",
     "fundamental.financials",
 }
 MODEL_TOOL_NAMES = {
+    "market_search": "market.search",
+    "event_news": "event.news",
+    "event_announcement": "event.announcement",
     "market_kline": "market.kline",
     "market_snapshot": "market.snapshot",
     "fundamental_stock_info": "fundamental.stock_info",
@@ -191,6 +203,7 @@ class NativeAgentChatRuntime:
         max_steps: int = 6,
         timeout_s: float = 600,
         api_key: str | None = None,
+        api_key_provider: Callable[[], str | None] | None = None,
         base_url: str = "https://api.deepseek.com/v1",
         model_name: str = "deepseek-v4-flash",
     ):
@@ -199,6 +212,7 @@ class NativeAgentChatRuntime:
         self._max_steps = max(1, max_steps)
         self._timeout_s = max(1.0, timeout_s)
         self._api_key = api_key
+        self._api_key_provider = api_key_provider
         self._base_url = base_url
         self._model_name = model_name
         self._policy = TurnToolPolicy()
@@ -210,7 +224,7 @@ class NativeAgentChatRuntime:
     def status(self) -> dict[str, Any]:
         if self._shutdown:
             return {"backend": "native", "available": False, "reason": "shutdown"}
-        if not self._api_key:
+        if not (self._api_key_provider() if self._api_key_provider else self._api_key):
             return {"backend": "native", "available": False, "reason": "missing_api_key"}
         try:
             import langchain_openai  # noqa: F401
@@ -245,24 +259,65 @@ class NativeAgentChatRuntime:
             emit(ChatEvent(ERROR, turn_id, {"error": error, "code": self.status["reason"]}))
             return TurnOutcome("failed", "", "configuration_error", error)
 
+        # A turn keeps one credential snapshot, even if settings change mid-turn.
+        api_key = self._api_key_provider() if self._api_key_provider else self._api_key
         cancel_event = threading.Event()
         with self._cancel_lock:
             self._cancel_events[session_id] = cancel_event
+        deadline = threading.Timer(self._timeout_s, cancel_event.set)
+        deadline.daemon = True
+        deadline.start()
         try:
-            history, history_text = self._history(session_id, turn_id)
-            admission = self._policy.classify(user_message, history_text)
-            # An explicit analysis request must always produce the structured
-            # run consumed by the research pane.  Leaving this tool choice to
-            # the model made otherwise-successful analysis replies impossible
-            # to attach on the right-hand side.
-            auto_run = admission.allow_analysis
+            history, _history_text = self._history(session_id, turn_id)
+            admission = self._policy.classify(user_message)
+            evidence: list[dict[str, Any]] = []
+            target = None
+
+            def invoke(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
+                if cancel_event.is_set():
+                    raise _Cancelled()
+                call = NativeToolCall(
+                    call_id=f"auto-read-{turn_id}-{len(evidence)}",
+                    name=REGISTRY_MODEL_NAMES[name],
+                    arguments=arguments,
+                )
+                self._emit_tool_call(emit, turn_id, call)
+                result = self._execute_tool(
+                    session_id, call, ToolAdmission(ToolScope.READ, "target_resolution"), cancel_event
+                )
+                self._emit_tool_result(emit, turn_id, call, result)
+                evidence.append({"tool": name, "result": result})
+                return result
+
+            if admission.scope is ToolScope.READ or admission.reason == "analysis_target_missing" or admission.allow_analysis:
+                previous = self._history_target(session_id, turn_id)
+                resolution = resolve_target(user_message, previous, context, invoke)
+                if resolution.stock_code:
+                    target = resolution.stock_code
+                    admission = self._policy.classify(user_message, target)
+                    if admission.scope is ToolScope.NONE:
+                        admission = ToolAdmission(ToolScope.READ, "resolved_stock_lookup")
+                    admission = ToolAdmission(admission.scope, admission.reason, target)
+                    emit(ChatEvent(STOCK_SELECTED, turn_id, {"stock_code": target}))
+                elif (
+                    resolution.explicit
+                    or admission.scope is ToolScope.READ
+                    or admission.allow_analysis
+                    or admission.reason == "analysis_target_missing"
+                ):
+                    reply = resolution.message or "请提供股票代码或名称。"
+                    emit(ChatEvent(ASSISTANT_CHUNK, turn_id, {"content": reply}))
+                    return TurnOutcome("completed", reply, "target_unresolved")
+            auto_run = admission.allow_analysis and target is not None
             model_admission = (
-                ToolAdmission(ToolScope.READ, "analysis_run_already_created")
+                ToolAdmission(ToolScope.READ, "analysis_run_already_created", target)
                 if auto_run
                 else admission
             )
             tools = self._tool_schemas(model_admission)
             system_prompt = self._system_prompt(admission, tools)
+            if target:
+                system_prompt += f"\n本轮已确认股票：{target}。仅查询该股票。"
             if context:
                 system_prompt += (
                     "\n当前研究上下文（仅用于理解用户意图，不要把它当作行情事实）："
@@ -270,16 +325,16 @@ class NativeAgentChatRuntime:
                 )
             messages = [{"role": "system", "content": system_prompt}]
             messages.extend(history)
-            messages.append({"role": "user", "content": user_message})
+            messages.append({"role": "user", "content": self._canonicalize_objective(user_message) if target else user_message})
             final_text = ""
-            deadline = threading.Timer(self._timeout_s, cancel_event.set)
-            deadline.daemon = True
-            deadline.start()
             try:
+                if target and not auto_run and is_lookup_message(user_message):
+                    invoke("market.snapshot", {"stock_code": target})
+                if evidence:
+                    messages.append({"role": "system", "content": "系统通过工具网关取得的事实（失败结果不支持任何行情结论）：" + _json_text(evidence)})
                 if auto_run:
                     objective = self._canonicalize_objective(user_message.strip())
-                    target = stock_code_from_text(objective) or stock_reference(history_text)
-                    if target and not stock_code_from_text(objective):
+                    if not stock_code_from_text(objective):
                         objective = f"{objective}（股票：{target}）"
                     call = NativeToolCall(
                         call_id=f"auto-analysis-{turn_id}",
@@ -302,7 +357,7 @@ class NativeAgentChatRuntime:
                     if cancel_event.is_set():
                         raise _Cancelled()
                     model = self._model or LangChainDeepSeekModel(
-                        api_key=self._api_key or "",
+                        api_key=api_key or "",
                         base_url=self._base_url,
                         model=self._model_name,
                         timeout_s=self._timeout_s,
@@ -363,6 +418,7 @@ class NativeAgentChatRuntime:
             emit(ChatEvent(ERROR, turn_id, {"error": error, "code": "runtime_error"}))
             return TurnOutcome("failed", "", "error", error)
         finally:
+            deadline.cancel()
             with self._cancel_lock:
                 self._cancel_events.pop(session_id, None)
 
@@ -428,6 +484,40 @@ class NativeAgentChatRuntime:
             "dependency_missing": "Agent 聊天依赖未安装，请安装 backend/requirements.txt",
             "shutdown": "Agent 聊天服务正在关闭",
         }.get(reason or "", "Agent 聊天暂不可用")
+
+    def _history_target(self, session_id: str, current_turn_id: int) -> str | None:
+        """Use newest confirmed identity, never assistant prose or provider text."""
+        session = self._session_factory()
+        try:
+            stores = create_chat_stores(session)
+            turns = stores.turns.list_turns(session_id, limit=_HISTORY_MAX_TURNS)
+            for turn in reversed(turns):
+                if (
+                    turn["id"] >= current_turn_id
+                    or turn["status"] != "completed"
+                    or turn.get("finish_reason") == "target_unresolved"
+                ):
+                    continue
+                events = stores.events.list_events(session_id, turn_ids=[turn["id"]], limit=_HISTORY_MAX_EVENTS_PER_TURN)
+                for event in reversed(events):
+                    if event["event_type"] == STOCK_SELECTED:
+                        try:
+                            return normalize_stock_code(event["payload"].get("stock_code"))
+                        except StockCodeError:
+                            continue
+                if any(event["event_type"] == TOOL_RESULT and event["payload"].get("result", {}).get("ok") is False for event in events):
+                    continue
+                # Older deployments had no identity event. Only the user input
+                # is eligible; the resolver still verifies the code via gateway.
+                try:
+                    code = stock_code_from_text(turn["user_input"])
+                except StockCodeError:
+                    continue
+                if code:
+                    return code
+            return None
+        finally:
+            session.close()
 
     def _history(self, session_id: str, current_turn_id: int) -> tuple[list[dict[str, Any]], str]:
         session = self._session_factory()
@@ -571,7 +661,8 @@ class NativeAgentChatRuntime:
         return (
             "你是 Backing 的中文股票量化研究助手。先理解用户意图，再回答。"
             "普通问候、能力询问和感谢直接自然回复，不调用工具。信息不足时只追问缺少的股票、周期或研究目标。"
-            "不得编造行情、财报、回测结果或收益承诺；使用工具得到的数据时说明来源和时间。"
+            f"当前 UTC 日期：{datetime.now(timezone.utc).date().isoformat()}。"
+            "不得编造行情、财报、回测结果或收益承诺；使用工具得到的数据时说明来源和时间，行情陈旧时明确提示。"
             f"本轮工具权限为 {admission.scope.value}；实际可调用工具仅有：{tool_description}。"
             "不要调用或声称调用列表之外的工具。"
         )
@@ -579,12 +670,27 @@ class NativeAgentChatRuntime:
     def _execute_tool(
         self, session_id: str, call: NativeToolCall, admission: ToolAdmission, cancel_event: threading.Event
     ) -> dict[str, Any]:
+        if cancel_event.is_set():
+            raise _Cancelled()
+        if admission.scope is ToolScope.NONE:
+            return {"ok": False, "error": {"code": "tool_not_allowed", "message": "本轮未授权数据查询"}}
+        arguments = dict(call.arguments)
+        if "stock_code" in arguments:
+            try:
+                code = normalize_stock_code(arguments["stock_code"])
+            except StockCodeError as exc:
+                return {"ok": False, "error": {"code": "validation", "message": str(exc)}}
+            if admission.stock_code and code != admission.stock_code:
+                return {"ok": False, "error": {"code": "stock_target_mismatch", "message": "工具股票与本轮确认目标不一致"}}
+            arguments["stock_code"] = code
         if call.name == "quant_run_analysis":
             if not admission.allow_analysis:
                 return {"ok": False, "error": {"code": "analysis_not_admitted", "message": "研究目标不完整"}}
             objective = str(call.arguments.get("objective") or "").strip()
             if not objective:
                 return {"ok": False, "error": {"code": "validation", "message": "objective 不能为空"}}
+            if not admission.stock_code or stock_code_from_text(objective) != admission.stock_code:
+                return {"ok": False, "error": {"code": "stock_target_mismatch", "message": "研究目标未确认或与本轮股票不一致"}}
             session = self._session_factory()
             try:
                 stores = create_stores(session)
@@ -635,7 +741,7 @@ class NativeAgentChatRuntime:
         try:
             result = DEFAULT_REGISTRY.invoke(
                 registry_name,
-                call.arguments,
+                arguments,
                 ToolContext(
                     db=session,
                     stores=create_stores(session),

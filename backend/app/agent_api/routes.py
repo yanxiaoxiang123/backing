@@ -9,10 +9,10 @@
 - GET    /api/v1/agent-runs/{run_id}/artifacts 产物列表
 """
 
+import asyncio
 import json
 import logging
 import threading
-import time
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -22,7 +22,7 @@ from sqlalchemy.orm import Session
 
 from app.agent_api.pipelines import default_pipeline
 from app.agent_api.schemas import CreateRunRequest, RunListResponse, RunResponse
-from app.agent_runtime.events import iter_run_events
+from app.agent_runtime.events import iter_incremental_run_events, iter_run_events
 from app.agent_runtime.runtime import CancelToken, RunExecutor
 from app.agent_runtime.stores import create_stores
 from app.auth import get_current_api_key
@@ -32,6 +32,7 @@ from app.domain.stock_codes import (
     canonicalize_stock_code_in_text,
     stock_code_from_text,
 )
+from app.models.agent_runtime import AgentRun
 
 logger = logging.getLogger(__name__)
 
@@ -155,6 +156,10 @@ def create_run(
         snapshot_id=payload.snapshot_id,
         as_of=payload.as_of,
     )
+    if payload.risk_request is not None:
+        from app.services.paper_risk_assessment import save_risk_request
+
+        save_risk_request(db, run_id, payload.risk_request)
     token = _cancel_token(run_id)
     if payload.execute_inline:
         executor = RunExecutor(stores, db=db, cancel_token=token)
@@ -185,8 +190,10 @@ def list_runs(
     db: Session = Depends(get_db),
     _: str = Depends(get_current_api_key),
 ):
-    runs = create_stores(db).runs.list_runs(status=status, limit=limit, offset=offset)
-    return RunListResponse(total=len(runs), runs=runs)
+    stores = create_stores(db)
+    runs = stores.runs.list_runs(status=status, limit=limit, offset=offset)
+    total = stores.runs.count_runs(status=status)
+    return RunListResponse(total=total, runs=runs)
 
 
 @router.get("/agent-runs/{run_id}")
@@ -206,7 +213,7 @@ def get_run(
 
 
 @router.get("/agent-runs/{run_id}/events")
-def stream_events(
+async def stream_events(
     run_id: str,
     request: Request,
     db: Session = Depends(get_db),
@@ -215,24 +222,58 @@ def stream_events(
     _require_run(db, run_id)
     stores = create_stores(db)
 
-    def generate():
+    async def generate():
         last_id = 0
         raw = request.headers.get("last-event-id")
         if raw and raw.isdigit():
             last_id = int(raw)
+
+        run_obj = db.query(AgentRun).filter(AgentRun.run_id == run_id).first()
+        if run_obj is not None:
+            db.expire(run_obj)
+
+        # 1. 初始全量重放（处理初次连接或断线 Last-Event-ID 重放）
+        initial_steps = stores.steps.list_steps(run_id)
+        initial_calls = stores.tool_calls.list_tool_calls(run_id)
+        last_step_seq = max((s["seq"] for s in initial_steps), default=0)
+        last_tool_id = max((c["id"] for c in initial_calls if c.get("id")), default=0)
+
+        initial_events = iter_run_events(stores, run_id)
+        current_id = 0
+        for idx, event in enumerate(initial_events, start=1):
+            current_id = idx
+            if idx <= last_id:
+                continue
+            payload = json.dumps(event, ensure_ascii=False)
+            yield f"id: {idx}\ndata: {payload}\n\n"
+
+        last_id = max(last_id, current_id)
+
+        # 终态检查：若 run 已经结束且历史事件已完整重放，发送 done 并退出
+        run = stores.runs.get_run(run_id)
+        if run and run["status"] in ("completed", "failed", "cancelled", "superseded"):
+            yield "event: done\ndata: {}\n\n"
+            return
+
+        # 2. 增量事件流：每轮仅按 WHERE seq > last_step_seq 和 WHERE id > last_tool_id 取新事件
         while True:
-            events = iter_run_events(stores, run_id)
-            for idx, event in enumerate(events, start=1):
-                if idx <= last_id:
-                    continue
+            if await request.is_disconnected():
+                break
+            await asyncio.sleep(0.5)
+            if run_obj is not None:
+                db.expire(run_obj)
+            new_events, last_step_seq, last_tool_id = iter_incremental_run_events(
+                stores, run_id, after_seq=last_step_seq, after_tool_id=last_tool_id
+            )
+            for event in new_events:
+                last_id += 1
                 payload = json.dumps(event, ensure_ascii=False)
-                yield f"id: {idx}\ndata: {payload}\n\n"
-                last_id = idx
+                yield f"id: {last_id}\ndata: {payload}\n\n"
+
             run = stores.runs.get_run(run_id)
-            if run["status"] in ("completed", "failed", "cancelled", "superseded"):
+            if run and run["status"] in ("completed", "failed", "cancelled", "superseded"):
                 yield "event: done\ndata: {}\n\n"
                 break
-            time.sleep(0.5)
 
     return StreamingResponse(
         generate(),

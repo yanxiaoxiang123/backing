@@ -1,0 +1,10 @@
+[Unit]
+Description=Backing data refresh after market close
+
+[Timer]
+OnCalendar=Mon..Fri *-*-* 17:00:00 Asia/Shanghai
+Persistent=true
+RandomizedDelaySec=120
+
+[Install]
+WantedBy=timers.target

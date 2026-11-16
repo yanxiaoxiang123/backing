@@ -1,5 +1,7 @@
 import { Card, Tag, Row, Col, Empty } from 'antd'
 import type { AgentStage } from '../../types'
+import { FONT_SIZE } from '../../styles/typography'
+import { formatPercent, isFiniteNumber } from '../../utils/dataFormat'
 
 interface StageCardProps {
   stage: AgentStage
@@ -17,9 +19,9 @@ const stageLabels: Record<string, string> = {
 function getSignalColor(signal: string) {
   switch (signal) {
     case 'buy':
-      return 'green'
-    case 'sell':
       return 'red'
+    case 'sell':
+      return 'green'
     default:
       return 'default'
   }
@@ -42,7 +44,9 @@ export function StageCard({ stage }: StageCardProps) {
   return (
     <Card
       size="small"
-      title={<span style={{ fontWeight: 600, fontSize: 16 }}>{label}</span>}
+      title={
+        <span style={{ fontWeight: 600, fontSize: FONT_SIZE.title }}>{label}</span>
+      }
       extra={
         <Tag
           color={
@@ -68,31 +72,39 @@ export function StageCard({ stage }: StageCardProps) {
     >
       {stage.opinion ? (
         <Row gutter={16} align="top">
-          <Col span={4}>
+          <Col xs={24} sm={6} style={{ marginBottom: 12 }}>
             <Tag
               color={getSignalColor(stage.opinion.signal)}
-              style={{ fontSize: 12, padding: '2px 8px' }}
+              style={{ fontSize: FONT_SIZE.meta, padding: '2px 8px' }}
             >
               {getSignalLabel(stage.opinion.signal)}
             </Tag>
             <div
               style={{
-                fontSize: 12,
+                fontSize: FONT_SIZE.meta,
                 color: 'var(--color-text-secondary)',
                 marginTop: 'var(--space-xs)',
               }}
             >
-              置信度: {Math.round(stage.opinion.confidence * 100)}%
+              置信度:{' '}
+              {formatPercent(
+                isFiniteNumber(stage.opinion.confidence)
+                  ? stage.opinion.confidence * 100
+                  : null,
+                0,
+              )}
             </div>
           </Col>
-          <Col span={20}>
-            <div style={{ fontSize: 14, lineHeight: 1.6 }}>
+          <Col xs={24} sm={18}>
+            <div style={{ fontSize: FONT_SIZE.body, lineHeight: 1.6 }}>
               {stage.opinion.reason || '无'}
             </div>
           </Col>
         </Row>
       ) : stage.error ? (
-        <div style={{ color: 'var(--color-danger)', fontSize: 14 }}>{stage.error}</div>
+        <div style={{ color: 'var(--color-danger)', fontSize: FONT_SIZE.body }}>
+          {stage.error}
+        </div>
       ) : (
         <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} />
       )}
