@@ -85,7 +85,7 @@ export function buildAgentReportHtml(report: AgentAnalyzeResponse): string {
 <meta charset="UTF-8">
 <title>AI Agent 分析报告 - ${escapeHtml(report.stock_code)}</title>
 <style>
-  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 40px; color: #222; line-height: 1.6; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; margin: 40px; color: #222; line-height: 1.6; }
   h1 { font-size: 22px; margin-bottom: 4px; }
   h2 { font-size: 16px; margin: 24px 0 12px; }
   .subtitle { color: #666; font-size: 14px; margin-bottom: 24px; }

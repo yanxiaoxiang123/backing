@@ -8,6 +8,7 @@ import {
   MessageOutlined,
 } from '@ant-design/icons'
 import { LazyECharts } from '../components/charts/LazyECharts'
+import { CHART_TEXT } from '../styles/typography'
 import { useLocation, useNavigationType, useSearchParams } from 'react-router-dom'
 import { ChatSidebar } from '../components/chat/ChatSidebar'
 import { ChatConversation } from '../components/chat/ChatConversation'
@@ -54,6 +55,7 @@ function KlineChart({ klines }: { klines: DailyKline[] }) {
     }))
     return {
       animation: false,
+      textStyle: { fontFamily: CHART_TEXT.fontFamily },
       tooltip: { trigger: 'axis' },
       axisPointer: { type: 'cross' },
       grid: [
@@ -68,7 +70,7 @@ function KlineChart({ klines }: { klines: DailyKline[] }) {
         {
           scale: true,
           splitNumber: 4,
-          axisLabel: { fontSize: 12 },
+          axisLabel: { fontSize: CHART_TEXT.label },
           splitLine: { lineStyle: { color: '#eaeaea' } },
         },
         { gridIndex: 1, axisLabel: { show: false }, splitLine: { show: false } },

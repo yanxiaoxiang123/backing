@@ -1,16 +1,16 @@
 import type { EChartsOption } from 'echarts'
 import type { DLBacktest, DLForecast } from '../../services/dl'
 import { formatNumber } from '../../utils/dataFormat'
+import { CHART_TEXT } from '../../styles/typography'
 
 const blue = '#1677ff'
 const red = '#ff4545'
-const fontFamily = "'Microsoft YaHei', 'PingFang SC', sans-serif"
 
 function priceChart(dates: string[], start: number): EChartsOption {
   return {
     backgroundColor: 'transparent',
     animation: false,
-    textStyle: { fontFamily },
+    textStyle: { fontFamily: CHART_TEXT.fontFamily },
     color: [blue, red],
     legend: {
       top: 12,
@@ -18,7 +18,7 @@ function priceChart(dates: string[], start: number): EChartsOption {
       itemWidth: 26,
       itemHeight: 8,
       itemGap: 28,
-      textStyle: { color: '#777777', fontSize: 15 },
+      textStyle: { color: '#777777', fontSize: CHART_TEXT.label },
     },
     tooltip: {
       trigger: 'axis',
@@ -29,7 +29,11 @@ function priceChart(dates: string[], start: number): EChartsOption {
       },
       backgroundColor: 'transparent',
       borderColor: '#e8e8e8',
-      textStyle: { color: '#242424', fontSize: 13 },
+      textStyle: {
+        color: '#242424',
+        fontFamily: CHART_TEXT.fontFamily,
+        fontSize: CHART_TEXT.label,
+      },
       valueFormatter: (value) =>
         typeof value === 'number' ? `${formatNumber(value)} CNY` : '—',
     },
@@ -42,7 +46,7 @@ function priceChart(dates: string[], start: number): EChartsOption {
       axisTick: { show: false },
       axisLabel: {
         color: '#777777',
-        fontSize: 13,
+        fontSize: CHART_TEXT.label,
         margin: 14,
         showMinLabel: true,
         showMaxLabel: true,
@@ -59,7 +63,7 @@ function priceChart(dates: string[], start: number): EChartsOption {
       axisLine: { show: false },
       axisTick: { show: false },
       splitLine: { lineStyle: { color: '#eeeeee', width: 1 } },
-      axisLabel: { color: '#777777', fontSize: 12, margin: 12 },
+      axisLabel: { color: '#777777', fontSize: CHART_TEXT.label, margin: 12 },
     },
     dataZoom: [
       { type: 'inside', start, end: 100 },
@@ -134,7 +138,7 @@ export function forecastChartOption(result: DLForecast | null): EChartsOption {
             position: 'insideEndTop',
             rotate: 0,
             color: '#ee8b00',
-            fontSize: 12,
+            fontSize: CHART_TEXT.label,
             distance: 8,
           },
           data: [{ xAxis: lastIndex }],
@@ -151,7 +155,7 @@ export function forecastChartOption(result: DLForecast | null): EChartsOption {
                   position: 'top',
                   formatter: lastPrice.toFixed(2),
                   color: red,
-                  fontSize: 13,
+                  fontSize: CHART_TEXT.label,
                   backgroundColor: 'transparent',
                   borderColor: red,
                   borderWidth: 1,
@@ -175,7 +179,11 @@ export function backtestChartOption(result: DLBacktest | null): EChartsOption {
       confine: true,
       backgroundColor: 'transparent',
       borderColor: '#e8e8e8',
-      textStyle: { color: '#242424', fontSize: 13 },
+      textStyle: {
+        color: '#242424',
+        fontFamily: CHART_TEXT.fontFamily,
+        fontSize: CHART_TEXT.label,
+      },
       formatter: (params) => {
         const items = Array.isArray(params) ? params : [params]
         const index = items.find((item) => item.seriesName === '收盘价')?.dataIndex

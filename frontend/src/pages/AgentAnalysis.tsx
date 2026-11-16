@@ -29,6 +29,7 @@ import {
   DownloadOutlined,
 } from '@ant-design/icons'
 import { LazyECharts } from '../components/charts/LazyECharts'
+import { CHART_TEXT } from '../styles/typography'
 import type { EChartsOption, TooltipComponentFormatterCallbackParams } from 'echarts'
 import {
   submitAnalyzeStock,
@@ -242,10 +243,11 @@ export default function AgentAnalysis() {
     return {
       backgroundColor: 'transparent',
       animation: false,
+      textStyle: { fontFamily: CHART_TEXT.fontFamily },
       legend: {
         top: 10,
         left: 'center',
-        textStyle: { color: 'var(--color-text-secondary)', fontSize: 11 },
+        textStyle: { color: 'var(--color-text-secondary)', fontSize: CHART_TEXT.label },
         data: ['K线', 'MA5', 'MA10', 'MA20'],
       },
       tooltip: {
@@ -253,7 +255,10 @@ export default function AgentAnalysis() {
         axisPointer: { type: 'cross' },
         backgroundColor: 'var(--color-canvas-lifted)',
         borderColor: 'var(--color-border)',
-        textStyle: { color: 'var(--color-text-primary)' },
+        textStyle: {
+          color: 'var(--color-text-primary)',
+          fontFamily: CHART_TEXT.fontFamily,
+        },
         formatter: (params: TooltipComponentFormatterCallbackParams) => {
           const list = Array.isArray(params) ? params : [params]
           if (list.length === 0) return ''
@@ -276,13 +281,19 @@ export default function AgentAnalysis() {
           data: dates,
           boundaryGap: false,
           axisLine: { onZero: false },
-          axisLabel: { color: 'var(--color-text-tertiary)', fontSize: 10 },
+          axisLabel: {
+            color: 'var(--color-text-tertiary)',
+            fontSize: CHART_TEXT.label,
+          },
         },
       ],
       yAxis: [
         {
           scale: true,
-          axisLabel: { color: 'var(--color-text-tertiary)', fontSize: 10 },
+          axisLabel: {
+            color: 'var(--color-text-tertiary)',
+            fontSize: CHART_TEXT.label,
+          },
         },
       ],
       dataZoom: [
@@ -491,7 +502,11 @@ export default function AgentAnalysis() {
           </Col>
         </Row>
         <div
-          style={{ marginTop: 12, color: 'var(--color-text-secondary)', fontSize: 13 }}
+          style={{
+            marginTop: 12,
+            color: 'var(--color-text-secondary)',
+            fontSize: 'var(--fs-meta)',
+          }}
         >
           {modeOptions.find((m) => m.value === mode)?.desc}
         </div>

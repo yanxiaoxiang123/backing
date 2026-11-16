@@ -12,6 +12,7 @@ import dayjs from 'dayjs'
 import type { EChartsOption, TooltipComponentFormatterCallbackParams } from 'echarts'
 
 import { LazyECharts } from '../components/charts/LazyECharts'
+import { CHART_TEXT } from '../styles/typography'
 import { PageHeader } from '../components/research/ResearchPrimitives'
 import {
   useDashboardIndices,
@@ -303,6 +304,7 @@ function Dashboard() {
     const labelStep = Math.max(0, Math.ceil(bars.length / 5) - 1)
     return {
       animation: false,
+      textStyle: { fontFamily: CHART_TEXT.fontFamily },
       grid: { left: 0, right: 6, top: 8, bottom: 2, containLabel: true },
       tooltip: {
         trigger: 'axis',
@@ -310,7 +312,11 @@ function Dashboard() {
         borderWidth: 1,
         borderColor: '#e8e8e8',
         padding: [6, 8],
-        textStyle: { color: '#242424', fontSize: 13 },
+        textStyle: {
+          color: '#242424',
+          fontFamily: CHART_TEXT.fontFamily,
+          fontSize: CHART_TEXT.label,
+        },
         formatter: (params: TooltipComponentFormatterCallbackParams) => {
           const list = Array.isArray(params) ? params : [params]
           const first = list[0] as { axisValue?: string; value?: number }
@@ -325,7 +331,7 @@ function Dashboard() {
         axisTick: { show: false },
         axisLabel: {
           color: '#6b6b6b',
-          fontSize: 11,
+          fontSize: CHART_TEXT.label,
           interval: labelStep,
           hideOverlap: true,
           formatter: (value: string) => dayjs(value).format('MM/DD'),
@@ -337,7 +343,7 @@ function Dashboard() {
         splitNumber: 4,
         axisLine: { show: false },
         axisTick: { show: false },
-        axisLabel: { color: '#6b6b6b', fontSize: 11 },
+        axisLabel: { color: '#6b6b6b', fontSize: CHART_TEXT.label },
         splitLine: { lineStyle: { color: '#eaeaea', width: 1 } },
       },
       series: [

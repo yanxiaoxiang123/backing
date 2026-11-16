@@ -9,7 +9,7 @@
 }
 .query-status {
   color: var(--color-text-secondary);
-  font-size: 12px;
+  font-size: var(--fs-meta);
   min-height: 28px;
 }
 .research-chart-actions {
@@ -18,7 +18,7 @@
 }
 .research-data-context {
   color: var(--color-text-secondary);
-  font-size: 12px;
+  font-size: var(--fs-meta);
   line-height: 1.7;
   margin: 4px 0 12px;
 }
@@ -74,15 +74,15 @@
   gap: 12px;
 }
 .history-mobile-top {
-  font-size: 16px;
+  font-size: var(--fs-body);
   font-weight: 600;
 }
 .history-mobile-meta {
   margin: 6px 0 4px;
-  font-size: 13px;
+  font-size: var(--fs-meta);
 }
 .history-mobile-dates {
-  font-size: 12px;
+  font-size: var(--fs-meta);
   color: var(--color-text-secondary);
   font-variant-numeric: tabular-nums;
   line-height: 1.7;
@@ -94,7 +94,7 @@
 .history-detail-navigation {
   justify-content: space-between;
   margin-bottom: 20px;
-  font-size: 12px;
+  font-size: var(--fs-meta);
   color: var(--color-text-secondary);
 }
 .history-detail-content {
@@ -104,12 +104,12 @@
 }
 .history-detail-content h3 {
   margin: 0 0 12px;
-  font-size: 15px;
+  font-size: var(--fs-body);
   font-weight: 600;
 }
 .history-detail-content h3 small {
   color: var(--color-text-secondary);
-  font-size: 12px;
+  font-size: var(--fs-meta);
   font-weight: 400;
   margin-left: 8px;
 }
@@ -125,7 +125,7 @@
   min-width: 0;
 }
 .history-detail-content .metric-card__value {
-  font-size: 24px;
+  font-size: var(--fs-metric);
 }
 .history-detail-content .ant-descriptions-item-content {
   overflow-wrap: anywhere;
@@ -162,7 +162,7 @@
   flex-wrap: wrap;
 }
 .analysis-decision-heading h2 {
-  font-size: 22px;
+  font-size: var(--fs-title);
   margin: 0;
 }
 .analysis-decision-meta {
@@ -170,7 +170,7 @@
   flex-wrap: wrap;
   gap: 8px 20px;
   color: var(--color-text-secondary);
-  font-size: 12px;
+  font-size: var(--fs-meta);
 }
 .analysis-decision-reason {
   background: var(--color-bg-secondary);
@@ -217,10 +217,10 @@
     padding: 14px 10px;
   }
   .history-workspace .backtest-history-summary .metric-card__detail {
-    font-size: 11px;
+    font-size: var(--fs-meta);
   }
   .history-workspace .backtest-history-summary .metric-card__value {
-    font-size: 20px;
+    font-size: var(--fs-metric);
   }
   .history-pagination {
     justify-content: center;

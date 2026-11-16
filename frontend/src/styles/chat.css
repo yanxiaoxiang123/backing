@@ -10,7 +10,7 @@
   color: var(--color-ink);
   background: var(--color-surface);
   cursor: pointer;
-  font-size: 12px;
+  font-size: var(--fs-meta);
   white-space: nowrap;
 }
 .research-copilot-trigger:hover {
@@ -69,7 +69,7 @@
 .chat-sidebar-heading h2 {
   margin: 0;
   color: var(--color-ink);
-  font-size: 14px;
+  font-size: var(--fs-body);
   line-height: 20px;
   font-weight: 500;
 }
@@ -91,7 +91,7 @@
   border: 0;
   border-radius: 6px;
   box-shadow: none;
-  font-size: 14px;
+  font-size: var(--fs-body);
 }
 .chat-sidebar-new.ant-btn:hover {
   color: var(--color-ink);
@@ -100,7 +100,7 @@
 .chat-sidebar-list-label {
   padding: 8px 8px 0;
   color: var(--color-text-secondary);
-  font-size: 12px;
+  font-size: var(--fs-meta);
   line-height: 16px;
 }
 .chat-sidebar-list {
@@ -149,7 +149,7 @@
 .chat-sidebar-title {
   display: -webkit-box;
   overflow: hidden;
-  font-size: 14px;
+  font-size: var(--fs-body);
   line-height: 20px;
   font-weight: 500;
   -webkit-box-orient: vertical;
@@ -163,7 +163,7 @@
 }
 .chat-sidebar-item-meta {
   color: var(--color-text-secondary);
-  font-size: 12px;
+  font-size: var(--fs-meta);
   line-height: 16px;
   font-variant-numeric: tabular-nums lining-nums;
 }
@@ -197,7 +197,7 @@
   margin: 0;
   padding: 12px 8px;
   color: var(--color-text-secondary);
-  font-size: 12px;
+  font-size: var(--fs-meta);
   line-height: 20px;
 }
 .chat-sidebar-note {
@@ -205,7 +205,7 @@
   margin: 0;
   padding: 8px;
   color: var(--color-text-secondary);
-  font-size: 12px;
+  font-size: var(--fs-meta);
   line-height: 20px;
 }
 .chat-sidebar-collapsed {
@@ -231,7 +231,7 @@
   margin: 0;
   overflow: hidden;
   color: var(--color-ink);
-  font-size: 14px;
+  font-size: var(--fs-body);
   line-height: 20px;
   font-weight: 500;
   text-overflow: ellipsis;
@@ -241,7 +241,7 @@
   display: block;
   margin-top: 4px;
   color: var(--color-text-secondary);
-  font-size: 12px;
+  font-size: var(--fs-meta);
   line-height: 16px;
 }
 .chat-conversation {
@@ -283,7 +283,7 @@
 .chat-bubble {
   min-width: 0;
   max-width: 100%;
-  font-size: 14px;
+  font-size: var(--fs-body);
   line-height: 24px;
   overflow-wrap: anywhere;
   font-variant-numeric: lining-nums tabular-nums;
@@ -307,7 +307,7 @@
 .chat-message-author {
   margin-bottom: 12px;
   color: var(--color-text-secondary);
-  font-size: 12px;
+  font-size: var(--fs-meta);
   line-height: 16px;
 }
 .chat-markdown {
@@ -371,7 +371,7 @@
   background: transparent;
   color: var(--color-text-secondary);
   font: inherit;
-  font-size: 12px;
+  font-size: var(--fs-meta);
   cursor: pointer;
 }
 .chat-copy-button:hover {
@@ -429,7 +429,7 @@
 }
 .chat-copy-status {
   color: var(--color-text-secondary);
-  font-size: 12px;
+  font-size: var(--fs-meta);
 }
 .chat-markdown p {
   margin: 0 0 12px;
@@ -443,7 +443,7 @@
 .chat-markdown h4 {
   margin: 24px 0 12px;
   color: var(--color-ink);
-  font-size: 16px;
+  font-size: var(--fs-body);
   line-height: 24px;
   font-weight: 600;
 }
@@ -466,13 +466,13 @@
   overflow-x: auto;
   border-radius: 6px;
   background: var(--color-surface);
-  font-size: 12px;
+  font-size: var(--fs-meta);
 }
 .chat-markdown code {
   padding: 2px 4px;
   border-radius: 4px;
   background: var(--color-surface-muted);
-  font-size: 12px;
+  font-size: var(--fs-meta);
 }
 .chat-markdown pre code {
   padding: 0;
@@ -509,7 +509,7 @@
 }
 .chat-markdown th {
   color: var(--color-text-secondary);
-  font-size: 12px;
+  font-size: var(--fs-meta);
   font-weight: 500;
 }
 
@@ -530,7 +530,7 @@
 .research-welcome h2 {
   margin: 0;
   color: var(--color-ink);
-  font-size: 24px;
+  font-size: var(--fs-title);
   line-height: 32px;
   font-weight: 500;
   letter-spacing: -0.02em;
@@ -540,7 +540,7 @@
   max-width: 360px;
   margin: 12px 0 24px;
   color: var(--color-text-secondary);
-  font-size: 14px;
+  font-size: var(--fs-body);
   line-height: 24px;
   text-wrap: pretty;
 }
@@ -577,25 +577,25 @@
   gap: 4px;
 }
 .research-prompt-list strong {
-  font-size: 14px;
+  font-size: var(--fs-body);
   line-height: 20px;
   font-weight: 500;
 }
 .research-prompt-list button > span > span {
   color: var(--color-text-secondary);
-  font-size: 12px;
+  font-size: var(--fs-meta);
   line-height: 20px;
 }
 .research-prompt-list .anticon {
   flex: none;
   color: var(--color-text-secondary);
-  font-size: 14px;
+  font-size: var(--fs-body);
 }
 .research-welcome-note {
   display: block;
   margin-top: 16px;
   color: var(--color-text-secondary);
-  font-size: 12px;
+  font-size: var(--fs-meta);
   line-height: 20px;
 }
 
@@ -612,7 +612,7 @@
   background: var(--color-surface);
   color: var(--color-text-secondary);
   font: inherit;
-  font-size: 12px;
+  font-size: var(--fs-meta);
   line-height: 20px;
   cursor: pointer;
 }
@@ -627,7 +627,7 @@
   border-radius: 6px;
   background: var(--color-surface);
   color: var(--color-text-secondary);
-  font-size: 12px;
+  font-size: var(--fs-meta);
   line-height: 20px;
   white-space: pre-wrap;
 }
@@ -649,7 +649,7 @@
   border-radius: 6px;
   background: var(--color-surface);
   color: var(--color-text-secondary);
-  font-size: 12px;
+  font-size: var(--fs-meta);
   line-height: 20px;
 }
 .chat-tool-row > code {
@@ -672,7 +672,7 @@
   align-items: center;
   gap: 8px;
   color: var(--color-text-secondary);
-  font-size: 12px;
+  font-size: var(--fs-meta);
   line-height: 20px;
 }
 .chat-deep-diving-dots {
@@ -705,7 +705,7 @@
 .chat-msg-error {
   padding: 8px 0;
   color: var(--color-danger);
-  font-size: 12px;
+  font-size: var(--fs-meta);
   line-height: 20px;
 }
 .chat-jump-bottom {
@@ -718,7 +718,7 @@
 .chat-load-older {
   align-self: center;
   margin: 0 auto;
-  font-size: 12px;
+  font-size: var(--fs-meta);
 }
 
 /* The field and action form one calm writing surface. */
@@ -750,7 +750,7 @@
   color: var(--color-ink);
   background: transparent;
   font: inherit;
-  font-size: 14px;
+  font-size: var(--fs-body);
   line-height: 24px;
 }
 .chat-input-textarea::placeholder {
@@ -770,7 +770,7 @@
 }
 .chat-input-hint {
   color: var(--color-text-secondary);
-  font-size: 12px;
+  font-size: var(--fs-meta);
   line-height: 20px;
 }
 .chat-input-hint kbd {
@@ -780,7 +780,7 @@
   height: 32px;
   padding: 0 12px;
   border-radius: 6px;
-  font-size: 12px;
+  font-size: var(--fs-meta);
   box-shadow: none;
 }
 .chat-input-footer .ant-btn-primary:not(:disabled) {
@@ -826,7 +826,7 @@
     margin-bottom: 16px;
   }
   .research-welcome h2 {
-    font-size: 24px;
+    font-size: var(--fs-title);
     line-height: 32px;
   }
   .research-welcome > p {
@@ -842,11 +842,11 @@
     padding: 12px;
   }
   .chat-input-textarea {
-    font-size: 16px;
+    font-size: var(--fs-body);
   }
   .chat-input-hint {
     max-width: 210px;
-    font-size: 12px;
+    font-size: var(--fs-meta);
   }
   .chat-input-footer .ant-btn {
     min-height: 44px;
@@ -893,5 +893,15 @@
   .chat-sidebar-archive,
   .research-prompt-list > button {
     transition: none;
+  }
+}
+
+/* iOS zooms the viewport when a focused field is under 16px. Keep that
+   platform exception without adding a fifth size to the desktop scale. */
+@supports (-webkit-touch-callout: none) {
+  @media (max-width: 740px) {
+    .chat-input-textarea {
+      font-size: 16px;
+    }
   }
 }

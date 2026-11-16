@@ -43,6 +43,7 @@ deepseek-harness/
 .taste-skill/
 
 # Browser regression output (generated locally)
+frontend/public/fonts/
 frontend/test-results/
 frontend/playwright-report/
 

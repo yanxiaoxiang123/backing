@@ -22,7 +22,9 @@ body {
   margin: 0;
   background: var(--lp-canvas);
   color: var(--lp-ink);
-  font-family: Geist, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans SC', sans-serif;
+  font-family:
+    'Inter Variable', 'Noto Sans SC Variable', 'Source Han Sans CN',
+    'PingFang SC', 'Microsoft YaHei', sans-serif;
   font-size: 16px;
   line-height: 24px;
   -webkit-font-smoothing: antialiased;
@@ -71,7 +73,9 @@ h3 {
   letter-spacing: -0.02em;
 }
 code {
-  font-family: Geist, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  font-family:
+    'Inter Variable', 'Noto Sans SC Variable', 'Source Han Sans CN',
+    'PingFang SC', 'Microsoft YaHei', sans-serif;
   font-size: 14px;
   line-height: 20px;
 }

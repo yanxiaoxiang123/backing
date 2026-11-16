@@ -10,7 +10,7 @@
   align-items: start;
 }
 .portfolio-research h2 {
-  font-size: 16px;
+  font-size: var(--fs-body);
   line-height: 24px;
   font-weight: 500;
   margin: 0 0 16px;
@@ -52,7 +52,7 @@
   scroll-margin-top: 72px;
 }
 .portfolio-allocation-total {
-  font-size: 12px;
+  font-size: var(--fs-meta);
   line-height: 16px;
 }
 .portfolio-fields-pair {
@@ -67,12 +67,12 @@
   justify-content: space-between;
   gap: 8px;
   margin-bottom: 16px;
-  font-size: 12px;
+  font-size: var(--fs-meta);
   line-height: 20px;
   color: var(--color-text-secondary);
 }
 .portfolio-note {
-  font-size: 12px;
+  font-size: var(--fs-meta);
   line-height: 20px;
   color: var(--color-text-secondary);
   margin: 0 0 16px;
@@ -89,13 +89,13 @@
   font-variant-numeric: tabular-nums lining-nums;
 }
 .portfolio-metrics dt {
-  font-size: 12px;
+  font-size: var(--fs-meta);
   line-height: 16px;
   color: var(--color-text-secondary);
   margin-bottom: 8px;
 }
 .portfolio-metrics dd {
-  font-size: 24px;
+  font-size: var(--fs-metric);
   line-height: 32px;
   font-weight: 400;
   margin: 0;
@@ -105,7 +105,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: 16px;
-  font-size: 12px;
+  font-size: var(--fs-meta);
   line-height: 16px;
   color: var(--color-text-secondary);
 }
@@ -128,7 +128,7 @@
 }
 .portfolio-equity text {
   font-family: inherit;
-  font-size: 12px;
+  font-size: var(--fs-meta);
   fill: var(--color-text-secondary);
   font-variant-numeric: tabular-nums lining-nums;
 }
@@ -150,19 +150,19 @@
   font-variant-numeric: tabular-nums lining-nums;
 }
 .portfolio-research .ant-table-thead > tr > th {
-  font-size: 12px;
+  font-size: var(--fs-meta);
   letter-spacing: normal;
   text-transform: none;
 }
 .portfolio-empty {
   color: var(--color-text-secondary);
-  font-size: 14px;
+  font-size: var(--fs-body);
   line-height: 24px;
   padding: 32px 0;
 }
 .portfolio-checksum {
   overflow-wrap: anywhere;
-  font-size: 12px;
+  font-size: var(--fs-meta);
   line-height: 20px;
   color: var(--color-text-secondary);
 }
@@ -181,7 +181,7 @@
     gap: 16px;
   }
   .portfolio-metrics dd {
-    font-size: 20px;
+    font-size: var(--fs-metric);
     line-height: 28px;
   }
   .portfolio-research button,

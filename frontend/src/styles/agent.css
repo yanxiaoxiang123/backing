@@ -6,11 +6,6 @@
   padding: 24px;
 }
 
-.shell:has(.agent-workspace) {
-  --font-family: 'Microsoft YaHei', 'Segoe UI', sans-serif;
-  font-family: var(--font-family);
-}
-
 .shell:has(.agent-workspace),
 .agent-history-drawer,
 .agent-research-drawer {
@@ -107,7 +102,7 @@
 .agent-workspace-title h1 {
   margin: 0;
   color: var(--color-ink);
-  font-size: 20px;
+  font-size: var(--fs-title);
   line-height: 28px;
   font-weight: 600;
   white-space: nowrap;
@@ -115,7 +110,7 @@
 .agent-workspace-title > span,
 .agent-workspace-status {
   color: var(--color-text-secondary);
-  font-size: 12px;
+  font-size: var(--fs-meta);
   line-height: 16px;
   white-space: nowrap;
 }
@@ -174,7 +169,7 @@
 }
 .agent-research-heading h2 {
   margin: 0;
-  font-size: 14px;
+  font-size: var(--fs-body);
   line-height: 20px;
   font-weight: 600;
 }
@@ -203,7 +198,7 @@
 }
 .agent-research-rail > span {
   color: var(--color-text-secondary);
-  font-size: 12px;
+  font-size: var(--fs-meta);
   writing-mode: vertical-rl;
 }
 .agent-workspace-research > .ant-tabs {
@@ -217,7 +212,7 @@
 }
 .agent-workspace-research .ant-tabs-tab {
   padding: 8px 0 12px;
-  font-size: 14px;
+  font-size: var(--fs-body);
 }
 .agent-workspace-research .ant-tabs-tab + .ant-tabs-tab {
   margin-left: 16px;
@@ -247,14 +242,14 @@
 }
 .agent-research-intro strong {
   display: block;
-  font-size: 16px;
+  font-size: var(--fs-body);
   font-weight: 500;
   line-height: 24px;
 }
 .agent-research-intro p {
   margin: 8px 0 0;
   color: var(--color-text-secondary);
-  font-size: 14px;
+  font-size: var(--fs-body);
   line-height: 20px;
   text-wrap: pretty;
 }
@@ -277,14 +272,14 @@
 }
 .agent-research-guide h3 {
   margin: 0;
-  font-size: 14px;
+  font-size: var(--fs-body);
   font-weight: 500;
   line-height: 20px;
 }
 .agent-research-guide p {
   margin: 4px 0 0;
   color: var(--color-text-secondary);
-  font-size: 12px;
+  font-size: var(--fs-meta);
   line-height: 20px;
 }
 .agent-research-guide .agent-research-guide-note {
@@ -302,12 +297,12 @@
 }
 .agent-market-heading h3 {
   margin: 0 0 4px;
-  font-size: 14px;
+  font-size: var(--fs-body);
   font-weight: 500;
 }
 .agent-market-heading span {
   color: var(--color-text-secondary);
-  font-size: 12px;
+  font-size: var(--fs-meta);
 }
 .agent-market-quote {
   display: flex;
@@ -317,17 +312,17 @@
   padding-top: 16px;
 }
 .agent-market-quote strong {
-  font-size: 24px;
+  font-size: var(--fs-metric);
   line-height: 32px;
   font-weight: 400;
 }
 .agent-market-quote > span {
-  font-size: 12px;
+  font-size: var(--fs-meta);
 }
 .agent-market-quote time {
   margin-left: auto;
   color: var(--color-text-secondary);
-  font-size: 12px;
+  font-size: var(--fs-meta);
 }
 .agent-kline-chart {
   width: 100%;
@@ -337,14 +332,14 @@
 .agent-market-caption {
   margin: 8px 0;
   color: var(--color-text-secondary);
-  font-size: 12px;
+  font-size: var(--fs-meta);
   line-height: 20px;
 }
 .agent-empty-state {
   margin-top: 16px;
   padding: 16px;
   color: var(--color-text-secondary);
-  font-size: 12px;
+  font-size: var(--fs-meta);
   line-height: 20px;
   border-radius: 6px;
   background: var(--color-surface);
@@ -360,19 +355,19 @@
   justify-content: space-between;
   align-items: center;
   gap: 8px;
-  font-size: 12px;
+  font-size: var(--fs-meta);
   color: var(--color-text-secondary);
 }
 .agent-run-objective {
   margin-top: 8px;
-  font-size: 14px;
+  font-size: var(--fs-body);
   line-height: 24px;
   overflow-wrap: anywhere;
 }
 .agent-run-details {
   margin-top: 12px;
   color: var(--color-text-secondary);
-  font-size: 12px;
+  font-size: var(--fs-meta);
 }
 .agent-run-details summary {
   cursor: pointer;
@@ -393,7 +388,7 @@
   border-radius: 6px;
 }
 .agent-chat-runtime-alert .ant-alert-description {
-  font-size: 12px;
+  font-size: var(--fs-meta);
 }
 .agent-research-error {
   margin-bottom: 16px;
@@ -425,7 +420,7 @@
 .agent-evidence-confidence {
   margin-left: auto;
   color: var(--color-text-secondary);
-  font-size: 12px;
+  font-size: var(--fs-meta);
 }
 .agent-evidence-claim {
   margin: 12px 0 8px;
@@ -435,7 +430,7 @@
   min-width: 0;
   margin-top: 8px;
   color: var(--color-text-secondary);
-  font-size: 12px;
+  font-size: var(--fs-meta);
 }
 .agent-evidence-source-meta {
   display: flex;
@@ -471,7 +466,7 @@
 .agent-approval-empty {
   padding: 16px 0;
   color: var(--color-text-secondary);
-  font-size: 12px;
+  font-size: var(--fs-meta);
 }
 .agent-workspace .ant-btn,
 .agent-history-drawer .ant-btn,
@@ -578,7 +573,7 @@
     padding: 0 16px;
   }
   .agent-workspace-title h1 {
-    font-size: 20px;
+    font-size: var(--fs-title);
     line-height: 28px;
   }
   .agent-workspace-title > span,
@@ -594,7 +589,7 @@
   .agent-workspace-actions .ant-btn {
     min-height: 44px;
     padding: 0 8px;
-    font-size: 12px;
+    font-size: var(--fs-meta);
   }
   .agent-chat-runtime-alert {
     margin: 12px 16px 0;

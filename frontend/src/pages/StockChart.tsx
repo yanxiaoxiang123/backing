@@ -9,6 +9,7 @@ import {
   StarOutlined,
 } from '@ant-design/icons'
 import { LazyECharts } from '../components/charts/LazyECharts'
+import { CHART_TEXT } from '../styles/typography'
 import { ChartResetButton } from '../components/charts/ChartResetButton'
 import { QueryStatus } from '../components/research/QueryStatus'
 import { formatNumber, formatPercent, numberTone } from '../utils/dataFormat'
@@ -37,6 +38,7 @@ function chartOption(data: KlineIndicator[], period: KlinePeriod) {
   return {
     backgroundColor: 'transparent',
     animation: false,
+    textStyle: { fontFamily: CHART_TEXT.fontFamily },
     axisPointer: { link: [{ xAxisIndex: 'all' }] },
     tooltip: {
       trigger: 'axis',
@@ -44,12 +46,12 @@ function chartOption(data: KlineIndicator[], period: KlinePeriod) {
       axisPointer: { type: 'cross' },
       backgroundColor: 'transparent',
       borderColor: '#e8e8e8',
-      textStyle: { color: '#242424' },
+      textStyle: { color: '#242424', fontFamily: CHART_TEXT.fontFamily },
     },
     legend: {
       data: ['K线', '成交量'],
       top: 8,
-      textStyle: { color: '#777777', fontSize: 13 },
+      textStyle: { color: '#777777', fontSize: CHART_TEXT.label },
     },
     grid: [
       { left: 48, right: 20, top: 42, height: '58%' },
@@ -61,7 +63,7 @@ function chartOption(data: KlineIndicator[], period: KlinePeriod) {
         data: dates,
         boundaryGap: true,
         axisLabel: {
-          fontSize: 12,
+          fontSize: CHART_TEXT.label,
           color: '#777777',
           hideOverlap: true,
           formatter: (value: string) => formatKlineAxisLabel(period, value),
@@ -73,7 +75,7 @@ function chartOption(data: KlineIndicator[], period: KlinePeriod) {
       {
         scale: true,
         axisLabel: {
-          fontSize: 12,
+          fontSize: CHART_TEXT.label,
           color: '#777777',
           formatter: (value: number) => formatNumber(value),
         },

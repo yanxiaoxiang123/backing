@@ -7,6 +7,7 @@ import type {
 } from '../types'
 import { COMPARE_COLORS } from '../constants/strategy'
 import { formatNumber } from './dataFormat'
+import { CHART_TEXT } from '../styles/typography'
 
 export interface KlineData {
   date: string
@@ -71,11 +72,12 @@ export function getChartOption(
   return {
     backgroundColor: 'transparent',
     animation: false,
+    textStyle: { fontFamily: CHART_TEXT.fontFamily },
     axisPointer: { link: [{ xAxisIndex: 'all' }] },
     legend: {
       top: 10,
       left: 'center',
-      textStyle: { color: '#777777', fontSize: 13 },
+      textStyle: { color: '#777777', fontSize: CHART_TEXT.label },
       data: ['K线'],
     },
     tooltip: {
@@ -83,7 +85,7 @@ export function getChartOption(
       axisPointer: { type: 'cross' },
       backgroundColor: 'transparent',
       borderColor: '#e8e8e8',
-      textStyle: { color: '#242424' },
+      textStyle: { color: '#242424', fontFamily: CHART_TEXT.fontFamily },
     },
     grid: [
       { left: 60, right: 24, top: 54, height: '56%' },
@@ -97,7 +99,7 @@ export function getChartOption(
         axisLine: { onZero: false },
         axisLabel: {
           color: '#777777',
-          fontSize: 12,
+          fontSize: CHART_TEXT.label,
           hideOverlap: true,
           formatter: (value: string) => value.slice(5).replace('-', '.'),
         },
@@ -120,7 +122,7 @@ export function getChartOption(
         splitArea: { show: false },
         axisLabel: {
           color: '#777777',
-          fontSize: 12,
+          fontSize: CHART_TEXT.label,
           formatter: (value: number) => value.toFixed(2),
         },
         splitLine: { lineStyle: { color: '#eeeeee' } },
@@ -250,16 +252,17 @@ export function getCompareChartOption(compareResult: CompareResponse): EChartsOp
   return {
     backgroundColor: 'transparent',
     animation: false,
+    textStyle: { fontFamily: CHART_TEXT.fontFamily },
     legend: {
       top: 10,
       left: 'center',
-      textStyle: { color: '#777777', fontSize: 13 },
+      textStyle: { color: '#777777', fontSize: CHART_TEXT.label },
     },
     tooltip: {
       trigger: 'axis',
       backgroundColor: 'transparent',
       borderColor: '#e8e8e8',
-      textStyle: { color: '#242424' },
+      textStyle: { color: '#242424', fontFamily: CHART_TEXT.fontFamily },
       formatter: ((params: { seriesName: string; value: [string, number] }[]) =>
         params
           .map((p) => `${p.seriesName}: ¥${formatNumber(p.value[1])}`)
@@ -270,7 +273,7 @@ export function getCompareChartOption(compareResult: CompareResponse): EChartsOp
       type: 'category',
       data: allDates,
       axisLine: { lineStyle: { color: '#e8e8e8' } },
-      axisLabel: { color: '#777777', fontSize: 12 },
+      axisLabel: { color: '#777777', fontSize: CHART_TEXT.label },
     },
     yAxis: {
       type: 'value',
@@ -278,7 +281,7 @@ export function getCompareChartOption(compareResult: CompareResponse): EChartsOp
       axisLine: { show: false },
       axisLabel: {
         color: '#777777',
-        fontSize: 12,
+        fontSize: CHART_TEXT.label,
         formatter: (v: number) => `¥${(v / 10000).toFixed(1)}万`,
       },
       splitLine: { lineStyle: { color: '#eeeeee', type: 'dashed' } },
@@ -308,11 +311,12 @@ export function getPortfolioChartOption(values: PortfolioValue[] = []): EChartsO
   return {
     backgroundColor: 'transparent',
     animation: false,
+    textStyle: { fontFamily: CHART_TEXT.fontFamily },
     tooltip: {
       trigger: 'axis',
       backgroundColor: 'transparent',
       borderColor: '#e8e8e8',
-      textStyle: { color: '#242424' },
+      textStyle: { color: '#242424', fontFamily: CHART_TEXT.fontFamily },
       valueFormatter: (value) => `¥${formatNumber(value)}`,
     },
     grid: { left: '10%', right: '5%', bottom: '15%', top: '12%' },
@@ -320,7 +324,7 @@ export function getPortfolioChartOption(values: PortfolioValue[] = []): EChartsO
       type: 'category',
       data: values.map((item) => item.date),
       axisLine: { lineStyle: { color: '#e8e8e8' } },
-      axisLabel: { color: '#777777', fontSize: 12 },
+      axisLabel: { color: '#777777', fontSize: CHART_TEXT.label },
     },
     yAxis: {
       type: 'value',
@@ -328,7 +332,7 @@ export function getPortfolioChartOption(values: PortfolioValue[] = []): EChartsO
       axisLine: { show: false },
       axisLabel: {
         color: '#777777',
-        fontSize: 12,
+        fontSize: CHART_TEXT.label,
         formatter: (value: number) => `¥${(value / 10000).toFixed(1)}万`,
       },
       splitLine: { lineStyle: { color: '#eeeeee', type: 'dashed' } },

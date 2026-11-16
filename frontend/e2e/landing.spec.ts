@@ -52,6 +52,26 @@ test.describe('landing page', () => {
     await expect(toggle).toBeFocused()
   })
 
+  test('uses self-hosted Inter and Noto Sans SC', async ({ page }) => {
+    await page.goto('/welcome/')
+    const fonts = await page.evaluate(async () => {
+      await Promise.all([
+        document.fonts.load('16px "Inter Variable"', 'Backing 2026'),
+        document.fonts.load('16px "Noto Sans SC Variable"', '量化研究'),
+      ])
+      await document.fonts.ready
+      return {
+        family: getComputedStyle(document.body).fontFamily,
+        latin: document.fonts.check('16px "Inter Variable"', 'Backing 2026'),
+        chinese: document.fonts.check('16px "Noto Sans SC Variable"', '量化研究'),
+      }
+    })
+    expect(fonts.family).toContain('Inter Variable')
+    expect(fonts.family).toContain('Noto Sans SC Variable')
+    expect(fonts.latin).toBe(true)
+    expect(fonts.chinese).toBe(true)
+  })
+
   test('has no horizontal scroll at 375, 768 and 1440', async ({ page }) => {
     for (const width of [375, 768, 1440]) {
       await page.setViewportSize({ width, height: 900 })

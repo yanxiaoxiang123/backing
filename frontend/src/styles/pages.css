@@ -130,7 +130,7 @@
 }
 .eyebrow {
   color: var(--color-text-secondary);
-  font-size: 10px;
+  font-size: var(--fs-meta);
   font-weight: 700;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -180,7 +180,7 @@
 }
 .research-index-card__value {
   margin: 14px 0 5px;
-  font-size: clamp(24px, 3vw, 36px);
+  font-size: var(--fs-metric);
   font-weight: 700;
   letter-spacing: -0.04em;
 }
@@ -247,7 +247,7 @@
 }
 .panel-icon {
   color: var(--color-accent);
-  font-size: 20px;
+  font-size: var(--fs-title);
 }
 .research-table-wrap {
   overflow-x: auto;
@@ -325,7 +325,7 @@
   gap: 2px;
 }
 .research-stat-list strong {
-  font-size: 28px;
+  font-size: var(--fs-metric);
   font-variant-numeric: tabular-nums lining-nums;
 }
 
@@ -396,7 +396,7 @@
   gap: 6px;
 }
 .stock-price-card strong {
-  font-size: 36px;
+  font-size: var(--fs-metric);
   letter-spacing: -0.04em;
   line-height: 1;
 }
@@ -408,7 +408,7 @@
   font-size: var(--font-size-sm);
 }
 .stock-metric strong {
-  font-size: 24px;
+  font-size: var(--fs-metric);
   font-variant-numeric: tabular-nums lining-nums;
 }
 .stock-research-layout {
@@ -728,7 +728,7 @@
   align-items: center;
   justify-content: center;
   color: var(--color-text-secondary);
-  font-size: 15px;
+  font-size: var(--fs-body);
 }
 .data-quality-panel {
   padding: var(--space-md);

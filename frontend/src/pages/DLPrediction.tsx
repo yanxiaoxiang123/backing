@@ -56,6 +56,7 @@ import {
 } from '../services/dl'
 import { getStock } from '../services/stocks'
 import '../styles/dl-prediction.css'
+import { FONT_FAMILY, FONT_SIZE } from '../styles/typography'
 
 const { RangePicker } = DatePicker
 const price = (value?: number) => formatNumber(value)
@@ -224,13 +225,20 @@ function DLPrediction() {
           colorBorderSecondary: '#e8e8e8',
           borderRadius: 7,
           controlHeight: 40,
-          fontSize: 15,
+          fontSize: FONT_SIZE.body,
+          fontSizeLG: FONT_SIZE.title,
+          fontSizeSM: FONT_SIZE.meta,
+          fontFamily: FONT_FAMILY,
         },
         components: {
           Button: { borderRadius: 7, controlHeight: 40 },
           Select: { borderRadius: 7, controlHeight: 40 },
           InputNumber: { borderRadius: 7, controlHeight: 40 },
-          DatePicker: { borderRadius: 7, controlHeight: 36, fontSize: 14 },
+          DatePicker: {
+            borderRadius: 7,
+            controlHeight: 36,
+            fontSize: FONT_SIZE.body,
+          },
         },
       }}
     >

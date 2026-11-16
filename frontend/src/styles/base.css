@@ -41,11 +41,13 @@ html {
 
 body {
   font-family: var(--font-family);
-  font-size: var(--font-size-base);
-  font-weight: 450;
+  font-size: var(--fs-body);
+  font-weight: 400;
   color: var(--color-text-primary);
   background: var(--color-canvas);
   line-height: 1.5;
+  font-kerning: normal;
+  font-synthesis: none;
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -53,6 +55,10 @@ body {
 
 #root {
   min-height: 100vh;
+}
+
+small {
+  font-size: var(--fs-meta);
 }
 
 a {

@@ -18,6 +18,8 @@ import {
   readChartZoomWindow,
   type ChartZoomWindow,
 } from './chartZoom'
+import { CHART_TEXT } from '../../styles/typography'
+import { collectChartText } from './chartFonts'
 
 const ZOOM_SLIDE_MS = 480
 
@@ -121,6 +123,44 @@ export const LazyECharts = forwardRef<HTMLDivElement, LazyEChartsProps>(
         }
         zoomAnimationRef.current = requestAnimationFrame(step)
       }
+      let fontRefreshTimer: number | undefined
+      let loadedChartText = ''
+      const refreshForFonts = () => {
+        if (revealing) {
+          scheduleFontRefresh()
+          return
+        }
+        const chart = chartRef.current
+        if (!chart) return
+        // Canvas text does not inherit CSS. Re-apply the shared face and
+        // re-measure labels after a delayed CJK subset arrives.
+        chart.setOption(
+          { textStyle: { fontFamily: CHART_TEXT.fontFamily } },
+          { notMerge: false, lazyUpdate: false },
+        )
+        chart.resize()
+      }
+      const scheduleFontRefresh = () => {
+        window.clearTimeout(fontRefreshTimer)
+        fontRefreshTimer = window.setTimeout(() => {
+          fontRefreshTimer = undefined
+          if (!disposed) refreshForFonts()
+        }, 150)
+      }
+      const loadChartFonts = () => {
+        if (typeof document.fonts === 'undefined') return
+        const text = collectChartText(optionRef.current)
+        if (!text || text === loadedChartText) return
+        loadedChartText = text
+        // Canvas does not request a webfont by itself; loading the characters
+        // the option can paint makes the CJK subsets fetch before the refresh.
+        void document.fonts
+          .load(`${CHART_TEXT.label}px "Noto Sans SC Variable"`, text)
+          .then(() => {
+            if (!disposed) scheduleFontRefresh()
+          })
+          .catch(() => {})
+      }
       const applyOption = () => {
         if (!chartRef.current) return
         const nextZoom = readChartZoomWindow(optionRef.current)
@@ -156,6 +196,7 @@ export const LazyECharts = forwardRef<HTMLDivElement, LazyEChartsProps>(
           animateZoom(previousZoom, nextZoom)
         }
         previousZoomRef.current = nextZoom
+        loadChartFonts()
       }
       applyOptionRef.current = applyOption
       finishRevealRef.current = finishReveal
@@ -196,6 +237,12 @@ export const LazyECharts = forwardRef<HTMLDivElement, LazyEChartsProps>(
         })
         chartRef.current = chart
         applyOption()
+        if (typeof document.fonts !== 'undefined') {
+          void document.fonts.ready.then(() => {
+            if (!disposed) scheduleFontRefresh()
+          })
+          document.fonts.addEventListener('loadingdone', scheduleFontRefresh)
+        }
         if (typeof ResizeObserver !== 'undefined') {
           let width = container.clientWidth
           let height = container.clientHeight
@@ -219,6 +266,10 @@ export const LazyECharts = forwardRef<HTMLDivElement, LazyEChartsProps>(
           cancelAnimationFrame(zoomAnimationRef.current)
           zoomAnimationRef.current = undefined
         }
+        if (typeof document.fonts !== 'undefined') {
+          document.fonts.removeEventListener('loadingdone', scheduleFontRefresh)
+        }
+        window.clearTimeout(fontRefreshTimer)
         applyOptionRef.current = null
         finishRevealRef.current = null
         container.removeEventListener('pointerdown', start)
@@ -268,6 +319,7 @@ export const LazyECharts = forwardRef<HTMLDivElement, LazyEChartsProps>(
       <div
         ref={containerRef}
         {...props}
+        data-chart-font={CHART_TEXT.fontFamily}
         role={props.role ?? 'img'}
         aria-label={summary ?? props['aria-label'] ?? '交互式数据图表'}
       />

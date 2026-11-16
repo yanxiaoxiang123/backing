@@ -25,12 +25,8 @@
   --lg-tag-blue: var(--ui-main);
   --lg-tag-lavender: var(--ui-main);
   --lg-tag-gold: var(--ui-muted);
-  --lg-font-display:
-    'Hanken Grotesk', 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', 'Segoe UI',
-    Roboto, 'Helvetica Neue', Arial, sans-serif;
-  --lg-font-mono:
-    'JetBrains Mono', 'SFMono-Regular', Consolas, 'Liberation Mono', 'Courier New',
-    monospace;
+  --lg-font-display: var(--font-family);
+  --lg-font-mono: var(--font-family);
 
   min-height: 100vh;
   display: flex;
@@ -40,8 +36,9 @@
   background: var(--lg-canvas);
   color: var(--lg-ink);
   font-family: var(--lg-font-display);
-  font-size: 15px;
+  font-size: var(--fs-body);
   line-height: 1.5;
+  font-variant-numeric: tabular-nums lining-nums;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -89,7 +86,7 @@
 
 .login-strip__name {
   font-family: var(--lg-font-mono);
-  font-size: 13px;
+  font-size: var(--fs-meta);
   font-weight: 500;
   letter-spacing: -0.01em;
 }
@@ -100,7 +97,7 @@
 
 .login-strip__tier {
   font-family: var(--lg-font-mono);
-  font-size: 12px;
+  font-size: var(--fs-meta);
   font-weight: 500;
   letter-spacing: 0.06em;
   padding: 2px 6px;
@@ -111,7 +108,7 @@
 
 .login-strip__meta {
   font-family: var(--lg-font-mono);
-  font-size: 13px;
+  font-size: var(--fs-meta);
   color: var(--lg-muted);
 }
 
@@ -136,7 +133,7 @@
 
 .login-strip__chip {
   font-family: var(--lg-font-mono);
-  font-size: 12px;
+  font-size: var(--fs-meta);
   font-weight: 500;
   letter-spacing: 0.04em;
   padding: 3px 8px;
@@ -167,7 +164,7 @@
   border-radius: 4px;
   background: var(--lg-canvas-soft);
   font-family: var(--lg-font-mono);
-  font-size: 13px;
+  font-size: var(--fs-meta);
   color: var(--lg-muted);
 }
 
@@ -194,7 +191,7 @@
 
 .login-hero__title {
   margin-top: 16px;
-  font-size: clamp(36px, 4.4vw, 56px);
+  font-size: var(--fs-metric);
   font-weight: 400;
   line-height: 1;
   letter-spacing: -0.03em;
@@ -203,7 +200,7 @@
 
 .login-hero__subtitle {
   margin-top: 8px;
-  font-size: clamp(18px, 1.9vw, 24px);
+  font-size: var(--fs-body);
   font-weight: 400;
   line-height: 1.33;
   letter-spacing: -0.015em;
@@ -213,7 +210,7 @@
 .login-hero__lede {
   margin-top: 16px;
   max-width: 34em;
-  font-size: 17px;
+  font-size: var(--fs-body);
   line-height: 1.6;
   letter-spacing: -0.01em;
   color: var(--lg-body);
@@ -252,13 +249,13 @@
 
 .login-feature__code {
   font-family: var(--lg-font-mono);
-  font-size: 13px;
+  font-size: var(--fs-meta);
   color: var(--lg-muted);
 }
 
 .login-feature__tag {
   font-family: var(--lg-font-mono);
-  font-size: 12px;
+  font-size: var(--fs-meta);
   font-weight: 500;
   line-height: 1.3;
   padding: 2px 6px;
@@ -280,14 +277,14 @@
 
 .login-feature__title {
   margin-top: 8px;
-  font-size: 15px;
+  font-size: var(--fs-body);
   font-weight: 600;
   color: var(--lg-ink);
 }
 
 .login-feature__body {
   margin-top: 4px;
-  font-size: 13px;
+  font-size: var(--fs-meta);
   line-height: 1.45;
   color: var(--lg-muted);
 }
@@ -304,7 +301,7 @@
 
 .login-feature__metric-label {
   font-family: var(--lg-font-mono);
-  font-size: 12px;
+  font-size: var(--fs-meta);
   font-weight: 500;
   letter-spacing: 0.06em;
   color: var(--lg-muted-soft);
@@ -312,7 +309,7 @@
 
 .login-feature__metric {
   font-family: var(--lg-font-mono);
-  font-size: 13px;
+  font-size: var(--fs-meta);
   font-weight: 600;
   color: var(--lg-ink);
   text-align: right;
@@ -341,7 +338,7 @@
   align-items: center;
   gap: 8px;
   font-family: var(--lg-font-mono);
-  font-size: 12px;
+  font-size: var(--fs-meta);
   font-weight: 600;
   letter-spacing: 0.04em;
   color: var(--lg-ink);
@@ -356,7 +353,7 @@
 
 .login-telemetry__note {
   font-family: var(--lg-font-mono);
-  font-size: 12px;
+  font-size: var(--fs-meta);
   color: var(--lg-muted-soft);
 }
 
@@ -375,7 +372,7 @@
 }
 
 .login-telemetry__name {
-  font-size: 13px;
+  font-size: var(--fs-meta);
   color: var(--lg-muted);
 }
 
@@ -388,14 +385,14 @@
 
 .login-telemetry__value {
   font-family: var(--lg-font-mono);
-  font-size: 14px;
+  font-size: var(--fs-body);
   font-weight: 600;
   color: var(--lg-ink);
 }
 
 .login-telemetry__change {
   font-family: var(--lg-font-mono);
-  font-size: 13px;
+  font-size: var(--fs-meta);
   font-weight: 500;
   color: var(--lg-primary);
 }
@@ -406,14 +403,14 @@
   border-radius: 2px;
   background: var(--lg-canvas-soft);
   font-family: var(--lg-font-mono);
-  font-size: 13px;
+  font-size: var(--fs-meta);
   font-weight: 600;
   color: var(--lg-ink);
 }
 
 .login-telemetry__conf {
   font-family: var(--lg-font-mono);
-  font-size: 12px;
+  font-size: var(--fs-meta);
   color: var(--lg-muted);
 }
 
@@ -425,7 +422,7 @@
   padding-top: 10px;
   border-top: 1px solid var(--lg-hairline-soft);
   list-style: none;
-  font-size: 13px;
+  font-size: var(--fs-meta);
   color: var(--lg-muted-soft);
 }
 
@@ -455,7 +452,7 @@
 }
 
 .login-panel__title {
-  font-size: 24px;
+  font-size: var(--fs-title);
   font-weight: 500;
   line-height: 1.33;
   letter-spacing: -0.015em;
@@ -464,7 +461,7 @@
 
 .login-panel__hint {
   margin-top: 4px;
-  font-size: 13px;
+  font-size: var(--fs-meta);
   color: var(--lg-muted);
 }
 
@@ -475,7 +472,7 @@
   border-radius: 2px;
   background: var(--lg-surface-container);
   font-family: var(--lg-font-mono);
-  font-size: 12px;
+  font-size: var(--fs-meta);
   color: var(--lg-body);
   white-space: nowrap;
 }
@@ -499,7 +496,7 @@
   background: transparent;
   color: var(--lg-muted);
   font-family: var(--lg-font-display);
-  font-size: 13px;
+  font-size: var(--fs-meta);
   font-weight: 500;
   cursor: pointer;
   transition:
@@ -533,14 +530,14 @@
 
 .login-form__eyebrow {
   font-family: var(--lg-font-mono);
-  font-size: 12px;
+  font-size: var(--fs-meta);
   font-weight: 500;
   letter-spacing: 0.06em;
   color: var(--lg-muted);
 }
 
 .login-form__bar-note {
-  font-size: 13px;
+  font-size: var(--fs-meta);
   color: var(--lg-muted-soft);
 }
 
@@ -558,7 +555,7 @@
 
 .login-field__label {
   font-family: var(--lg-font-mono);
-  font-size: 13px;
+  font-size: var(--fs-meta);
   font-weight: 500;
   color: var(--lg-ink);
 }
@@ -576,7 +573,7 @@
   background: var(--lg-surface);
   color: var(--lg-ink);
   font-family: var(--lg-font-mono);
-  font-size: 13px;
+  font-size: var(--fs-meta);
   transition: border-color var(--transition-fast);
 }
 
@@ -649,7 +646,7 @@
   border-radius: 4px;
   background: #fdf0f3;
   color: #a3163c;
-  font-size: 13px;
+  font-size: var(--fs-meta);
   line-height: 1.45;
 }
 
@@ -661,7 +658,7 @@
 }
 
 .login-form__session {
-  font-size: 13px;
+  font-size: var(--fs-meta);
   color: var(--lg-ink);
 }
 
@@ -670,7 +667,7 @@
   align-items: center;
   gap: 4px;
   font-family: var(--lg-font-mono);
-  font-size: 12px;
+  font-size: var(--fs-meta);
   color: var(--lg-muted-soft);
 }
 
@@ -692,7 +689,7 @@
   background: var(--lg-primary);
   color: #ffffff;
   font-family: var(--lg-font-mono);
-  font-size: 13px;
+  font-size: var(--fs-meta);
   font-weight: 600;
   letter-spacing: 0.04em;
   cursor: pointer;
@@ -713,7 +710,7 @@
 }
 
 .login-submit__arrow {
-  font-size: 16px;
+  font-size: var(--fs-body);
   line-height: 1;
 }
 
@@ -743,7 +740,7 @@
 
 .login-panel__sso-note {
   font-family: var(--lg-font-mono);
-  font-size: 12px;
+  font-size: var(--fs-meta);
   color: var(--lg-muted-soft);
 }
 
@@ -760,7 +757,7 @@
   background: var(--lg-canvas-soft);
   color: var(--lg-ink);
   font-family: var(--lg-font-display);
-  font-size: 13px;
+  font-size: var(--fs-meta);
   cursor: not-allowed;
   opacity: 0.55;
 }
@@ -774,7 +771,7 @@
   padding-top: 12px;
   border-top: 1px solid var(--lg-hairline);
   font-family: var(--lg-font-mono);
-  font-size: 12px;
+  font-size: var(--fs-meta);
   color: var(--lg-muted-soft);
 }
 
@@ -861,15 +858,15 @@
   }
 
   .login-hero__badge {
-    font-size: 12px;
+    font-size: var(--fs-meta);
   }
 
   .login-hero__title {
-    font-size: 36px;
+    font-size: var(--fs-title);
   }
 
   .login-hero__subtitle {
-    font-size: 16px;
+    font-size: var(--fs-body);
   }
 
   .login-panel {
@@ -877,7 +874,7 @@
   }
 
   .login-panel__title {
-    font-size: 20px;
+    font-size: var(--fs-title);
   }
 
   .login-panel__chip {

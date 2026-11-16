@@ -1,5 +1,6 @@
 import { Card, Tag, Row, Col, Empty } from 'antd'
 import type { AgentStage } from '../../types'
+import { FONT_SIZE } from '../../styles/typography'
 import { formatPercent, isFiniteNumber } from '../../utils/dataFormat'
 
 interface StageCardProps {
@@ -43,7 +44,9 @@ export function StageCard({ stage }: StageCardProps) {
   return (
     <Card
       size="small"
-      title={<span style={{ fontWeight: 600, fontSize: 16 }}>{label}</span>}
+      title={
+        <span style={{ fontWeight: 600, fontSize: FONT_SIZE.title }}>{label}</span>
+      }
       extra={
         <Tag
           color={
@@ -72,13 +75,13 @@ export function StageCard({ stage }: StageCardProps) {
           <Col xs={24} sm={6} style={{ marginBottom: 12 }}>
             <Tag
               color={getSignalColor(stage.opinion.signal)}
-              style={{ fontSize: 12, padding: '2px 8px' }}
+              style={{ fontSize: FONT_SIZE.meta, padding: '2px 8px' }}
             >
               {getSignalLabel(stage.opinion.signal)}
             </Tag>
             <div
               style={{
-                fontSize: 12,
+                fontSize: FONT_SIZE.meta,
                 color: 'var(--color-text-secondary)',
                 marginTop: 'var(--space-xs)',
               }}
@@ -93,13 +96,15 @@ export function StageCard({ stage }: StageCardProps) {
             </div>
           </Col>
           <Col xs={24} sm={18}>
-            <div style={{ fontSize: 14, lineHeight: 1.6 }}>
+            <div style={{ fontSize: FONT_SIZE.body, lineHeight: 1.6 }}>
               {stage.opinion.reason || '无'}
             </div>
           </Col>
         </Row>
       ) : stage.error ? (
-        <div style={{ color: 'var(--color-danger)', fontSize: 14 }}>{stage.error}</div>
+        <div style={{ color: 'var(--color-danger)', fontSize: FONT_SIZE.body }}>
+          {stage.error}
+        </div>
       ) : (
         <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} />
       )}

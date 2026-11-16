@@ -7,6 +7,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import App from './App'
 import './index.css'
 import { ui } from './styles/uiTheme'
+import { FONT_FAMILY, FONT_SIZE } from './styles/typography'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -47,12 +48,16 @@ const antdTheme = {
     motionEaseOutBack: ui.ease,
     borderRadius: 10,
     borderRadiusLG: 22,
-    fontSize: 13,
-    fontSizeLG: 14,
-    fontSizeSM: 12,
+    fontSize: FONT_SIZE.body,
+    fontSizeLG: FONT_SIZE.title,
+    fontSizeSM: FONT_SIZE.meta,
+    fontSizeHeading1: FONT_SIZE.title,
+    fontSizeHeading2: FONT_SIZE.title,
+    fontSizeHeading3: FONT_SIZE.title,
+    fontSizeHeading4: FONT_SIZE.title,
+    fontSizeHeading5: FONT_SIZE.title,
     controlHeight: 36,
-    fontFamily:
-      "'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif",
+    fontFamily: FONT_FAMILY,
   },
   components: {
     Button: {
@@ -71,7 +76,7 @@ const antdTheme = {
       headerColor: ui.muted,
       rowHoverBg: ui.main,
       borderColor: ui.line,
-      fontSize: 13,
+      fontSize: FONT_SIZE.body,
     },
     Tabs: {
       itemSelectedColor: ui.ink,

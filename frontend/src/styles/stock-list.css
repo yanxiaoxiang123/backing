@@ -3,8 +3,8 @@
    remainder determines the API limit; no table/body overflow is hidden. */
 .shell--stocks {
   --stock-gap: clamp(12px, 2.4dvh, 28px);
-  --stock-font: clamp(13px, 1.6dvh, 16px);
-  --stock-table-font: clamp(13px, 1.8dvh, 18px);
+  --stock-font: var(--fs-body);
+  --stock-table-font: var(--fs-body);
   --stock-row-height: clamp(30px, 3.5dvh, 38px);
   --stock-table-head: clamp(30px, 3.6dvh, 38px);
   height: 100dvh;
@@ -50,14 +50,14 @@
 .shell--stocks .page-header .eyebrow {
   margin: 0 0 5px;
   color: #666;
-  font-size: 13px;
+  font-size: var(--fs-meta);
   line-height: 18px;
   letter-spacing: 0.1em;
 }
 
 .shell--stocks .page-title {
   margin: 0;
-  font-size: clamp(28px, 3.6dvh, 36px);
+  font-size: var(--fs-title);
   line-height: 1.2;
 }
 
@@ -124,7 +124,7 @@
 }
 
 .shell--stocks .data-quality-panel__heading strong {
-  font-size: clamp(16px, 2dvh, 20px);
+  font-size: var(--fs-title);
   font-weight: 650;
   line-height: 1.3;
 }
@@ -132,7 +132,7 @@
 .shell--stocks .data-quality-panel__heading p {
   margin: 4px 0 0;
   color: #707070;
-  font-size: clamp(12px, 1.5dvh, 15px);
+  font-size: var(--fs-body);
   line-height: 1.4;
 }
 
@@ -161,13 +161,13 @@
 
 .shell--stocks .data-quality-panel__facts dt {
   color: #707070;
-  font-size: clamp(12px, 1.5dvh, 15px);
+  font-size: var(--fs-body);
 }
 
 .shell--stocks .data-quality-panel__facts dd {
   margin-top: 4px;
   color: #242424;
-  font-size: clamp(18px, 2.6dvh, 27px);
+  font-size: var(--fs-metric);
   font-weight: 600;
   line-height: 1.3;
   white-space: nowrap;
@@ -177,7 +177,7 @@
   margin: 0;
   overflow: hidden;
   color: #707070;
-  font-size: 12px;
+  font-size: var(--fs-meta);
   line-height: 18px;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -211,7 +211,7 @@
   align-items: center;
   gap: 14px;
   margin: 0;
-  font-size: clamp(18px, 2.2dvh, 22px);
+  font-size: var(--fs-title);
   font-weight: 650;
   line-height: 1.4;
 }
@@ -220,7 +220,7 @@
   padding: 2px 10px;
   border-radius: 6px;
   background: var(--ui-sidebar);
-  font-size: clamp(12px, 1.6dvh, 16px);
+  font-size: var(--fs-body);
   font-weight: 400;
   white-space: nowrap;
 }
@@ -252,7 +252,7 @@
 
 .stock-search-shortcut {
   color: #888;
-  font-size: 13px;
+  font-size: var(--fs-meta);
   white-space: nowrap;
 }
 
@@ -264,7 +264,7 @@
 .shell--stocks .stock-list-search .ant-input-prefix {
   margin-right: 8px;
   color: #707070;
-  font-size: 18px;
+  font-size: var(--fs-title);
 }
 
 .stock-visible-count {
@@ -309,7 +309,7 @@
   border-color: #e8e8e8;
   background: var(--ui-main) !important;
   color: #666 !important;
-  font-size: clamp(12px, 1.5dvh, 15px) !important;
+  font-size: var(--fs-body) !important;
   font-weight: 600 !important;
 }
 
@@ -364,7 +364,7 @@
   border-radius: 4px;
   background: var(--ui-sidebar);
   color: #555;
-  font-size: 13px;
+  font-size: var(--fs-meta);
   line-height: 18px;
   text-align: center;
 }
@@ -383,7 +383,7 @@
 }
 
 .stock-row-actions .anticon {
-  font-size: 14px;
+  font-size: var(--fs-body);
 }
 
 .stock-list-pagination {
@@ -439,7 +439,7 @@
   align-self: end;
   margin: 0;
   color: #707070;
-  font-size: clamp(11px, 1.5dvh, 15px);
+  font-size: var(--fs-meta);
   line-height: 20px;
 }
 
@@ -497,11 +497,11 @@
   }
 
   .shell--stocks .data-quality-panel__heading p {
-    font-size: 12px;
+    font-size: var(--fs-meta);
   }
 
   .shell--stocks .data-quality-panel__facts dd {
-    font-size: 19px;
+    font-size: var(--fs-metric);
   }
 
   .stock-list-filters {
@@ -520,7 +520,7 @@
   .shell--stocks .stock-list-table .ant-table-tbody > tr.ant-table-row > td,
   .shell--stocks .stock-list-table .ant-table-thead > tr > th {
     padding-inline: 10px;
-    font-size: 13px !important;
+    font-size: var(--fs-meta) !important;
   }
 
   .stock-row-actions {
@@ -564,7 +564,7 @@
 
   .shell--stocks .shell-nav-label {
     margin-bottom: 4px;
-    font-size: 12px;
+    font-size: var(--fs-meta);
   }
 
   .shell--stocks .shell-nav-item {
@@ -582,7 +582,7 @@
 
   .shell--stocks .shell-status-row {
     min-height: 20px;
-    font-size: 12px;
+    font-size: var(--fs-meta);
   }
 
   .shell--stocks .shell-user {
@@ -614,18 +614,18 @@
 
   .shell--stocks .page-header .eyebrow {
     margin-bottom: 0;
-    font-size: 11px;
+    font-size: var(--fs-meta);
     line-height: 14px;
   }
 
   .shell--stocks .page-title {
-    font-size: 25px;
+    font-size: var(--fs-title);
     line-height: 30px;
   }
 
   .shell--stocks .page-subtitle {
     margin-top: 0;
-    font-size: 12px;
+    font-size: var(--fs-meta);
     line-height: 17px;
   }
 
@@ -636,7 +636,7 @@
   .shell--stocks .stock-list-controls__actions > .ant-btn {
     flex: 1;
     height: 32px;
-    font-size: 12px;
+    font-size: var(--fs-meta);
   }
 
   .stock-quality-summary {
@@ -656,13 +656,13 @@
   }
 
   .stock-quality-summary strong {
-    font-size: 14px;
+    font-size: var(--fs-body);
   }
 
   .stock-quality-summary span {
     overflow: hidden;
     color: #707070;
-    font-size: 11px;
+    font-size: var(--fs-meta);
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -671,7 +671,7 @@
     flex: none;
     height: 28px;
     padding-inline: 8px;
-    font-size: 11px;
+    font-size: var(--fs-meta);
   }
 
   .stock-list-heading {
@@ -681,7 +681,7 @@
 
   .stock-list-heading h2 {
     gap: 8px;
-    font-size: 17px;
+    font-size: var(--fs-title);
   }
 
   .stock-list-count {
@@ -689,7 +689,7 @@
   }
 
   .shell--stocks .stock-sort-direction {
-    font-size: 12px;
+    font-size: var(--fs-meta);
   }
 
   .stock-list-filters {
@@ -722,7 +722,7 @@
   .stock-mobile-name {
     display: block;
     overflow: hidden;
-    font-size: 13px;
+    font-size: var(--fs-meta);
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -730,13 +730,13 @@
   .stock-mobile-details {
     display: block;
     color: #707070;
-    font-size: 11px;
+    font-size: var(--fs-meta);
     white-space: nowrap;
   }
 
   .shell--stocks .stock-row-actions .ant-btn {
     padding: 0;
-    font-size: 12px;
+    font-size: var(--fs-meta);
   }
 
   .stock-list-pagination {
@@ -749,7 +749,7 @@
 
   .stock-total {
     flex: 1;
-    font-size: 12px;
+    font-size: var(--fs-meta);
   }
 
   .stock-page-size {
@@ -766,7 +766,7 @@
   }
 
   .stock-list-footer {
-    font-size: 11px;
+    font-size: var(--fs-meta);
     line-height: 16px;
   }
 }
@@ -783,7 +783,7 @@
 }
 
 .stock-quality-details .data-quality-panel__facts dd {
-  font-size: 17px;
+  font-size: var(--fs-metric);
 }
 
 @media (min-width: 768px) and (max-height: 640px) {
@@ -814,19 +814,19 @@
   }
 
   .shell--stocks .page-title {
-    font-size: 26px;
+    font-size: var(--fs-title);
     line-height: 31px;
   }
 
   .shell--stocks .page-header .eyebrow {
     margin: 0;
-    font-size: 11px;
+    font-size: var(--fs-meta);
     line-height: 14px;
   }
 
   .shell--stocks .page-subtitle {
     margin: 0;
-    font-size: 12px;
+    font-size: var(--fs-meta);
     line-height: 17px;
   }
 

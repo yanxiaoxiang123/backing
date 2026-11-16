@@ -1,10 +1,36 @@
+import { existsSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
+import { fileURLToPath } from 'node:url'
+import { join } from 'node:path'
 import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 import viteCompression from 'vite-plugin-compression'
 import { visualizer } from 'rollup-plugin-visualizer'
 
+const projectRoot = fileURLToPath(new URL('.', import.meta.url))
+const fontEntry = join(projectRoot, 'public', 'fonts', 'inter', 'index.css')
+const fontCjkEntry = join(projectRoot, 'public', 'fonts', 'noto-sans-sc', 'index.css')
+
+function syncFontsIfMissing() {
+  if (existsSync(fontEntry) && existsSync(fontCjkEntry)) return
+  execFileSync(process.execPath, [join(projectRoot, 'scripts', 'sync-fonts.mjs')], {
+    stdio: 'inherit',
+  })
+}
+
+const selfHostedFonts = {
+  name: 'self-hosted-fonts',
+  configureServer() {
+    syncFontsIfMissing()
+  },
+  buildStart() {
+    syncFontsIfMissing()
+  },
+}
+
 export default defineConfig({
   plugins: [
+    selfHostedFonts,
     {
       name: 'welcome-directory-index',
       configureServer(server) {

@@ -45,7 +45,7 @@
 }
 
 .stat-value {
-  font-size: var(--font-size-3xl);
+  font-size: var(--fs-metric);
   font-weight: 700;
   color: var(--color-text-primary);
   letter-spacing: -0.03em;
@@ -312,7 +312,7 @@
 
 .metric-card__value {
   color: var(--color-text-primary);
-  font-size: var(--font-size-xl);
+  font-size: var(--fs-metric);
   font-variant-numeric: tabular-nums lining-nums;
 }
 
@@ -419,7 +419,7 @@
 }
 
 .research-result-card__quote strong {
-  font-size: var(--font-size-lg);
+  font-size: var(--fs-metric);
   font-variant-numeric: tabular-nums lining-nums;
 }
 
@@ -757,7 +757,7 @@
   padding: var(--space-md);
   background: var(--color-canvas);
   border-radius: var(--radius-btn);
-  font-size: 11px;
+  font-size: var(--fs-meta);
   text-align: left;
   overflow-x: auto;
   color: var(--color-text-secondary);

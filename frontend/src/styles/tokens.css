@@ -113,26 +113,29 @@
   --space-2xl: 48px;
   --space-3xl: 64px;
 
-  /* Typography: CJK UI face + a serif with one job (the research conclusion) */
+  /* Typography: Inter for Latin and digits, Noto Sans SC for Chinese. */
   --font-family:
-    'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', 'Segoe UI', Roboto,
-    'Helvetica Neue', Arial, sans-serif;
-  --font-serif: 'Songti SC', 'STSong', 'SimSun', 'Noto Serif CJK SC', serif;
-  --font-size-xs: 11px;
-  --font-size-sm: 13px;
-  --font-size-base: 14px;
-  --font-size-md: 16px;
-  --font-size-lg: 20px;
-  --font-size-xl: 24px;
-  --font-size-2xl: 28px;
-  --font-size-3xl: 32px;
+    'Inter Variable', 'Noto Sans SC Variable', 'Source Han Sans CN', 'PingFang SC',
+    'Microsoft YaHei', sans-serif;
 
-  /* App-screen type roles */
-  --fs-title: 30px;
-  --fs-section: 14px;
-  --fs-kpi: 28px;
+  /* Four text roles. Do not add a fifth size. */
+  --fs-metric: 28px;
+  --fs-title: 20px;
   --fs-body: 14px;
-  --fs-small: 12px;
+  --fs-meta: 12px;
+
+  /* Compatibility aliases while page styles migrate to the roles above. */
+  --font-size-xs: var(--fs-meta);
+  --font-size-sm: var(--fs-body);
+  --font-size-base: var(--fs-body);
+  --font-size-md: var(--fs-body);
+  --font-size-lg: var(--fs-title);
+  --font-size-xl: var(--fs-title);
+  --font-size-2xl: var(--fs-title);
+  --font-size-3xl: var(--fs-title);
+  --fs-section: var(--fs-title);
+  --fs-kpi: var(--fs-metric);
+  --fs-small: var(--fs-meta);
 
   /* Motion */
   --transition-fast: var(--ui-fast) var(--ui-ease);

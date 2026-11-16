@@ -1,6 +1,6 @@
 .dl-prediction-page {
   color: #242424;
-  font-size: 15px;
+  font-size: var(--fs-body);
   font-variant-numeric: tabular-nums lining-nums;
   overflow-wrap: anywhere;
 }
@@ -18,7 +18,7 @@
 .dl-eyebrow {
   margin: 0;
   color: #666666;
-  font-size: 13px;
+  font-size: var(--fs-meta);
   font-weight: 700;
   line-height: 20px;
   letter-spacing: 0.12em;
@@ -26,7 +26,7 @@
 
 .dl-page-header h1 {
   margin: 0 0 2px;
-  font-size: 32px;
+  font-size: var(--fs-title);
   font-weight: 700;
   line-height: 46px;
 }
@@ -34,7 +34,7 @@
 .dl-subtitle {
   margin: 0;
   color: var(--ui-muted);
-  font-size: 15px;
+  font-size: var(--fs-body);
   line-height: 24px;
 }
 
@@ -65,7 +65,7 @@
 .dl-header-actions .ant-btn {
   height: 38px;
   padding-inline: 18px;
-  font-size: 14px;
+  font-size: var(--fs-body);
 }
 
 .dl-instrument-strip {
@@ -91,7 +91,7 @@
 }
 
 .dl-instrument-name strong {
-  font-size: 22px;
+  font-size: var(--fs-title);
   font-weight: 650;
 }
 
@@ -99,7 +99,7 @@
   padding-left: 20px;
   border-left: 1px solid #d5d5d5;
   color: var(--ui-muted);
-  font-size: 16px;
+  font-size: var(--fs-body);
 }
 
 .dl-market-label {
@@ -108,12 +108,12 @@
   border-radius: 5px;
   background: var(--ui-sidebar);
   color: var(--ui-muted);
-  font-size: 13px;
+  font-size: var(--fs-meta);
 }
 
 .dl-data-cutoff {
   color: var(--ui-muted);
-  font-size: 14px;
+  font-size: var(--fs-body);
 }
 
 .dl-alerts {
@@ -170,14 +170,14 @@
   gap: 12px;
   margin: 0;
   color: #242424;
-  font-size: 20px;
+  font-size: var(--fs-title);
   font-weight: 650;
   line-height: 28px;
 }
 
 .dl-panel-heading .anticon,
 .dl-backtest-config h2 .anticon {
-  font-size: 20px;
+  font-size: var(--fs-title);
   color: #666666;
 }
 
@@ -198,7 +198,7 @@
 .dl-field label,
 .dl-field-label {
   color: #444444;
-  font-size: 15px;
+  font-size: var(--fs-body);
   line-height: 22px;
 }
 
@@ -266,7 +266,7 @@
 
 .dl-horizon-slider {
   color: var(--ui-muted);
-  font-size: 11px;
+  font-size: var(--fs-meta);
   line-height: 16px;
 }
 
@@ -303,7 +303,7 @@
 }
 
 .dl-backtest-config .ant-picker-input > input {
-  font-size: 13px;
+  font-size: var(--fs-meta);
 }
 
 .dl-backtest-config .ant-picker-range-separator {
@@ -313,7 +313,7 @@
 .dl-config-note {
   margin: -8px 0 0;
   color: var(--ui-muted);
-  font-size: 12px;
+  font-size: var(--fs-meta);
   line-height: 20px;
   text-wrap: pretty;
 }
@@ -327,7 +327,7 @@
 .dl-panel-heading .ant-segmented {
   background: #ebebeb;
   border-radius: 8px;
-  font-size: 14px;
+  font-size: var(--fs-body);
   font-weight: 600;
 }
 
@@ -367,20 +367,20 @@
 .dl-chart-metrics dt {
   margin-bottom: 2px;
   color: var(--ui-muted);
-  font-size: 13px;
+  font-size: var(--fs-meta);
   line-height: 20px;
 }
 
 .dl-chart-metrics dd {
   margin: 0;
-  font-size: 26px;
+  font-size: var(--fs-metric);
   font-weight: 650;
   line-height: 32px;
   white-space: nowrap;
 }
 
 .dl-chart-metrics dd span {
-  font-size: 16px;
+  font-size: var(--fs-body);
   font-weight: 400;
 }
 
@@ -405,7 +405,7 @@
 
 .dl-run-status {
   color: var(--ui-muted);
-  font-size: 14px;
+  font-size: var(--fs-body);
 }
 
 .dl-results-body {
@@ -432,7 +432,7 @@
   padding: 6px 16px !important;
   background: var(--ui-main) !important;
   color: var(--ui-muted);
-  font-size: 14px;
+  font-size: var(--fs-body);
   white-space: nowrap;
 }
 
@@ -440,7 +440,7 @@
 .dl-backtest-metrics .ant-descriptions-item-content {
   padding: 6px 16px !important;
   background: var(--ui-panel);
-  font-size: 14px;
+  font-size: var(--fs-body);
   overflow-wrap: anywhere;
 }
 
@@ -453,7 +453,7 @@
 .dl-history-note {
   margin: 0;
   color: var(--ui-muted);
-  font-size: 12px;
+  font-size: var(--fs-meta);
   line-height: 20px;
 }
 
@@ -464,7 +464,7 @@
 .dl-results-empty {
   padding: 6px 4px;
   color: var(--ui-muted);
-  font-size: 13px;
+  font-size: var(--fs-meta);
   line-height: 24px;
 }
 
@@ -480,7 +480,7 @@
 .dl-details > summary {
   padding: 9px 22px;
   color: var(--ui-muted);
-  font-size: 13px;
+  font-size: var(--fs-meta);
 }
 
 .dl-details-body {
@@ -490,12 +490,12 @@
 
 .dl-details-body h3 {
   margin: 12px 0;
-  font-size: 15px;
+  font-size: var(--fs-body);
 }
 
 .dl-details-body p {
   color: var(--ui-muted);
-  font-size: 12px;
+  font-size: var(--fs-meta);
   margin-block: 8px;
 }
 
@@ -592,17 +592,17 @@
   }
 
   .dl-chart-metrics dd {
-    font-size: 22px;
+    font-size: var(--fs-metric);
   }
 
   .dl-chart-metrics dd span {
-    font-size: 12px;
+    font-size: var(--fs-meta);
   }
 
   .dl-result-grid .ant-descriptions-item-label,
   .dl-result-grid .ant-descriptions-item-content {
     padding: 6px 10px !important;
-    font-size: 12px;
+    font-size: var(--fs-meta);
   }
 }
 
@@ -618,7 +618,7 @@
   }
 
   .dl-page-header h1 {
-    font-size: 24px;
+    font-size: var(--fs-title);
     line-height: 36px;
   }
 
@@ -640,11 +640,11 @@
   }
 
   .dl-instrument-name strong {
-    font-size: 20px;
+    font-size: var(--fs-title);
   }
 
   .dl-data-cutoff {
-    font-size: 12px;
+    font-size: var(--fs-meta);
   }
 
   .dl-price-chart,
