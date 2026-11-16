@@ -12,6 +12,14 @@ import {
   LINE_REVEAL_MS,
   settledChartOption,
 } from './chartInteraction'
+import {
+  chartZoomSlide,
+  isNextZoomWindow,
+  readChartZoomWindow,
+  type ChartZoomWindow,
+} from './chartZoom'
+
+const ZOOM_SLIDE_MS = 480
 
 let echartsPromise: Promise<typeof import('./echartsCustom').default> | null = null
 
@@ -31,6 +39,8 @@ export interface LazyEChartsProps extends HTMLAttributes<HTMLDivElement> {
   resetKey?: number
   /** Replay only when the displayed instrument or time window changes. */
   revealKey?: string | number
+  /** Slide the data zoom window when one new bar advances it. */
+  slideWindow?: boolean
 }
 
 export const LazyECharts = forwardRef<HTMLDivElement, LazyEChartsProps>(
@@ -43,6 +53,7 @@ export const LazyECharts = forwardRef<HTMLDivElement, LazyEChartsProps>(
       summary,
       resetKey = 0,
       revealKey,
+      slideWindow = false,
       ...props
     },
     ref,
@@ -53,8 +64,12 @@ export const LazyECharts = forwardRef<HTMLDivElement, LazyEChartsProps>(
     const revealKeyRef = useRef(revealKey)
     const applyOptionRef = useRef<(() => void) | null>(null)
     const finishRevealRef = useRef<(() => void) | null>(null)
+    const slideWindowRef = useRef(slideWindow)
+    const previousZoomRef = useRef<ChartZoomWindow | null>(null)
+    const zoomAnimationRef = useRef<number | undefined>(undefined)
     optionRef.current = option
     revealKeyRef.current = revealKey
+    slideWindowRef.current = slideWindow
     useImperativeHandle(ref, () => containerRef.current as HTMLDivElement, [])
 
     useEffect(() => {
@@ -80,8 +95,40 @@ export const LazyECharts = forwardRef<HTMLDivElement, LazyEChartsProps>(
           lazyUpdate: false,
         })
       }
+      const animateZoom = (previous: ChartZoomWindow, next: ChartZoomWindow) => {
+        if (!chartRef.current) return
+        const zoom = (optionRef.current as EChartsOption).dataZoom
+        const items = Array.isArray(zoom) ? zoom : zoom ? [zoom] : []
+        if (!items.length) return
+        const { from, to } = chartZoomSlide(previous, next)
+        const applyZoom = (start: number, end: number) => {
+          chartRef.current?.dispatchAction({
+            type: 'dataZoom',
+            batch: items.map((_, index) => ({ dataZoomIndex: index, start, end })),
+          })
+        }
+        applyZoom(from.start, from.end)
+        const startedAt = performance.now()
+        const step = (now: number) => {
+          const progress = Math.min(1, (now - startedAt) / ZOOM_SLIDE_MS)
+          const eased = 1 - (1 - progress) ** 3
+          applyZoom(
+            from.start + (to.start - from.start) * eased,
+            from.end + (to.end - from.end) * eased,
+          )
+          zoomAnimationRef.current =
+            progress < 1 ? requestAnimationFrame(step) : undefined
+        }
+        zoomAnimationRef.current = requestAnimationFrame(step)
+      }
       const applyOption = () => {
         if (!chartRef.current) return
+        const nextZoom = readChartZoomWindow(optionRef.current)
+        const previousZoom = previousZoomRef.current
+        if (zoomAnimationRef.current) {
+          cancelAnimationFrame(zoomAnimationRef.current)
+          zoomAnimationRef.current = undefined
+        }
         clearRevealTimer()
         const key = revealKeyRef.current
         const newLine =
@@ -100,6 +147,15 @@ export const LazyECharts = forwardRef<HTMLDivElement, LazyEChartsProps>(
         if (revealing) {
           revealTimer = window.setTimeout(finishReveal, LINE_REVEAL_MS)
         }
+        if (
+          slideWindowRef.current &&
+          previousZoom &&
+          nextZoom &&
+          isNextZoomWindow(previousZoom, nextZoom)
+        ) {
+          animateZoom(previousZoom, nextZoom)
+        }
+        previousZoomRef.current = nextZoom
       }
       applyOptionRef.current = applyOption
       finishRevealRef.current = finishReveal
@@ -159,6 +215,10 @@ export const LazyECharts = forwardRef<HTMLDivElement, LazyEChartsProps>(
       return () => {
         disposed = true
         clearRevealTimer()
+        if (zoomAnimationRef.current) {
+          cancelAnimationFrame(zoomAnimationRef.current)
+          zoomAnimationRef.current = undefined
+        }
         applyOptionRef.current = null
         finishRevealRef.current = null
         container.removeEventListener('pointerdown', start)
@@ -186,6 +246,10 @@ export const LazyECharts = forwardRef<HTMLDivElement, LazyEChartsProps>(
       const items = Array.isArray(zoom) ? zoom : zoom ? [zoom] : []
       // Reset ranges only: retain legend selections and the current data.
       if (resetKey && items.length) {
+        if (zoomAnimationRef.current) {
+          cancelAnimationFrame(zoomAnimationRef.current)
+          zoomAnimationRef.current = undefined
+        }
         finishRevealRef.current?.()
         chartRef.current?.dispatchAction({
           type: 'dataZoom',

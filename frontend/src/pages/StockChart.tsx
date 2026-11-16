@@ -291,6 +291,7 @@ function StockChart() {
                 style={{ height: 440 }}
                 notMerge
                 lazyUpdate
+                slideWindow={period === '5m'}
               />
             ) : (
               <Empty description="暂无 K 线数据，请先同步行情" />
