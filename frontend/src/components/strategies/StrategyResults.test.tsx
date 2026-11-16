@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { MemoryRouter } from 'react-router-dom'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -45,20 +46,26 @@ const result = {
 
 describe('StrategyResults', () => {
   it('exposes the four research result tabs and saved history link', async () => {
-    render(
-      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-        <StrategyResults
-          klineData={[]}
-          signals={[]}
-          signalStats={null}
-          backtestResult={result}
-          loading={{ signals: false, backtest: false }}
-          chartRef={{ current: null }}
-          chartOption={{}}
-          portfolioChartOption={{}}
-        />
-      </MemoryRouter>,
-    )
+    function ResultTabs() {
+      const [activeTab, setActiveTab] = useState('market')
+      return (
+        <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+          <StrategyResults
+            activeTab={activeTab}
+            onTabChange={setActiveTab}
+            klineData={[]}
+            signals={[]}
+            signalStats={null}
+            backtestResult={result}
+            loading={{ signals: false, backtest: false }}
+            chartRef={{ current: null }}
+            chartOption={{}}
+            portfolioChartOption={{}}
+          />
+        </MemoryRouter>
+      )
+    }
+    render(<ResultTabs />)
 
     expect(screen.getByText('行情与信号')).toBeInTheDocument()
     expect(screen.getByText('资金曲线')).toBeInTheDocument()

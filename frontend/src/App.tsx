@@ -52,6 +52,7 @@ import {
 } from './services/api'
 import { safeNextPath } from './utils/nextPath'
 import { researchTheme } from './styles/researchTheme'
+import { normalizeStockCode } from './utils/stockIdentity'
 
 interface NavItem {
   key: string
@@ -242,6 +243,9 @@ function App() {
   }
 
   const stockCodeForTitle = location.pathname.match(/^\/stocks\/([^/]+)/)?.[1]
+  const copilotStockCode = normalizeStockCode(
+    stockCodeForTitle ?? new URLSearchParams(location.search).get('stock'),
+  )
 
   useEffect(() => {
     const pageTitle = getPageTitle(location.pathname, stockCodeForTitle)
@@ -324,7 +328,11 @@ function App() {
           ) : null}
         </span>
       </Link>
-      <Link to="/workspace" className="shell-status-row" onClick={closeMobileMenu}>
+      <Link
+        to="/workspace?panel=alerts"
+        className="shell-status-row"
+        onClick={closeMobileMenu}
+      >
         <span className={`shell-status-dot ${system.unreadAlerts ? 'is-warn' : ''}`} />
         <span>
           告警 <strong>{alertsValue}</strong> 未读
@@ -584,8 +592,8 @@ function App() {
         onOpenChange={setCopilotOpen}
         context={{
           route: location.pathname,
-          entity_type: stockCodeForTitle ? 'stock' : 'page',
-          entity_id: stockCodeForTitle,
+          entity_type: copilotStockCode ? 'stock' : 'page',
+          entity_id: copilotStockCode ?? undefined,
         }}
       />
     </ConfigProvider>

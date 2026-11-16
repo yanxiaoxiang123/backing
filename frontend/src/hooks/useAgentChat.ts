@@ -33,6 +33,13 @@ interface TurnParts {
 export interface UseAgentChatOptions {
   onRunLinked?: (runId: string) => void
   context?: PageContext
+  threadId?: string | null
+  onThreadChange?: (id: string | null) => void
+}
+
+export interface ChatSendResult {
+  accepted: boolean
+  threadId: string | null
 }
 
 export interface UseAgentChatResult {
@@ -42,11 +49,16 @@ export interface UseAgentChatResult {
   stockCode: string | null
   streamState: ChatStreamState
   running: boolean
+  restoring: boolean
   error: string | null
   runtimeStatus: ChatRuntimeStatus | null
   selectThread: (threadId: string) => Promise<void>
   newThread: () => Promise<string>
-  send: (content: string, context?: PageContext) => Promise<void>
+  send: (
+    content: string,
+    context?: PageContext,
+    onThreadCreated?: (threadId: string) => void,
+  ) => Promise<ChatSendResult>
   stop: () => Promise<void>
   archive: (threadId: string) => Promise<void>
   refreshStatus: () => Promise<void>
@@ -71,6 +83,8 @@ export function useAgentChat(options: UseAgentChatOptions = {}): UseAgentChatRes
   onRunLinkedRef.current = options.onRunLinked
   const contextRef = useRef(options.context)
   contextRef.current = options.context
+  const onThreadChangeRef = useRef(options.onThreadChange)
+  onThreadChangeRef.current = options.onThreadChange
 
   const initialThreadId = useRef<string | null>(
     typeof window === 'undefined'
@@ -105,11 +119,19 @@ export function useAgentChat(options: UseAgentChatOptions = {}): UseAgentChatRes
   const titleRefreshSeqRef = useRef(0)
 
   const persistThreadId = useCallback((id: string | null) => {
+    if (onThreadChangeRef.current) {
+      onThreadChangeRef.current(id)
+      return
+    }
     if (typeof window === 'undefined') return
     const url = new URL(window.location.href)
     if (id) url.searchParams.set('thread_id', id)
     else url.searchParams.delete('thread_id')
-    window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`)
+    window.history.replaceState(
+      window.history.state,
+      '',
+      `${url.pathname}${url.search}${url.hash}`,
+    )
   }, [])
 
   const applyEvent = useCallback((event: ChatEvent) => {
@@ -359,19 +381,39 @@ export function useAgentChat(options: UseAgentChatOptions = {}): UseAgentChatRes
   }, [clearSession, persistThreadId, selectThread])
 
   const send = useCallback(
-    async (content: string, context?: PageContext): Promise<void> => {
+    async (
+      content: string,
+      context?: PageContext,
+      onThreadCreated?: (threadId: string) => void,
+    ): Promise<ChatSendResult> => {
       const text = content.trim()
-      if (!text) return
+      let thread = currentThread
+      const receipt = (accepted: boolean): ChatSendResult => ({
+        accepted,
+        threadId: thread?.thread_id ?? null,
+      })
+      if (!text) return receipt(false)
+      const requestedId =
+        options.threadId !== undefined
+          ? options.threadId
+          : (activeThreadRef.current ?? initialThreadId.current)
+      if (requestedId && thread?.thread_id !== requestedId) {
+        setError('会话尚未加载完成，输入已保留；请加载会话后再发送')
+        return receipt(false)
+      }
       const version = sessionVersionRef.current
+      const submittedContext = context ?? contextRef.current
+      setError(null)
       try {
         if (runtimeStatus && !runtimeStatus.available) {
           setError('Agent 聊天当前不可用，请检查模型配置后重试')
-          return
+          return receipt(false)
         }
-        let thread = currentThread
         if (!thread) {
           const created = await createThread()
-          if (sessionVersionRef.current !== version) return
+          thread = created
+          if (sessionVersionRef.current !== version) return receipt(false)
+          onThreadCreated?.(created.thread_id)
           activeThreadRef.current = created.thread_id
           setThreads((prev) => [created, ...prev])
           setCurrentThread(created)
@@ -387,13 +429,13 @@ export function useAgentChat(options: UseAgentChatOptions = {}): UseAgentChatRes
           thread.thread_id,
           text,
           newIdempotencyKey(),
-          context || contextRef.current,
+          submittedContext,
         )
         if (
           sessionVersionRef.current !== version ||
           activeThreadRef.current !== thread.thread_id
         )
-          return
+          return receipt(true)
         const terminalPatch = terminalTurnPatchesRef.current.get(turn.id)
         const mergedTurn = terminalPatch ? { ...turn, ...terminalPatch } : turn
         setTurns((prev) => {
@@ -406,11 +448,20 @@ export function useAgentChat(options: UseAgentChatOptions = {}): UseAgentChatRes
         loadedTurnIdsRef.current.add(mergedTurn.id)
         terminalTurnPatchesRef.current.delete(mergedTurn.id)
         void refreshThreads()
+        return receipt(true)
       } catch (exc) {
         if (sessionVersionRef.current === version) setError(getApiErrorMessage(exc))
+        return receipt(false)
       }
     },
-    [connectStream, currentThread, persistThreadId, refreshThreads, runtimeStatus],
+    [
+      connectStream,
+      currentThread,
+      options.threadId,
+      persistThreadId,
+      refreshThreads,
+      runtimeStatus,
+    ],
   )
 
   const stop = useCallback(async (): Promise<void> => {
@@ -487,6 +538,10 @@ export function useAgentChat(options: UseAgentChatOptions = {}): UseAgentChatRes
   }, [refreshStatus])
 
   useEffect(() => {
+    if (options.threadId !== undefined) {
+      void refreshThreads()
+      return
+    }
     const id = initialThreadId.current
     if (id) {
       // StrictMode cleans up the first effect before its request resolves.
@@ -501,12 +556,20 @@ export function useAgentChat(options: UseAgentChatOptions = {}): UseAgentChatRes
     } else {
       void refreshThreads()
     }
-  }, [refreshThreads, selectThread])
+  }, [options.threadId, refreshThreads, selectThread])
+
+  useEffect(() => {
+    const id = options.threadId
+    if (id === undefined || id === activeThreadRef.current) return
+    if (id) void selectThread(id)
+    else clearSession()
+  }, [options.threadId, selectThread, clearSession])
 
   useEffect(() => {
     return () => {
       sessionVersionRef.current += 1
       titleRefreshSeqRef.current += 1
+      activeThreadRef.current = null
       streamRef.current?.stop()
     }
   }, [])
@@ -578,9 +641,17 @@ export function useAgentChat(options: UseAgentChatOptions = {}): UseAgentChatRes
     [turns],
   )
 
+  const requestedThreadId =
+    options.threadId !== undefined
+      ? options.threadId
+      : (activeThreadRef.current ?? initialThreadId.current)
+
   return {
     threads,
     currentThread,
+    restoring: Boolean(
+      requestedThreadId && currentThread?.thread_id !== requestedThreadId,
+    ),
     messages,
     stockCode,
     streamState,

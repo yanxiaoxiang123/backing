@@ -22,6 +22,8 @@ import {
 } from '../../utils/dataFormat'
 
 interface StrategyResultsProps {
+  activeTab: string
+  onTabChange: (key: string) => void
   klineData: KlineData[]
   signals: SignalDataPoint[]
   signalStats: SignalStats | null
@@ -177,8 +179,9 @@ function MetricsCard({ result }: { result: StrategyBacktestResponse }) {
 }
 
 export function StrategyResults({
+  activeTab,
+  onTabChange,
   klineData,
-  signals,
   signalStats,
   backtestResult,
   loading,
@@ -187,8 +190,9 @@ export function StrategyResults({
   portfolioChartOption,
   children,
 }: StrategyResultsProps) {
-  const showChart =
-    klineData.length > 0 || signals.length > 0 || Boolean(backtestResult)
+  // A saved backtest belongs to its own result tabs. Mount market candles only
+  // when the current stock/interval has data, so ECharts cannot retain old series.
+  const showChart = klineData.length > 0
   const isLoading = loading.signals || loading.backtest
   const [resetKey, setResetKey] = useState(0)
 
@@ -205,6 +209,8 @@ export function StrategyResults({
         styles={{ body: { padding: 'var(--space-md)' } }}
       >
         <Tabs
+          activeKey={activeTab}
+          onChange={onTabChange}
           items={[
             {
               key: 'market',

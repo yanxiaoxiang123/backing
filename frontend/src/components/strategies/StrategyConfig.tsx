@@ -172,6 +172,7 @@ export function StrategyConfig({
               股票代码
             </label>
             <StockSearch
+              allowClear
               id="strategy-stock"
               value={stockCode ?? undefined}
               onChange={onStockCodeChange}

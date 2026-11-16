@@ -1,0 +1,12 @@
+[Unit]
+Description=Backing daily private backup
+
+[Service]
+Type=oneshot
+User=yanxx
+Group=yanxx
+UMask=0077
+ExecStart=/usr/bin/python3 /home/yanxx/backing/source/deploy/production/operations.py backup
+TimeoutStartSec=1h
+StandardOutput=append:/home/yanxx/backing/ops/backup.log
+StandardError=append:/home/yanxx/backing/ops/backup.log

@@ -1,5 +1,5 @@
 import { Prose } from '../components/Prose'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Alert, Button, Drawer, Tabs, Tag } from 'antd'
 import {
   CloseOutlined,
@@ -8,10 +8,10 @@ import {
   MessageOutlined,
 } from '@ant-design/icons'
 import { LazyECharts } from '../components/charts/LazyECharts'
-import { useLocation, useSearchParams } from 'react-router-dom'
+import { useLocation, useNavigationType, useSearchParams } from 'react-router-dom'
 import { ChatSidebar } from '../components/chat/ChatSidebar'
 import { ChatConversation } from '../components/chat/ChatConversation'
-import { ChatInput } from '../components/chat/ChatInput'
+import { ResearchChatInput } from '../components/chat/ResearchChatInput'
 import { ResearchWelcome } from '../components/chat/ResearchWelcome'
 import { EvidencePanel } from '../components/agent/EvidencePanel'
 import { BacktestPanel } from '../components/agent/BacktestPanel'
@@ -26,6 +26,7 @@ import { getStockKline } from '../services/api'
 import type { ApprovalRequest } from '../types/agent'
 import type { DailyKline } from '../types'
 import { extractStockCode } from '../utils/stockIdentity'
+import { readAlertId, readResearchPanel } from '../utils/researchNavigation'
 import '../styles/agent.css'
 import '../styles/chat.css'
 
@@ -96,8 +97,37 @@ function KlineChart({ klines }: { klines: DailyKline[] }) {
 
 export default function AgentWorkspace() {
   const location = useLocation()
-  const [searchParams] = useSearchParams()
+  const navigationType = useNavigationType()
+  const [searchParams, setSearchParams] = useSearchParams()
   const requestedStock = extractStockCode(searchParams.get('stock'))
+  const requestedPanel = readResearchPanel(searchParams.get('panel'))
+  const selectedAlertId = readAlertId(searchParams.get('alert'))
+  const researchTab = requestedPanel ?? 'market'
+  const syncThread = useCallback(
+    (id: string | null) => {
+      setSearchParams(
+        (current) => {
+          const next = new URLSearchParams(current)
+          if (id) next.set('thread_id', id)
+          else next.delete('thread_id')
+          return next
+        },
+        { replace: true, state: location.state },
+      )
+    },
+    [setSearchParams, location.state],
+  )
+  const setResearchTab = (key: string) => {
+    if (!readResearchPanel(key)) return
+    setSearchParams(
+      (current) => {
+        const next = new URLSearchParams(current)
+        next.set('panel', key)
+        return next
+      },
+      { state: location.state },
+    )
+  }
   const pageContext = useMemo(
     () => ({
       route: location.pathname,
@@ -122,6 +152,8 @@ export default function AgentWorkspace() {
   const chat = useAgentChat({
     onRunLinked: (runId) => void attach(runId),
     context: pageContext,
+    threadId: searchParams.get('thread_id'),
+    onThreadChange: syncThread,
   })
   const [klines, setKlines] = useState<DailyKline[]>([])
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() =>
@@ -137,8 +169,19 @@ export default function AgentWorkspace() {
     () =>
       typeof window !== 'undefined' && window.matchMedia('(max-width: 1279px)').matches,
   )
-  const [researchTab, setResearchTab] = useState('market')
   const attachedThreadRef = useRef<string | null>(null)
+  const lastPanelTargetRef = useRef<string>()
+
+  useEffect(() => {
+    const target = JSON.stringify([requestedPanel, selectedAlertId, compactResearch])
+    const targetChanged = lastPanelTargetRef.current !== target
+    lastPanelTargetRef.current = target
+    // Routine thread synchronization replaces the URL; it is not a new request
+    // to reopen a panel the user dismissed. Explicit links and history still reveal it.
+    if (!requestedPanel || (navigationType === 'REPLACE' && !targetChanged)) return
+    setResearchCollapsed(false)
+    setResearchMobileOpen(compactResearch)
+  }, [requestedPanel, selectedAlertId, compactResearch, location.key, navigationType])
 
   // 行情优先跟随当前会话最新确认的股票；没有会话目标时才回退到
   // 研究 run 的目标或页面 URL，避免普通查股后右栏仍停在旧研究标的。
@@ -476,7 +519,7 @@ export default function AgentWorkspace() {
               {
                 key: 'alerts',
                 label: '告警',
-                children: <AlertsPanel />,
+                children: <AlertsPanel selectedAlertId={selectedAlertId} />,
               },
             ]}
           />
@@ -570,15 +613,20 @@ export default function AgentWorkspace() {
             />
           }
         />
-        <ChatInput
+        <ResearchChatInput
+          threadId={searchParams.get('thread_id') ?? chat.currentThread?.thread_id}
+          stockCode={requestedStock ?? stockCode}
           running={chat.running}
+          sendDisabled={chat.restoring}
           draft={draft}
           disabled={Boolean(chat.runtimeStatus && !chat.runtimeStatus.available)}
           initialValue={
             searchParams.get('prompt') ??
-            (requestedStock && !chat.currentThread ? `分析一下 ${requestedStock}` : '')
+            (requestedStock && !searchParams.get('thread_id') && !chat.currentThread
+              ? `分析一下 ${requestedStock}`
+              : '')
           }
-          onSend={(content) => void chat.send(content)}
+          onSend={(content, created) => chat.send(content, undefined, created)}
           onStop={() => void chat.stop()}
         />
       </section>

@@ -78,7 +78,11 @@ export function useAgentRun(): UseAgentRunResult {
     const url = new URL(window.location.href)
     if (id) url.searchParams.set('run_id', id)
     else url.searchParams.delete('run_id')
-    window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`)
+    window.history.replaceState(
+      window.history.state,
+      '',
+      `${url.pathname}${url.search}${url.hash}`,
+    )
   }, [])
 
   const refresh = useCallback(async (id: string) => {

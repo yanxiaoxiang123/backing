@@ -1,0 +1,10 @@
+[Unit]
+Description=Backing weekday close data update
+
+[Timer]
+OnCalendar=Mon..Fri *-*-* 16:30:00 Asia/Shanghai
+Persistent=true
+Unit=backing-sync.service
+
+[Install]
+WantedBy=timers.target

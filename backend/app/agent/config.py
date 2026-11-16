@@ -4,6 +4,7 @@
 from typing import Optional
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from app.runtime_env import backend_env_file
 
 
 class AgentSettings(BaseSettings):
@@ -29,7 +30,7 @@ class AgentSettings(BaseSettings):
     AGENT_RISK_OVERRIDE: bool = True
 
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=backend_env_file(),
         env_file_encoding="utf-8",
         extra="allow",
     )

@@ -1,0 +1,105 @@
+name: backing
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: 20m
+    max-file: "3"
+
+services:
+  web:
+    image: ${NGINX_IMAGE:-nginx:stable-alpine}
+    restart: unless-stopped
+    environment:
+      NGINX_ENTRYPOINT_WORKER_PROCESSES_AUTOTUNE: "1"
+    ports:
+      - "2939:443"
+    volumes:
+      - ${BACKING_ROOT}/frontend:/usr/share/nginx/html:ro
+      - ${BACKING_ROOT}/source/deploy/production/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ${BACKING_ROOT}/shared/tls:/etc/nginx/tls:ro
+    depends_on:
+      backend:
+        condition: service_healthy
+    cpus: 1
+    mem_limit: 256m
+    logging: *logging
+
+  backend:
+    image: backing-backend:${BACKING_VERSION:-local}
+    build:
+      context: ${BACKING_ROOT}/source
+      dockerfile: deploy/production/backend.Dockerfile
+      args:
+        PYTHON_IMAGE: ${PYTHON_IMAGE:-python:3.12-slim-bookworm}
+    user: "1002:1002"
+    restart: unless-stopped
+    environment:
+      BACKING_ENV_FILE: /runtime-config/backend.env
+      TZ: Asia/Shanghai
+      PYTHONUNBUFFERED: "1"
+      HOME: /runtime-cache
+      XDG_CACHE_HOME: /runtime-cache
+      HF_HOME: /runtime-cache/huggingface
+    volumes:
+      - ${BACKING_ROOT}/shared/config:/runtime-config
+      - ${BACKING_ROOT}/shared/db:/runtime-db
+      - ${BACKING_ROOT}/shared/backend-data:/app/backend/data
+      - ${BACKING_ROOT}/shared/backend-cache:/runtime-cache
+    expose:
+      - "8808"
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8808/api/v1/health',timeout=5)"]
+      interval: 15s
+      timeout: 8s
+      retries: 8
+      start_period: 90s
+    cpus: 4
+    mem_limit: 16g
+    logging: *logging
+
+  predictor:
+    image: backing-predictor:${BACKING_VERSION:-local}
+    build:
+      context: ${BACKING_ROOT}/source
+      dockerfile: deploy/production/predictor.Dockerfile
+      args:
+        PYTHON_IMAGE: ${PYTHON_IMAGE:-python:3.12-slim-bookworm}
+    user: "1002:1002"
+    restart: unless-stopped
+    env_file:
+      - ${BACKING_ROOT}/shared/config/predictor.env
+    environment:
+      KRONOS_ROOT: /models
+      KRONOS_DEVICE: cuda:0
+      KRONOS_IDLE_SECONDS: "600"
+      NVIDIA_VISIBLE_DEVICES: ${BACKING_GPU_UUID:-GPU-f32aed7d-4fb9-cc7a-41d2-396ec1e4cfcf}
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility
+      TZ: Asia/Shanghai
+      PYTHONUNBUFFERED: "1"
+      HOME: /runtime-cache
+      XDG_CACHE_HOME: /runtime-cache
+      HF_HOME: /runtime-cache/huggingface
+      HF_HUB_OFFLINE: "1"
+      OMP_NUM_THREADS: "8"
+    volumes:
+      - ${BACKING_ROOT}/models:/models:ro
+      - ${BACKING_ROOT}/shared/model-cache:/runtime-cache
+    expose:
+      - "8211"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ["${BACKING_GPU_UUID:-GPU-f32aed7d-4fb9-cc7a-41d2-396ec1e4cfcf}"]
+              capabilities: [gpu]
+    healthcheck:
+      test: [CMD, python, -c, "import os,urllib.request; r=urllib.request.Request('http://127.0.0.1:8211/v1/status',headers={'Authorization':'Bearer '+os.environ['KRONOS_SERVICE_TOKEN']}); urllib.request.urlopen(r,timeout=5)"]
+      interval: 30s
+      timeout: 8s
+      retries: 5
+      start_period: 120s
+    cpus: 8
+    mem_limit: 32g
+    logging: *logging

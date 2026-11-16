@@ -526,7 +526,12 @@ function Dashboard() {
                 : '从自选标的开始，跟踪信号与研究依据。'}
             </Prose>
             <div className="dash-hero-actions">
-              <Button type="primary" onClick={() => navigate('/agent')}>
+              <Button
+                type="primary"
+                onClick={() =>
+                  navigate(latest ? `/agent?report=${latest.id}` : '/agent')
+                }
+              >
                 {latest ? '打开分析报告' : '发起分析'}
               </Button>
               {latest ? (
@@ -661,7 +666,7 @@ function Dashboard() {
                   key={alert.id}
                   type="button"
                   className={`dash-alert${alert.is_read ? ' is-read' : ''}`}
-                  onClick={() => navigate('/workspace')}
+                  onClick={() => navigate(`/workspace?panel=alerts&alert=${alert.id}`)}
                 >
                   <span
                     className={`dash-alert-dot ${
@@ -686,7 +691,7 @@ function Dashboard() {
           )}
           <div className="dash-alert-actions">
             <Button onClick={() => navigate('/workspace')}>打开工作台 →</Button>
-            <Link to="/workspace" className="dash-panel-link">
+            <Link to="/workspace?panel=alerts" className="dash-panel-link">
               查看全部告警
             </Link>
           </div>
@@ -804,7 +809,7 @@ function Dashboard() {
                     key={record.id}
                     type="button"
                     className="dash-history-row"
-                    onClick={() => navigate('/agent')}
+                    onClick={() => navigate(`/agent?report=${record.id}`)}
                   >
                     <span className="dash-history-stock">
                       <span className="dash-stock-name">

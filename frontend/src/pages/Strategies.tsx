@@ -7,7 +7,7 @@ import {
   lazy,
   Suspense,
 } from 'react'
-import { Alert, Card, message } from 'antd'
+import { Alert, Button, Card, Space, message } from 'antd'
 import { useQuery } from '@tanstack/react-query'
 import {
   generateSignals,
@@ -16,6 +16,7 @@ import {
   getStockKline,
   compareStrategies,
   getApiErrorMessage,
+  type StrategyBacktestRequest,
 } from '../services/api'
 import { getStrategies } from '../services/strategies'
 import { logger } from '../utils/logger'
@@ -34,20 +35,25 @@ import type {
   StrategyInfo,
   SignalDataPoint,
   SignalStats,
-  StrategyBacktestResponse,
   OptimizeResponse,
   CompareResponse,
 } from '../types'
 import { PageHeader } from '../components/research/ResearchPrimitives'
 import { strategyKeys } from '../services/queryKeys'
 import { normalizeStockCode } from '../utils/stockIdentity'
-import { useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
+import {
+  mergeStrategyParameters,
+  readSavedStrategyRun,
+  sameStrategyRequest,
+  type StrategyParameters,
+} from '../utils/strategyWorkspace'
 import { syncResearchHistory } from '../services/marketData'
 import { STRATEGY_METADATA } from '../constants/strategy'
 
 function Strategies() {
   const chartRef = useRef<HTMLDivElement>(null)
-  const [searchParams] = useSearchParams()
+  const [searchParams, setSearchParams] = useSearchParams()
   const requestedStock = normalizeStockCode(searchParams.get('stock'))
 
   // State
@@ -63,6 +69,7 @@ function Strategies() {
   const [selectedStrategy, setSelectedStrategy] = usePersistedState<string | null>(
     'strategies_selectedStrategy',
     null,
+    (value) => value === null || typeof value === 'string',
   )
   const [loadingSignals, setLoadingSignals] = useState(false)
   const [catalogOpen, setCatalogOpen] = useState(false)
@@ -72,13 +79,20 @@ function Strategies() {
   const [priceSource, setPriceSource] = usePersistedState<'raw' | 'legacy'>(
     'strategies_priceSource',
     'raw',
+    (value) => value === 'raw' || value === 'legacy',
   )
   const [corporateActionMode, setCorporateActionMode] = usePersistedState<
     'price_only' | 'verified'
-  >('strategies_corporateActionMode', 'verified')
+  >(
+    'strategies_corporateActionMode',
+    'verified',
+    (value) => value === 'price_only' || value === 'verified',
+  )
   const [dividendTaxRate, setDividendTaxRate] = usePersistedState(
     'strategies_dividendTaxRate',
     0,
+    (value) =>
+      typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 1,
   )
   const executionOptions = useMemo(
     () => ({
@@ -92,26 +106,78 @@ function Strategies() {
   const chartRequest = useRef(0)
 
   // Form state
-  const [stockCode, setStockCode] = usePersistedState<string | null>(
+  const [storedStock, setStoredStock] = usePersistedState<string | null>(
     'strategies_stockCode',
     null,
+    (value) =>
+      value === null ||
+      (typeof value === 'string' && normalizeStockCode(value) !== null),
   )
-
+  const stockCode = requestedStock ?? normalizeStockCode(storedStock)
   useEffect(() => {
-    if (requestedStock && requestedStock !== stockCode) setStockCode(requestedStock)
-  }, [requestedStock, setStockCode, stockCode])
+    if (requestedStock) setStoredStock(requestedStock)
+  }, [requestedStock, setStoredStock])
+  const setStockCode = useCallback(
+    (value: string | null | undefined) => {
+      const code = normalizeStockCode(value)
+      setStoredStock(code)
+      setSearchParams(
+        (current) => {
+          const next = new URLSearchParams(current)
+          if (code) next.set('stock', code)
+          else next.delete('stock')
+          return next
+        },
+        { replace: true },
+      )
+    },
+    [setStoredStock, setSearchParams],
+  )
   const [dateRange, setDateRange] = usePersistedState<[string, string]>(
     'strategies_dateRange',
     [
       dayjs().subtract(1, 'year').format('YYYY-MM-DD'),
       dayjs().subtract(1, 'day').format('YYYY-MM-DD'),
     ],
+    (value) =>
+      Array.isArray(value) &&
+      value.length === 2 &&
+      value.every(
+        (date) =>
+          typeof date === 'string' &&
+          /^\d{4}-\d{2}-\d{2}$/.test(date) &&
+          dayjs(date).isValid() &&
+          dayjs(date).format('YYYY-MM-DD') === date,
+      ) &&
+      value[0] <= value[1],
   )
   const [initialCapital, setInitialCapital] = usePersistedState(
     'strategies_initialCapital',
     100000,
+    (value) => typeof value === 'number' && Number.isFinite(value) && value > 0,
   )
-  const [parameters, setParameters] = useState<Record<string, number | string>>({})
+  const [parameterDrafts, setParameterDrafts] = usePersistedState<
+    Record<string, unknown>
+  >(
+    'strategies_parameterDrafts',
+    {},
+    (value) => value !== null && typeof value === 'object' && !Array.isArray(value),
+  )
+  const parameters = useMemo(
+    () =>
+      mergeStrategyParameters(
+        strategies.find((strategy) => strategy.name === selectedStrategy),
+        selectedStrategy ? parameterDrafts?.[selectedStrategy] : undefined,
+      ),
+    [strategies, selectedStrategy, parameterDrafts],
+  )
+  const setParameters = useCallback(
+    (next: StrategyParameters) => {
+      if (!selectedStrategy) return
+      setParameterDrafts((previous) => ({ ...previous, [selectedStrategy]: next }))
+    },
+    [selectedStrategy, setParameterDrafts],
+  )
 
   // Results state
   const [signals, setSignals] = useState<SignalDataPoint[]>([])
@@ -124,11 +190,55 @@ function Strategies() {
     parameters,
     executionOptions,
   })
-  const [backtestResult, setBacktestResult] = useState<StrategyBacktestResponse | null>(
+  const [storedRun, setStoredRun] = usePersistedState<unknown>(
+    'strategies_savedRun',
     null,
   )
+  const savedRun = useMemo(() => readSavedStrategyRun(storedRun), [storedRun])
+  const backtestResult = savedRun?.result ?? null
+  const [resultTab, setResultTab] = usePersistedState('strategies_resultTab', 'market')
+  const activeResultTab =
+    backtestResult && ['equity', 'metrics', 'trades'].includes(resultTab)
+      ? resultTab
+      : 'market'
+  const currentRequest: StrategyBacktestRequest = {
+    strategy_name: selectedStrategy ?? '',
+    stock_code: stockCode ?? '',
+    start_date: dateRange[0],
+    end_date: dateRange[1],
+    initial_capital: initialCapital,
+    parameters,
+    ...executionOptions,
+  }
+  const resultMatchesConfiguration = savedRun
+    ? sameStrategyRequest(savedRun.request, currentRequest)
+    : false
   const [optimizeResult, setOptimizeResult] = useState<OptimizeResponse | null>(null)
-  const [klineData, setKlineData] = useState<KlineData[]>([])
+  const chartContext = JSON.stringify([stockCode, dateRange, priceSource])
+  const [researchData, setResearchData] = useState<{
+    context: string
+    data: KlineData[]
+  } | null>(null)
+  const klineData = useMemo(
+    () => (researchData?.context === chartContext ? researchData.data : []),
+    [researchData, chartContext],
+  )
+
+  const restoreRun = () => {
+    if (!savedRun) return
+    const request = savedRun.request
+    setSelectedStrategy(request.strategy_name)
+    setStockCode(request.stock_code)
+    setDateRange([request.start_date, request.end_date])
+    setInitialCapital(request.initial_capital)
+    setPriceSource(request.price_source === 'legacy' ? 'legacy' : 'raw')
+    setCorporateActionMode(request.corporate_action_mode ?? 'verified')
+    setDividendTaxRate(request.dividend_tax_rate ?? 0)
+    setParameterDrafts((previous) => ({
+      ...previous,
+      [request.strategy_name]: request.parameters ?? {},
+    }))
+  }
 
   // Comparison state
   const [compareResult, setCompareResult] = useState<CompareResponse | null>(null)
@@ -137,20 +247,6 @@ function Strategies() {
   // 统一的任务轮询（超时/取消/卸载清理/指数退避）
   const { waitForJob } = useJobPolling<OptimizeResponse>({ timeoutMs: 600000 })
 
-  // Update parameters when strategy changes
-  useEffect(() => {
-    if (selectedStrategy && strategies.length > 0) {
-      const strategy = strategies.find((s) => s.name === selectedStrategy)
-      if (strategy) {
-        const defaultParams: Record<string, number | string> = {}
-        Object.entries(strategy.parameters).forEach(([key, config]) => {
-          defaultParams[key] = config.default
-        })
-        setParameters(defaultParams)
-      }
-    }
-  }, [selectedStrategy, strategies])
-
   const loadResearchData = useCallback(async () => {
     if (!stockCode || !dateRange[0] || !dateRange[1]) return []
     const generation = ++chartRequest.current
@@ -158,20 +254,21 @@ function Strategies() {
     try {
       data = await getStockKline(stockCode, dateRange[0], dateRange[1], priceSource)
     } catch (error) {
-      if (generation === chartRequest.current) setKlineData([])
+      if (generation === chartRequest.current) setResearchData(null)
       throw error
     }
-    if (generation === chartRequest.current) setKlineData(data)
+    if (generation === chartRequest.current)
+      setResearchData({ context: chartContext, data })
     if (data.length === 0) {
       throw new Error('所选区间暂无研究行情，请先补齐研究数据')
     }
     return data
-  }, [stockCode, dateRange, priceSource])
+  }, [stockCode, dateRange, priceSource, chartContext])
 
   // Historical chart and execution use the same price source and interval.
   useEffect(() => {
     if (!stockCode) {
-      setKlineData([])
+      setResearchData(null)
       return
     }
     loadResearchData().catch((error) => {
@@ -214,7 +311,7 @@ function Strategies() {
         parameters,
         ...executionOptions,
       })
-      setBacktestResult(null)
+      setResultTab('market')
       setOptimizeResult(null)
       setSignalContext(currentSignalContext)
       setSignals(response.data)
@@ -233,6 +330,7 @@ function Strategies() {
     loadResearchData,
     executionOptions,
     currentSignalContext,
+    setResultTab,
   ])
 
   const handleRunBacktest = useCallback(async () => {
@@ -244,7 +342,7 @@ function Strategies() {
     setLoadingBacktest(true)
     try {
       await loadResearchData()
-      const response = await runStrategyBacktest({
+      const request: StrategyBacktestRequest = {
         strategy_name: selectedStrategy,
         stock_code: stockCode,
         start_date: dateRange[0],
@@ -252,8 +350,10 @@ function Strategies() {
         initial_capital: initialCapital,
         parameters,
         ...executionOptions,
-      })
-      setBacktestResult(response)
+      }
+      const response = await runStrategyBacktest(request)
+      setStoredRun({ version: 1, request, result: response })
+      setResultTab('metrics')
       setSignals([])
       message.success(`回测已保存，历史记录 #${response.result_id}`)
     } catch (error) {
@@ -270,6 +370,8 @@ function Strategies() {
     parameters,
     loadResearchData,
     executionOptions,
+    setStoredRun,
+    setResultTab,
   ])
 
   const handleOptimize = useCallback(async () => {
@@ -324,6 +426,7 @@ function Strategies() {
     waitForJob,
     loadResearchData,
     executionOptions,
+    setParameters,
   ])
 
   const handleCompare = useCallback(async () => {
@@ -356,12 +459,7 @@ function Strategies() {
       getChartOption(
         klineData,
         signalContext === currentSignalContext ? signals : [],
-        backtestResult?.stock_code === stockCode &&
-          backtestResult.start_date === dateRange[0] &&
-          backtestResult.end_date === dateRange[1] &&
-          backtestResult.strategy_name === selectedStrategy
-          ? backtestResult
-          : null,
+        resultMatchesConfiguration ? backtestResult : null,
       ),
     [
       klineData,
@@ -369,9 +467,7 @@ function Strategies() {
       backtestResult,
       signalContext,
       currentSignalContext,
-      stockCode,
-      dateRange,
-      selectedStrategy,
+      resultMatchesConfiguration,
     ],
   )
   const getCurrentPortfolioChartOption = useMemo(
@@ -393,17 +489,22 @@ function Strategies() {
           showIcon
           message={`已保存结果 #${backtestResult.result_id} · ${backtestResult.stock_code} · ${STRATEGY_METADATA[backtestResult.strategy_name]?.name || backtestResult.strategy_name}`}
           description={`${backtestResult.start_date} — ${backtestResult.end_date}。${
-            backtestResult.stock_code !== stockCode ||
-            backtestResult.strategy_name !== selectedStrategy ||
-            backtestResult.start_date !== dateRange[0] ||
-            backtestResult.end_date !== dateRange[1] ||
-            backtestResult.initial_capital !== initialCapital ||
-            Object.keys({ ...parameters, ...backtestResult.parameters }).some(
-              (key) => parameters[key] !== backtestResult.parameters?.[key],
-            )
+            !resultMatchesConfiguration
               ? '当前配置已调整；重新执行回测后更新绩效与交易记录。'
               : '绩效与交易记录对应这次已保存运行。'
           }`}
+          action={
+            <Space wrap>
+              <Button
+                size="small"
+                onClick={restoreRun}
+                disabled={resultMatchesConfiguration}
+              >
+                恢复本次配置
+              </Button>
+              <Link to={`/history?result=${backtestResult.result_id}`}>查看历史</Link>
+            </Space>
+          }
         />
       )}
 
@@ -466,6 +567,8 @@ function Strategies() {
         </div>
 
         <StrategyResults
+          activeTab={activeResultTab}
+          onTabChange={setResultTab}
           klineData={klineData}
           signals={signals}
           signalStats={signalContext === currentSignalContext ? signalStats : null}

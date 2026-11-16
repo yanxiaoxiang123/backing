@@ -2,9 +2,10 @@ import { lazy, Suspense, useState } from 'react'
 import { Button, Drawer, Empty, Spin } from 'antd'
 import { CloseOutlined, RobotOutlined } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
-import { ChatInput } from '../chat/ChatInput'
+import { ResearchChatInput } from '../chat/ResearchChatInput'
 import { useAgentChat } from '../../hooks/useAgentChat'
 import type { PageContext } from '../../types/chat'
+import { workspaceHref } from '../../utils/researchNavigation'
 
 const ChatConversation = lazy(() =>
   import('../chat/ChatConversation').then((module) => ({
@@ -28,6 +29,9 @@ function CopilotContent({
 }) {
   const navigate = useNavigate()
   const chat = useAgentChat({ context })
+  const threadId =
+    chat.currentThread?.thread_id ??
+    new URLSearchParams(window.location.search).get('thread_id')
 
   return (
     <div className="research-copilot-body">
@@ -70,16 +74,27 @@ function CopilotContent({
           size="small"
           onClick={() => {
             onClose()
-            navigate('/workspace')
+            navigate(
+              workspaceHref({
+                threadId,
+                stockCode:
+                  context?.entity_type === 'stock' ? context.entity_id : chat.stockCode,
+              }),
+            )
           }}
         >
           打开完整工作台
         </Button>
       </div>
-      <ChatInput
+      <ResearchChatInput
+        threadId={threadId}
+        stockCode={
+          context?.entity_type === 'stock' ? context.entity_id : chat.stockCode
+        }
         running={chat.running}
+        sendDisabled={chat.restoring}
         disabled={chat.runtimeStatus?.available === false}
-        onSend={(content) => void chat.send(content, context)}
+        onSend={(content, created) => chat.send(content, context, created)}
         onStop={() => void chat.stop()}
       />
     </div>

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import concurrent.futures
 import logging
+import os
 import re
 import time
 from dataclasses import dataclass
@@ -142,6 +143,11 @@ def find_env_file(start_path: Path | str | None = None) -> Path:
         if p.is_dir():
             return p / ".env"
         return p
+
+    if os.environ.get("BACKING_ENV_FILE"):
+        from app.runtime_env import backend_env_file
+
+        return backend_env_file()
 
     # Default lookup: backend/.env or .env in CWD / parent
     cwd = Path.cwd()

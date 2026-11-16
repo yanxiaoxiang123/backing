@@ -7,6 +7,7 @@ from sqlalchemy import create_engine, event
 from sqlalchemy.engine import make_url
 from sqlalchemy.orm import Session, declarative_base, sessionmaker
 from app.domain.risk import RiskLimits
+from app.runtime_env import backend_env_file
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
 LLM_DIR = BACKEND_DIR / "models" / "llm"
@@ -113,7 +114,7 @@ class Settings(BaseSettings):
     KRONOS_REQUEST_TIMEOUT_S: float = Field(default=180, ge=1, le=600)
     KRONOS_JOB_TIMEOUT_S: float = Field(default=3600, ge=30, le=14400)
 
-    model_config = SettingsConfigDict(env_file=".env", extra="allow")
+    model_config = SettingsConfigDict(env_file=backend_env_file(), extra="allow")
 
     @property
     def cors_origins_list(self) -> list[str]:

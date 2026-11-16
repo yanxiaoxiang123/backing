@@ -100,8 +100,9 @@
   .ant-collapse-content
 ) {
   animation-duration: var(--ui-overlay) !important;
+  /* rc-motion disables transitions inline while rc-trigger measures popup alignment. */
   transition-duration: var(--ui-overlay) !important;
-  transition-property: opacity, transform !important;
+  transition-property: opacity, transform;
   animation-timing-function: var(--ui-ease) !important;
   transition-timing-function: var(--ui-ease) !important;
 }

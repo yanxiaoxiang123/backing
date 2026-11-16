@@ -100,6 +100,7 @@ function renderWorkspace(path = '/workspace') {
 
 beforeEach(() => {
   localStorage.clear()
+  sessionStorage.clear()
   mockRun.run = null
   mockRun.events = []
   mockRun.researchClaims = []
@@ -120,7 +121,7 @@ beforeEach(() => {
   mockChat.error = null
   mockChat.selectThread.mockClear()
   mockChat.newThread.mockClear()
-  mockChat.send.mockClear()
+  mockChat.send.mockReset().mockResolvedValue({ accepted: true, threadId: null })
   mockChat.stop.mockClear()
   mockChat.archive.mockClear()
 })
@@ -158,7 +159,11 @@ describe('AgentWorkspace', () => {
     renderWorkspace()
     await user.type(screen.getByLabelText('聊天输入'), '分析 sh.600000')
     await user.click(screen.getByRole('button', { name: /发送/ }))
-    expect(mockChat.send).toHaveBeenCalledWith('分析 sh.600000')
+    expect(mockChat.send).toHaveBeenCalledWith(
+      '分析 sh.600000',
+      undefined,
+      expect.any(Function),
+    )
   })
 
   it('研究示例填入草稿并聚焦，等待用户确认后才发送', async () => {
@@ -170,7 +175,11 @@ describe('AgentWorkspace', () => {
     expect(input).toHaveFocus()
     expect(mockChat.send).not.toHaveBeenCalled()
     await user.click(screen.getByRole('button', { name: '发送消息' }))
-    expect(mockChat.send).toHaveBeenCalledWith(expect.stringContaining('交易成本'))
+    expect(mockChat.send).toHaveBeenCalledWith(
+      expect.stringContaining('交易成本'),
+      undefined,
+      expect.any(Function),
+    )
     await user.click(screen.getByRole('button', { name: /验证一个策略/ }))
     expect((input as HTMLTextAreaElement).value).toContain('5 日与 20 日均线交叉策略')
   })

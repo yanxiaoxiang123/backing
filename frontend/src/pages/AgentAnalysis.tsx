@@ -41,7 +41,7 @@ import { getStockIndicators } from '../services/stocks'
 import StockSearch from '../components/StockSearch'
 import { useJobPolling } from '../hooks/useJobPolling'
 import { agentKeys } from '../services/queryKeys'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import type {
   AgentAnalyzeRequest,
   AnalysisRecord,
@@ -77,8 +77,23 @@ export default function AgentAnalysis() {
   const [analyzing, setAnalyzing] = useState(false)
   const [result, setResult] = useState<AgentAnalyzeResponse | null>(null)
   const [activeTab, setActiveTab] = useState('history')
-  const [detailModalVisible, setDetailModalVisible] = useState(false)
-  const [selectedDetailId, setSelectedDetailId] = useState<number | null>(null)
+  const [searchParams, setSearchParams] = useSearchParams()
+  const report = searchParams.get('report') ?? ''
+  const selectedDetailId =
+    /^[1-9]\d*$/.test(report) && Number.isSafeInteger(Number(report))
+      ? Number(report)
+      : null
+  const detailModalVisible = selectedDetailId !== null
+  const closeDetail = () => {
+    setSearchParams(
+      (current) => {
+        const next = new URLSearchParams(current)
+        next.delete('report')
+        return next
+      },
+      { replace: true },
+    )
+  }
   const [jobProgress, setJobProgress] = useState(0)
   const [jobStages, setJobStages] = useState<AgentStage[]>([])
   const [currentJobId, setCurrentJobId] = useState<string | null>(null)
@@ -353,8 +368,11 @@ export default function AgentAnalysis() {
   }
 
   const handleViewDetail = (record: AnalysisRecord) => {
-    setSelectedDetailId(record.id)
-    setDetailModalVisible(true)
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current)
+      next.set('report', String(record.id))
+      return next
+    })
   }
 
   const historyColumns = [
@@ -808,7 +826,7 @@ export default function AgentAnalysis() {
         <Modal
           title="分析详情"
           open={detailModalVisible}
-          onCancel={() => setDetailModalVisible(false)}
+          onCancel={closeDetail}
           footer={null}
           width={800}
         >
@@ -826,7 +844,7 @@ export default function AgentAnalysis() {
         <Modal
           title="加载分析详情"
           open
-          onCancel={() => setDetailModalVisible(false)}
+          onCancel={closeDetail}
           footer={null}
           width={800}
         >
@@ -841,7 +859,7 @@ export default function AgentAnalysis() {
       <Modal
         title={`${selectedDetail.stock_code} - ${selectedDetail.stock_name} 分析详情`}
         open={detailModalVisible}
-        onCancel={() => setDetailModalVisible(false)}
+        onCancel={closeDetail}
         footer={null}
         width={800}
       >

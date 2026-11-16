@@ -1,0 +1,60 @@
+{
+  "provider": "freesound",
+  "query": "soft whoosh",
+  "license_policy": "cc0",
+  "ordering": "relevance; popularity is supporting evidence only",
+  "results": [
+    {
+      "id": "fs:843665",
+      "title": "StuffedCreatureFur6",
+      "author": "Huglex",
+      "duration_seconds": 0.712063,
+      "preview_url": "https://cdn.freesound.org/previews/843/843665_12419669-hq.mp3",
+      "downloads": 166,
+      "page_url": "https://freesound.org/people/Huglex/sounds/843665/",
+      "license_label": "Creative Commons 0",
+      "description": "The sound of my hand rubbing agaisnt the fur of a stuffed creature. I&#x27;m going to be posting new sounds every week for the foreseeable future, so feel free to come back next week for more random sound!",
+      "rating": 4.6,
+      "rating_count": 7
+    },
+    {
+      "id": "fs:878248",
+      "title": "UI Hover Micro Swish",
+      "author": "Qvantor",
+      "duration_seconds": 0.215938,
+      "preview_url": "https://cdn.freesound.org/previews/878/878248_19512113-hq.mp3",
+      "downloads": 31,
+      "page_url": "https://freesound.org/people/Qvantor/sounds/878248/",
+      "license_label": "Creative Commons 0",
+      "description": "Very short airy swish moving a little from left to right, for hovers, swipes and cards. Open its preset in Chisper, a free browser synth, and tweak it to your needs: https://chisper.qvantor.org/?preset=aca36d0d-f69c-454d-8b71-16704878c201",
+      "rating": null,
+      "rating_count": null
+    },
+    {
+      "id": "fs:71852",
+      "title": "digital_whoosh_soft.wav",
+      "author": "ludvique",
+      "duration_seconds": 0.95254,
+      "preview_url": "https://cdn.freesound.org/previews/71/71852_1062668-hq.mp3",
+      "downloads": 7721,
+      "page_url": "https://freesound.org/people/ludvique/sounds/71852/",
+      "license_label": "Creative Commons 0",
+      "description": "The sound of a soft digital/electrical whoosh or buzz",
+      "rating": 4.5,
+      "rating_count": 61
+    },
+    {
+      "id": "fs:485279",
+      "title": "Wooden Stick Swing 1_4",
+      "author": "Joao_Janz",
+      "duration_seconds": 0.556937,
+      "preview_url": "https://cdn.freesound.org/previews/485/485279_9961300-hq.mp3",
+      "downloads": 245,
+      "page_url": "https://freesound.org/people/Joao_Janz/sounds/485279/",
+      "license_label": "Creative Commons 0",
+      "description": "Recorded and processed at 24bit 48kHz using the Tascam DR-40 Linear PCM Recorder. Processing: Gain-staging and soft high and low frequency filtering. No EQ boost or cuts anywhere else. Also De-noised.",
+      "rating": 4.3,
+      "rating_count": 4
+    }
+  ]
+}

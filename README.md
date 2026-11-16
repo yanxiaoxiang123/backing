@@ -453,3 +453,7 @@ MySQL 备份用 `mysqldump`；**恢复演练**：停服 → 用备份文件覆�
 - `Backtest.tsx` 为兼容页，主策略研究能力集中在 `Strategies.tsx`
 - 后台任务默认在进程内线程执行（`TASK_BACKEND=threads`，状态持久化，重启自动重置在途任务）；
   生产多实例用 `TASK_BACKEND=arq` + Redis（`pip install -r requirements-arq.txt` + `python task_worker.py`）
+# Personal production deployment
+
+See [the isolated Docker deployment guide](deploy/production/README.md) for HTTPS,
+GPU isolation, `BACKING_ENV_FILE`, migration, private backups and restore commands.

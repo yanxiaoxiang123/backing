@@ -6,10 +6,11 @@ import threading
 from dotenv import set_key
 
 from app.agent.config import agent_settings
-from app.config import BACKEND_DIR, settings
+from app.config import settings
+from app.runtime_env import backend_env_file
 from app.exceptions import AppError, ValidationError
 
-ENV_PATH = BACKEND_DIR / ".env"
+ENV_PATH = backend_env_file()
 _lock = threading.Lock()
 
 

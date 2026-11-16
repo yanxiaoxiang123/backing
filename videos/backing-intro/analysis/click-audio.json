@@ -1,0 +1,13 @@
+{
+  "codec": "pcm_s16le",
+  "sample_rate": 44100,
+  "channels": 2,
+  "duration_seconds": 0.12,
+  "sample_peak_dbfs": -46.221,
+  "rms_dbfs": -58.678,
+  "energy_window_seconds": 0.01,
+  "energy_peak_seconds": 0.025,
+  "active_start_seconds": 0.01,
+  "active_end_seconds": 0.12,
+  "activity_threshold_db_below_peak_rms": -40
+}

@@ -1,5 +1,7 @@
 """AI key settings must persist without disclosing credentials."""
 
+import json
+
 import pytest
 from dotenv import dotenv_values
 from fastapi import FastAPI
@@ -117,7 +119,12 @@ def test_empty_input_preserves_existing_key(client, tmp_path, key):
 @pytest.mark.parametrize("key", [123, {"secret": "sensitive"}, "key\nBAD=value", "x" * 513, "key\ud800"])
 def test_bad_input_is_rejected_without_echoing_it(client, tmp_path, key):
     before = (tmp_path / ".env").read_bytes()
-    response = client.put(URL, headers=auth_headers(), json={"deepseek_api_key": key})
+    # Send escaped JSON so even an isolated surrogate reaches server validation.
+    # Newer HTTP clients reject that value while encoding their json= argument.
+    response = client.put(
+        URL, headers={**auth_headers(), "Content-Type": "application/json"},
+        content=json.dumps({"deepseek_api_key": key}),
+    )
     assert response.status_code == 400
     assert "sensitive" not in response.text
     assert "BAD=value" not in response.text

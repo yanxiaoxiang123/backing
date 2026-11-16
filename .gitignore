@@ -11,6 +11,8 @@ __pycache__/
 .env
 .venv/
 node_modules/
+# Downloaded browser binaries used by local Remotion tooling
+/.remotion/
 .mypy_cache/
 .ruff_cache/
 *.egg-info/

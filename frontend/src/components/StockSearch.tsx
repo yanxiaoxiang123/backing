@@ -18,6 +18,7 @@ interface StockSearchProps {
   watchlistCodes?: string[]
   disabled?: boolean
   autoFocus?: boolean
+  allowClear?: boolean
 }
 
 export default function StockSearch({
@@ -29,6 +30,7 @@ export default function StockSearch({
   watchlistCodes,
   disabled,
   autoFocus,
+  allowClear = false,
 }: StockSearchProps) {
   const { query, setQuery, loading, error, search, trackSelection, reload } =
     useStockSearch()
@@ -59,6 +61,7 @@ export default function StockSearch({
     <Select
       id={id}
       showSearch
+      allowClear={allowClear}
       value={value}
       placeholder={placeholder}
       style={{ width: '100%', ...style }}

@@ -125,23 +125,99 @@ describe('useAgentChat', () => {
     vi.useRealTimers()
   })
 
-  it('StrictMode 重复挂载后仍从 URL 恢复会话与消息', async () => {
-    window.history.replaceState({}, '', '/workspace?thread_id=t-restored')
-    mocks.getThread.mockResolvedValue({
-      thread: thread('t-restored'),
-      turns: [
-        turn(1, 't-restored', { status: 'completed', final_reply: '已保存的研究结论' }),
-      ],
+  it.each([false, true])(
+    'StrictMode 重复挂载后仍恢复会话与消息（路由托管 %s）',
+    async (controlled) => {
+      window.history.replaceState({}, '', '/workspace?thread_id=t-restored')
+      mocks.getThread.mockResolvedValue({
+        thread: thread('t-restored'),
+        turns: [
+          turn(1, 't-restored', {
+            status: 'completed',
+            final_reply: '已保存的研究结论',
+          }),
+        ],
+      })
+      const { result } = renderHook(
+        () => useAgentChat(controlled ? { threadId: 't-restored' } : {}),
+        { wrapper: StrictMode },
+      )
+      await waitFor(() => {
+        expect(result.current.currentThread?.thread_id).toBe('t-restored')
+        expect(
+          result.current.messages.some(
+            (message) => message.content === '已保存的研究结论',
+          ),
+        ).toBe(true)
+      })
+    },
+  )
+
+  it('路由切换会话时忽略旧响应，并可返回空会话', async () => {
+    const old = deferred<{
+      thread: ReturnType<typeof thread>
+      turns: ReturnType<typeof turn>[]
+    }>()
+    mocks.getThread.mockImplementation((id: string) =>
+      id === 'old'
+        ? old.promise
+        : Promise.resolve({
+            thread: thread(id),
+            turns: [turn(2, id, { status: 'completed', final_reply: `reply ${id}` })],
+          }),
+    )
+    const { result, rerender } = renderHook(
+      ({ id }: { id: string | null }) => useAgentChat({ threadId: id }),
+      { initialProps: { id: 'old' as string | null } },
+    )
+    rerender({ id: 'new' })
+    await waitFor(() => expect(result.current.currentThread?.thread_id).toBe('new'))
+    await act(async () => {
+      old.resolve({ thread: thread('old'), turns: [] })
     })
-    const { result } = renderHook(() => useAgentChat(), { wrapper: StrictMode })
-    await waitFor(() => {
-      expect(result.current.currentThread?.thread_id).toBe('t-restored')
-      expect(
-        result.current.messages.some(
-          (message) => message.content === '已保存的研究结论',
-        ),
-      ).toBe(true)
+    expect(
+      result.current.messages.some((message) => message.content === 'reply new'),
+    ).toBe(true)
+    rerender({ id: null })
+    await waitFor(() => expect(result.current.currentThread).toBeNull())
+    expect(result.current.messages).toEqual([])
+  })
+
+  it('会话选择通知路由宿主并保留浏览器历史状态', async () => {
+    window.history.replaceState(
+      { key: 'router-key', idx: 4 },
+      '',
+      '/workspace?panel=alerts&stock=sh.600000',
+    )
+    mocks.getThread.mockResolvedValue({ thread: thread('t-new'), turns: [] })
+    const changes: Array<string | null> = []
+    const { result } = renderHook(() =>
+      useAgentChat({ onThreadChange: (id) => changes.push(id) }),
+    )
+    await act(async () => {
+      await result.current.selectThread('t-new')
     })
+    expect(changes).toEqual(['t-new'])
+    expect(window.history.state).toEqual({ key: 'router-key', idx: 4 })
+    expect(window.location.search).toBe('?panel=alerts&stock=sh.600000')
+  })
+
+  it('默认会话 URL 写入保留 React Router 历史状态和参数', async () => {
+    window.history.replaceState(
+      { key: 'existing-key', idx: 2 },
+      '',
+      '/workspace?panel=risk',
+    )
+    mocks.getThread.mockResolvedValue({ thread: thread('t-legacy'), turns: [] })
+    const { result } = renderHook(() => useAgentChat())
+    await act(async () => {
+      await result.current.selectThread('t-legacy')
+    })
+    expect(window.history.state).toEqual({ key: 'existing-key', idx: 2 })
+    expect(new URLSearchParams(window.location.search).get('panel')).toBe('risk')
+    expect(new URLSearchParams(window.location.search).get('thread_id')).toBe(
+      't-legacy',
+    )
   })
 
   it('newThread 创建并选择新会话，URL 持久化 thread_id', async () => {
@@ -324,6 +400,86 @@ describe('useAgentChat', () => {
     expect(onRunLinked).toHaveBeenCalledWith('run-77')
   })
 
+  it('reports accepted submissions independently of a later session switch', async () => {
+    mocks.getThread.mockResolvedValue({ thread: thread('source'), turns: [] })
+    const request = deferred<ReturnType<typeof turn>>()
+    mocks.submitTurn.mockReturnValue(request.promise)
+    const { result } = renderHook(() => useAgentChat())
+    await act(async () => result.current.selectThread('source'))
+    let sending!: ReturnType<typeof result.current.send>
+    act(() => {
+      sending = result.current.send('核验证据')
+    })
+    mocks.getThread.mockResolvedValue({ thread: thread('other'), turns: [] })
+    await act(async () => result.current.selectThread('other'))
+    let receipt: unknown
+    await act(async () => {
+      request.resolve(turn(8, 'source'))
+      receipt = await sending
+    })
+    expect(receipt).toEqual({ accepted: true, threadId: 'source' })
+    expect(result.current.currentThread?.thread_id).toBe('other')
+    expect(result.current.messages).toEqual([])
+  })
+
+  it('announces first thread before submission and reports a rejection with its identity', async () => {
+    mocks.createThread.mockResolvedValue(thread('created'))
+    mocks.submitTurn.mockRejectedValue(new Error('rejected'))
+    const created = vi.fn()
+    const { result } = renderHook(() => useAgentChat())
+    let receipt: unknown
+    await act(async () => {
+      receipt = await result.current.send('保留问题', undefined, created)
+    })
+    expect(receipt).toEqual({ accepted: false, threadId: 'created' })
+    expect(created).toHaveBeenCalledWith('created')
+    expect(created.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.submitTurn.mock.invocationCallOrder[
+        mocks.submitTurn.mock.invocationCallOrder.length - 1
+      ],
+    )
+    expect(result.current.error).toContain('rejected')
+  })
+
+  it('captures the original page context before waiting for thread creation', async () => {
+    const creation = deferred<ReturnType<typeof thread>>()
+    mocks.createThread.mockReturnValue(creation.promise)
+    mocks.submitTurn.mockResolvedValue(turn(3, 'created'))
+    const { result, rerender } = renderHook(
+      ({ stock }) =>
+        useAgentChat({
+          context: { route: '/strategies', entity_type: 'stock', entity_id: stock },
+        }),
+      { initialProps: { stock: 'sh.600000' } },
+    )
+    let sending!: ReturnType<typeof result.current.send>
+    act(() => {
+      sending = result.current.send('核验这只股票')
+    })
+    rerender({ stock: 'sz.000002' })
+    await act(async () => {
+      creation.resolve(thread('created'))
+      await sending
+    })
+    expect(
+      mocks.submitTurn.mock.calls[mocks.submitTurn.mock.calls.length - 1]?.[3],
+    ).toEqual({
+      route: '/strategies',
+      entity_type: 'stock',
+      entity_id: 'sh.600000',
+    })
+  })
+
+  it('returns a failed receipt when no thread could be created', async () => {
+    mocks.createThread.mockRejectedValue(new Error('creation failed'))
+    const { result } = renderHook(() => useAgentChat())
+    let receipt: unknown
+    await act(async () => {
+      receipt = await result.current.send('保留问题')
+    })
+    expect(receipt).toEqual({ accepted: false, threadId: null })
+  })
+
   it('turn.done 早于 submitTurn 响应到达时保留终态', async () => {
     mocks.createThread.mockResolvedValue(thread('t-fast', { title: '' }))
     mocks.getThread.mockResolvedValue({
@@ -342,7 +498,7 @@ describe('useAgentChat', () => {
       await result.current.newThread()
     })
 
-    let sending!: Promise<void>
+    let sending!: ReturnType<typeof result.current.send>
     act(() => {
       sending = result.current.send('你好')
     })
@@ -453,7 +609,7 @@ describe('useAgentChat', () => {
     await act(async () => {
       await result.current.selectThread('t-stock')
     })
-    let sending!: Promise<void>
+    let sending!: ReturnType<typeof result.current.send>
     act(() => {
       sending = result.current.send('000001.sz')
     })
@@ -481,7 +637,7 @@ describe('useAgentChat', () => {
     })
     const submit = deferred<ReturnType<typeof turn>>()
     mocks.submitTurn.mockReturnValue(submit.promise)
-    let sending!: Promise<void>
+    let sending!: ReturnType<typeof result.current.send>
     act(() => {
       sending = result.current.send('消息')
     })

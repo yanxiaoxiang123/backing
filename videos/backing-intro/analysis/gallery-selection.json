@@ -1,0 +1,139 @@
+[
+  {
+    "name": "brand-ink-open",
+    "summary": "墨线十字准星描画→字标逐字压印→打字机副标→满一秒静止再上浮消散",
+    "use": "品牌开场；任何\"先立名号再进产品\"的片头",
+    "duration": "约 2.8s（83f）",
+    "energy": "低（起步位，为后续镜头留爬升空间）",
+    "intention": "第一拍先给品牌记忆点：观众在任何产品画面出现之前，先看清并记住名字。安静、纸墨质感、有一个完整的静止时刻。",
+    "source": "references/shots/opening/brand-ink-open.md",
+    "updatedAt": "2026-10-02T21:01:48.000Z",
+    "styles": [
+      {
+        "key": "brand-ink-open",
+        "label": "brand-ink-open",
+        "description": "墨线十字准星描画→字标逐字压印→打字机副标→满一秒静止再上浮消散",
+        "media": {
+          "url": "./media/brand-ink-open.mp4?v=1790980736778",
+          "type": "mp4"
+        }
+      }
+    ],
+    "sourceUrl": "./source/brand-ink-open.md",
+    "category": "opening",
+    "tags": [
+      "opening",
+      "typography"
+    ],
+    "addedAt": "2026-07-19T05:45:41.000Z"
+  },
+  {
+    "name": "document-typewriter-reveal",
+    "summary": "悬浮在暗场里的整页真排版文档窗口在光标后自己\"写\"出来、侧栏跟进、历史条目逐个落入轨道，相机从斜侧标题特写一路后撤到全窗",
+    "use": "文档/报告/笔记类功能镜头；信息密度最高的一拍",
+    "duration": "150f（约 5s，含 history-list-stack 尾段与标语 hold）",
+    "energy": "低中（信息密度最高，节奏放稳让观众读字）",
+    "intention": "观众会读清屏幕上每个字——这一镜的说服力全在\"文档是真的\"。打字机式写入把静态页面变成\"正在被写出来的文档\"，侧栏历史条目落入补上\"持续产出\"的时间纵深。",
+    "source": "references/shots/typography/document-typewriter-reveal.md",
+    "updatedAt": "2026-10-02T14:33:18.000Z",
+    "styles": [
+      {
+        "key": "document-typewriter-reveal",
+        "label": "document-typewriter-reveal",
+        "description": "悬浮在暗场里的整页真排版文档窗口在光标后自己\"写\"出来、侧栏跟进、历史条目逐个落入轨道，相机从斜侧标题特写一路后撤到全窗",
+        "media": {
+          "url": "./media/document-typewriter-reveal.mp4?v=1790980736800",
+          "type": "mp4"
+        }
+      }
+    ],
+    "sourceUrl": "./source/document-typewriter-reveal.md",
+    "category": "typography",
+    "tags": [
+      "typography",
+      "ui-entrance"
+    ],
+    "addedAt": "2026-07-20T02:21:04.000Z"
+  },
+  {
+    "name": "outro-group-photo-launch",
+    "summary": "全片元素从四面八方飞来围住字标合影，crane 落机位+舞台光+金尘做成发布会收场",
+    "use": "outro/品牌收尾；多功能产品的\"全家福\"式终镜",
+    "duration": "约 4.8s（145f）",
+    "energy": "峰值（全片最高点）",
+    "intention": "把看过的每个功能各抽一个代表元素叫回来合影，字标压轴登场——观众离场前最后记住的是\"这些东西属于同一个产品\"。规格必须是发布会级：能量推到全片最高。",
+    "source": "references/shots/outro/outro-group-photo-launch.md",
+    "updatedAt": "2026-10-02T21:01:48.000Z",
+    "styles": [
+      {
+        "key": "outro-group-photo-launch",
+        "label": "outro-group-photo-launch",
+        "description": "全片元素从四面八方飞来围住字标合影，crane 落机位+舞台光+金尘做成发布会收场",
+        "media": {
+          "url": "./media/outro-group-photo-launch.mp4?v=1790980736839",
+          "type": "mp4"
+        }
+      }
+    ],
+    "sourceUrl": "./source/outro-group-photo-launch.md",
+    "category": "outro",
+    "tags": [
+      "outro"
+    ],
+    "addedAt": "2026-07-19T05:45:41.000Z"
+  },
+  {
+    "name": "row-embed",
+    "summary": "内容行像卡片一样从空中降下、rotateX 收平、嵌入瞬间底边亮一道强调色的缝",
+    "use": "\"结构化数据长进页面\"的详情页/列表镜头；行级内容的批量入场",
+    "duration": "约 2s（12–68f）",
+    "energy": "中",
+    "intention": "详情页的行不是\"显示出来\"而是\"长进去\"——每一行从空中降下并严丝合缝嵌入页面布局，嵌入瞬间的强调色缝是\"咔哒\"扣上的视觉拟音。",
+    "source": "references/shots/ui-entrance/row-embed.md",
+    "updatedAt": "2026-10-02T21:01:48.000Z",
+    "styles": [
+      {
+        "key": "row-embed",
+        "label": "row-embed",
+        "description": "内容行像卡片一样从空中降下、rotateX 收平、嵌入瞬间底边亮一道强调色的缝",
+        "media": {
+          "url": "./media/row-embed.mp4?v=1790980736857",
+          "type": "mp4"
+        }
+      }
+    ],
+    "sourceUrl": "./source/row-embed.md",
+    "category": "ui-entrance",
+    "tags": [
+      "ui-entrance"
+    ],
+    "addedAt": "2026-07-19T05:45:41.000Z"
+  },
+  {
+    "name": "type-and-filter",
+    "summary": "真实 UI 上打字搜索、网格自己收敛成一张卡、点击穿透进详情页",
+    "use": "功能演示的\"操作叙事\"段；搜索/筛选/进入详情的任何交互链路",
+    "duration": "约 2.5s（118–190f）",
+    "energy": "中（发牌高能段之后的从容一拍）",
+    "intention": "让观众\"跟着做一遍\"：看清输入了什么、页面怎么响应、点了哪里。这是全片唯一模拟真人操作的镜头，节奏必须像人手，不能像脚本。",
+    "source": "references/shots/interaction/type-and-filter.md",
+    "updatedAt": "2026-10-02T21:01:48.000Z",
+    "styles": [
+      {
+        "key": "type-and-filter",
+        "label": "type-and-filter",
+        "description": "真实 UI 上打字搜索、网格自己收敛成一张卡、点击穿透进详情页",
+        "media": {
+          "url": "./media/type-and-filter.mp4?v=1790980736894",
+          "type": "mp4"
+        }
+      }
+    ],
+    "sourceUrl": "./source/type-and-filter.md",
+    "category": "interaction",
+    "tags": [
+      "interaction"
+    ],
+    "addedAt": "2026-07-19T05:45:41.000Z"
+  }
+]
