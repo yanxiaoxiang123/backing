@@ -81,6 +81,8 @@ database is kept; set `REPLACE_DB=1` to replace it with the uploaded snapshot.
 - Python 3.12 is created under `/opt/backing/py312` when the host does not
   provide it. Dependencies install into `/opt/backing/venv`; the installer runs
   `restorecon` there so systemd can execute the interpreter under SELinux.
+- The server cannot reach the configured mootdx quote servers, so the generated
+  config uses `tencent` HTTPS for quotes and K-lines.
 - `KRONOS_SERVICE_URL` is set to `http://172.22.226.86:8211`; keep the existing
   `backing-kronos.service` active for DL predictions.
 - Both services run as the unprivileged `yanxx` user; the installer uses root

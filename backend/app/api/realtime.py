@@ -314,7 +314,7 @@ def get_realtime_indices(
 @router.get('/realtime/{code}', response_model=RealtimeBarsResponse, response_model_exclude_none=True)
 def get_realtime_bars(
     code: str,
-    period: str = Query('daily', description="daily|weekly|monthly"),
+    period: str = Query('daily', description="daily|weekly|monthly|5m"),
     cache_for_research: bool = Query(False),
     db: Session = Depends(get_db),
     _: str = Depends(get_current_api_key),

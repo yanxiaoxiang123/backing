@@ -8,6 +8,10 @@ from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
 
+DAILY_FREQUENCIES = {"daily": "day", "weekly": "week", "monthly": "month"}
+MINUTE_FREQUENCIES = {"5m": "m5"}
+
+
 def fetch_bars(
     symbol: str, period: str = "daily", *, count: int = 750, timeout: float = 5.0,
 ) -> list[dict]:
@@ -16,13 +20,21 @@ def fetch_bars(
     ``amount=0`` follows the existing bar contract for unavailable turnover;
     volume is reported in lots, matching the mootdx realtime adapter.
     """
-    frequency = {"daily": "day", "weekly": "week", "monthly": "month"}[period]
     code = tencent_symbol(symbol)
-    query = urlencode({"param": f"{code},{frequency},,,{min(max(count, 1), 640)},"})
-    request = Request(
-        "https://proxy.finance.qq.com/ifzqgtimg/appstock/app/newfqkline/get?" + query,
-        headers={"User-Agent": "Mozilla/5.0"},
-    )
+    minute = period in MINUTE_FREQUENCIES
+    if minute:
+        frequency = MINUTE_FREQUENCIES[period]
+        param = f"{code},{frequency},,{min(max(count, 1), 320)}"
+        url = "https://ifzq.gtimg.cn/appstock/app/kline/mkline?" + urlencode(
+            {"param": param}
+        )
+    else:
+        frequency = DAILY_FREQUENCIES[period]
+        param = f"{code},{frequency},,,{min(max(count, 1), 640)},"
+        url = "https://proxy.finance.qq.com/ifzqgtimg/appstock/app/newfqkline/get?" + urlencode(
+            {"param": param}
+        )
+    request = Request(url, headers={"User-Agent": "Mozilla/5.0"})
     with urlopen(request, timeout=timeout) as response:
         raw = response.read(2_097_153)
     if len(raw) > 2_097_152:
@@ -39,7 +51,11 @@ def fetch_bars(
     for row in rows:
         if not isinstance(row, list) or len(row) < 6:
             raise ValueError("Malformed Tencent candle")
-        date = datetime.strptime(row[0], "%Y-%m-%d").date().isoformat()
+        date = (
+            datetime.strptime(row[0], "%Y%m%d%H%M").strftime("%Y-%m-%d %H:%M")
+            if minute
+            else datetime.strptime(row[0], "%Y-%m-%d").date().isoformat()
+        )
         open_, close, high, low, volume = map(float, row[1:6])
         if not all(math.isfinite(v) for v in (open_, close, high, low, volume)):
             raise ValueError("Non-finite Tencent candle")

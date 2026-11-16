@@ -137,4 +137,32 @@ describe('useRealtimeKline', () => {
     expect(result.current.freshness.cache_age_ms).toBe(72_000)
     unmount()
   })
+
+  it('loads five-minute bars and subscribes to the five-minute websocket', async () => {
+    mockedGetRealtimeBars.mockResolvedValue({
+      success: true,
+      code: '600036',
+      data: [
+        {
+          date: '2026-11-16 10:20',
+          open: 40,
+          high: 41,
+          low: 39,
+          close: 40.5,
+          volume: 100,
+          amount: 4000,
+          symbol: '600036',
+        },
+      ],
+    })
+
+    const { result, unmount } = renderHook(() => useRealtimeKline('600036', '5m'))
+
+    await waitFor(() => expect(result.current.data).toHaveLength(1))
+    expect(mockedGetRealtimeBars).toHaveBeenCalledWith('600036', '5m')
+    expect(MockWebSocket.instances[0].url).toContain(
+      '/api/v1/ws/realtime/600036?period=5m',
+    )
+    unmount()
+  })
 })

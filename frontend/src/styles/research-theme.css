@@ -23,92 +23,92 @@
   padding: 14px 24px 24px;
 }
 
-.shell--research .shell-sidebar {
+.shell-sidebar {
   padding: 12px 18px 16px;
   gap: 0;
 }
 
-.shell--research .shell-brand {
+.shell-brand {
   gap: 12px;
   margin-bottom: 26px;
 }
 
-.shell--research .shell-mark {
+.shell-mark {
   width: 32px;
   height: 32px;
   color: #1b6e66;
 }
 
-.shell--research .shell-brand-name {
+.shell-brand-name {
   font-size: 20px;
   line-height: 28px;
 }
 
-.shell--research .shell-brand-scope {
+.shell-brand-scope {
   font-size: 14px;
 }
 
-.shell--research .shell-search {
+.shell-search {
   margin-bottom: 26px;
   background: var(--ui-main);
   font-size: 15px;
 }
 
-.shell--research .shell-nav-group {
+.shell-nav-group {
   gap: 2px;
   margin-top: 20px;
 }
 
-.shell--research .shell-nav-group:first-of-type {
+.shell-nav-group:first-of-type {
   margin-top: 0;
 }
 
-.shell--research .shell-nav-label {
+.shell-nav-label {
   margin-bottom: 8px;
   font-size: 14px;
   color: #555555;
 }
 
-.shell--research .shell-nav-item {
-  min-height: 38px;
+.shell-nav-item {
+  min-height: 30px;
   padding: 0 12px;
   font-size: 16px;
 }
 
-.shell--research .shell-nav-item .anticon {
+.shell-nav-item .anticon {
   font-size: 19px;
 }
 
-.shell--research .shell-nav-content {
+.shell-nav-content {
   gap: 14px;
 }
 
-.shell--research .shell-nav-highlight {
+.shell-nav-highlight {
   border-radius: 9px;
 }
 
-.shell--research .shell-sidebar-bottom {
+.shell-sidebar-bottom {
   flex-shrink: 0;
   margin-top: auto;
   padding-top: 16px;
 }
 
-.shell--research .shell-status {
+.shell-status {
   background: var(--ui-main);
   margin-bottom: 12px;
   padding: 8px 10px;
 }
 
-.shell--research .shell-status-row {
+.shell-status-row {
   min-height: 24px;
   font-size: 14px;
 }
 
-.shell--research .shell-status-row strong {
+.shell-status-row strong {
   font-size: 14px;
 }
 
-.shell--research .shell-user {
+.shell-user {
   margin-top: 4px;
   padding-top: 10px;
   border-top: 1px solid #e8e8e8;
@@ -899,23 +899,7 @@
   background: var(--ui-main);
 }
 
-@media (min-width: 1024px) and (max-height: 850px) {
-  .shell--research .shell-nav-group {
-    margin-top: 18px;
-  }
-  .shell--research .shell-nav-item {
-    min-height: 34px;
-    font-size: 14px;
-  }
-}
-
 @media (min-width: 1024px) and (max-width: 1370px) {
-  .shell--research {
-    --sidebar-width: 224px;
-  }
-  .shell--research .shell-canvas {
-    padding-inline: 20px;
-  }
   .shell--research .strategies-layout {
     grid-template-columns: 300px minmax(0, 1fr);
   }

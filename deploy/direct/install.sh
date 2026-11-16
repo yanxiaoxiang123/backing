@@ -109,6 +109,8 @@ values.update(
         "AUTH_USERNAME": values.get("AUTH_USERNAME", "admin"),
         "TASK_BACKEND": "threads",
         "USE_PROXY": "false",
+        "REALTIME_SNAPSHOT_PROVIDER": "tencent",
+        "REALTIME_BARS_PROVIDER": "tencent",
         "KRONOS_SERVICE_URL": "http://172.22.226.86:8211",
     }
 )

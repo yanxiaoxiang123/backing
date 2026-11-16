@@ -19,11 +19,21 @@ import { useRealtimeKline } from '../hooks/useRealtimeKline'
 import type { DashboardStock, KlineIndicator } from '../types'
 import { stockKeys } from '../services/queryKeys'
 import { normalizeStockCode } from '../utils/stockIdentity'
+import {
+  PERIOD_OPTIONS,
+  formatKlineAxisLabel,
+  type KlinePeriod,
+} from '../utils/klinePeriods'
 
-type PeriodType = 'daily' | 'weekly' | 'monthly'
-
-function chartOption(data: KlineIndicator[]) {
+function chartOption(data: KlineIndicator[], period: KlinePeriod) {
   const dates = data.map((item) => item.date)
+  const minuteWindow =
+    period === '5m' && data.length
+      ? {
+          startValue: Math.max(0, data.length - 96),
+          endValue: data.length - 1,
+        }
+      : {}
   return {
     backgroundColor: 'transparent',
     animation: false,
@@ -50,7 +60,12 @@ function chartOption(data: KlineIndicator[]) {
         type: 'category',
         data: dates,
         boundaryGap: true,
-        axisLabel: { fontSize: 12, color: '#777777', hideOverlap: true },
+        axisLabel: {
+          fontSize: 12,
+          color: '#777777',
+          hideOverlap: true,
+          formatter: (value: string) => formatKlineAxisLabel(period, value),
+        },
       },
       { type: 'category', data: dates, gridIndex: 1, axisLabel: { show: false } },
     ],
@@ -67,11 +82,12 @@ function chartOption(data: KlineIndicator[]) {
       { gridIndex: 1, axisLabel: { show: false }, splitLine: { show: false } },
     ],
     dataZoom: [
-      { type: 'inside', xAxisIndex: [0, 1] },
+      { type: 'inside', xAxisIndex: [0, 1], ...minuteWindow },
       {
         type: 'slider',
         moveHandleSize: 0,
         xAxisIndex: [0, 1],
+        ...minuteWindow,
         height: 24,
         bottom: 0,
         left: 48,
@@ -124,7 +140,7 @@ function StockChart() {
   const code = normalizeStockCode(routeCode) ?? routeCode
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const [period, setPeriod] = useState<PeriodType>('daily')
+  const [period, setPeriod] = useState<KlinePeriod>('daily')
   const [resetKey, setResetKey] = useState(0)
   const [updatingWatchlist, setUpdatingWatchlist] = useState(false)
   const overviewQuery = useQuery({
@@ -155,7 +171,7 @@ function StockChart() {
   }, [code, kline.data, overview?.quote, overview?.stock.code, overview?.stock.name])
   const changeTone = numberTone(quote?.change_percent)
 
-  const option = useMemo(() => chartOption(kline.data), [kline.data])
+  const option = useMemo(() => chartOption(kline.data, period), [kline.data, period])
   const toggleWatchlist = async () => {
     if (!code || updatingWatchlist) return
     setUpdatingWatchlist(true)
@@ -253,14 +269,14 @@ function StockChart() {
               />
               <ChartResetButton onReset={() => setResetKey((value) => value + 1)} />
               <div className="period-switcher" role="group" aria-label="K线周期">
-                {(['daily', 'weekly', 'monthly'] as PeriodType[]).map((value) => (
+                {PERIOD_OPTIONS.map(({ value, label }) => (
                   <button
                     key={value}
                     className={period === value ? 'active' : ''}
                     aria-pressed={period === value}
                     onClick={() => setPeriod(value)}
                   >
-                    {value === 'daily' ? '日K' : value === 'weekly' ? '周K' : '月K'}
+                    {label}
                   </button>
                 ))}
               </div>

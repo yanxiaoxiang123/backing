@@ -125,3 +125,46 @@ def test_explicit_empty_history_remains_empty(service, monkeypatch):
     assert result.status == "empty"
     assert result.data == []
     assert result.provider == "tencent"
+
+
+def test_five_minute_bars_use_mkline_and_minute_timestamps():
+    assert hasattr(tencent_realtime, "fetch_bars"), "Tencent K-line adapter is missing"
+    payload = {"code": 0, "data": {"sz000001": {"m5": [
+        ["202611161020", "10.65", "10.65", "10.66", "10.63", "17297.00", {}, "0.52"],
+        ["202611161105", "10.74", "10.71", "10.74", "10.70", "15345.00", {}, "0.46"],
+    ]}}}
+
+    def respond(request, **kwargs):
+        from urllib.parse import parse_qs, urlparse
+
+        parsed = urlparse(request.full_url)
+        assert parsed.path.endswith("/appstock/app/kline/mkline")
+        assert parse_qs(parsed.query)["param"][0] == "sz000001,m5,,2"
+        return Response(payload)
+
+    with patch.object(tencent_realtime, "urlopen", side_effect=respond):
+        result = tencent_realtime.fetch_bars("000001", "5m", count=2)
+
+    assert result[-1] == {
+        "date": "2026-11-16 11:05", "symbol": "000001", "open": 10.74,
+        "close": 10.71, "high": 10.74, "low": 10.70,
+        "volume": 15345.0, "amount": 0.0,
+    }
+
+
+def test_five_minute_history_is_capped_at_320_bars():
+    assert hasattr(tencent_realtime, "fetch_bars"), "Tencent K-line adapter is missing"
+    payload = {"code": 0, "data": {"sz000001": {"m5": [
+        ["202611161105", "10.74", "10.71", "10.74", "10.70", "15345.00", {}, "0.46"],
+    ]}}}
+
+    def respond(request, **kwargs):
+        from urllib.parse import parse_qs, urlparse
+
+        param = parse_qs(urlparse(request.full_url).query)["param"][0]
+        assert param == "sz000001,m5,,320"
+        return Response(payload)
+
+    with patch.object(tencent_realtime, "urlopen", side_effect=respond):
+        result = tencent_realtime.fetch_bars("000001", "5m", count=640)
+    assert result[0]["date"] == "2026-11-16 11:05"
